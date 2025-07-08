@@ -1,0 +1,630 @@
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
+import Head from 'next/head';
+import AdminLayout from '../../components/AdminLayout';
+import { djangoApiClient } from '../../utils/api';
+import ConfirmationModal from '../../components/ConfirmationModal';
+
+interface ProfileRequirement {
+  id: string;
+  name: string;
+  required: boolean;
+  description: string;
+  category: 'personal' | 'health' | 'emergency' | 'family';
+  isNew?: boolean;
+}
+
+interface DocumentRequirement {
+  id: string;
+  name: string;
+  required: boolean;
+  description: string;
+  validityPeriod: number; // in months
+  specificCourses: string[];
+  isNew?: boolean;
+}
+
+interface CampusSchedule {
+  id: string;
+  campus: string;
+  openTime: string;
+  closeTime: string;
+  days: string[];
+  isActive: boolean;
+  isNew?: boolean;
+}
+
+interface DentistSchedule {
+  id: string;
+  dentistName: string;
+  campus: string;
+  availableDays: string[];
+  timeSlots: string[];
+  isActive: boolean;
+  isNew?: boolean;
+}
+
+export default function AdminControls() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [loading, setLoading] = useState(true);
+  
+  // State for all control types
+  const [profileRequirements, setProfileRequirements] = useState<ProfileRequirement[]>([]);
+  const [documentRequirements, setDocumentRequirements] = useState<DocumentRequirement[]>([]);
+  const [campusSchedules, setCampusSchedules] = useState<CampusSchedule[]>([]);
+  const [dentistSchedules, setDentistSchedules] = useState<DentistSchedule[]>([]);
+
+  const [saving, setSaving] = useState(false);
+  
+  // Modal and Alert States
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<() => void>(() => {});
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [alert, setAlert] = useState<{type: 'success' | 'error', message: string} | null>(null);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editType, setEditType] = useState<'profile' | 'document' | 'campus' | 'dentist'>('profile');
+
+  useEffect(() => {
+    // Check if user is admin
+    const userData = localStorage.getItem('user');
+    if (!userData) {
+      router.push('/login');
+      return;
+    }
+
+    try {
+      const user = JSON.parse(userData);
+      if (!user.is_staff && user.user_type !== 'admin') {
+        router.push('/');
+        return;
+      }
+    } catch (error) {
+      router.push('/login');
+      return;
+    }
+
+    loadSettings();
+  }, [router]);
+
+  const loadSettings = async () => {
+    try {
+      setLoading(true);
+      
+      // Load all data from backend
+      const [profileResponse, docResponse, campusResponse, dentistResponse] = await Promise.all([
+        djangoApiClient.get('/admin-controls/profile_requirements/'),
+        djangoApiClient.get('/admin-controls/document_requirements/'),
+        djangoApiClient.get('/admin-controls/campus_schedules/'),
+        djangoApiClient.get('/admin-controls/dentist_schedules/')
+      ]);
+
+      if (profileResponse.data) {
+        setProfileRequirements(profileResponse.data.map((req: any) => ({
+          id: req.id.toString(),
+          name: req.display_name,
+          required: req.is_required,
+          description: req.description,
+          category: req.category
+        })));
+      }
+
+      if (docResponse.data) {
+        setDocumentRequirements(docResponse.data.map((req: any) => ({
+          id: req.id.toString(),
+          name: req.display_name,
+          required: req.is_required,
+          description: req.description,
+          validityPeriod: req.validity_period_months,
+          specificCourses: req.specific_courses || []
+        })));
+      }
+
+      if (campusResponse.data) {
+        setCampusSchedules(campusResponse.data.map((schedule: any) => ({
+          id: schedule.id.toString(),
+          campus: `Campus ${schedule.campus.toUpperCase()}`,
+          openTime: schedule.open_time,
+          closeTime: schedule.close_time,
+          days: schedule.operating_days || [],
+          isActive: schedule.is_active
+        })));
+      }
+
+      if (dentistResponse.data) {
+        setDentistSchedules(dentistResponse.data.map((schedule: any) => ({
+          id: schedule.id.toString(),
+          dentistName: schedule.dentist_name,
+          campus: `Campus ${schedule.campus.toUpperCase()}`,
+          availableDays: schedule.available_days || [],
+          timeSlots: schedule.time_slots || [],
+          isActive: schedule.is_active
+        })));
+      }
+
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      showAlert('error', 'Failed to load settings');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showAlert = (type: 'success' | 'error', message: string) => {
+    setAlert({ type, message });
+    setTimeout(() => setAlert(null), 5000);
+  };
+
+  const confirmDelete = (message: string, action: () => void) => {
+    setConfirmMessage(message);
+    setConfirmAction(() => action);
+    setShowConfirmModal(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await Promise.all([
+        djangoApiClient.post('/admin-controls/update_profile_requirements/', {
+          requirements: profileRequirements.map(req => ({
+            id: parseInt(req.id),
+            is_required: req.required,
+            is_active: true
+          }))
+        }),
+        djangoApiClient.post('/admin-controls/update_document_requirements/', {
+          requirements: documentRequirements.map(req => ({
+            id: parseInt(req.id),
+            is_required: req.required,
+            validity_period_months: req.validityPeriod,
+            specific_courses: req.specificCourses,
+            is_active: true
+          }))
+        }),
+        djangoApiClient.post('/admin-controls/update_campus_schedules/', {
+          schedules: campusSchedules.map(schedule => ({
+            campus: schedule.campus.toLowerCase().replace('campus ', ''),
+            open_time: schedule.openTime,
+            close_time: schedule.closeTime,
+            operating_days: schedule.days,
+            is_active: schedule.isActive
+          }))
+        }),
+        djangoApiClient.post('/admin-controls/update_dentist_schedules/', {
+          schedules: dentistSchedules.map(schedule => ({
+            dentist_name: schedule.dentistName,
+            campus: schedule.campus.toLowerCase().replace('campus ', ''),
+            available_days: schedule.availableDays,
+            time_slots: schedule.timeSlots,
+            is_active: schedule.isActive
+          }))
+        })
+      ]);
+
+      showAlert('success', 'Settings saved successfully!');
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      showAlert('error', 'Failed to save settings. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tabs = [
+    { id: 'profile', name: 'Profile Requirements', icon: '👤' },
+    { id: 'documents', name: 'Document Requirements', icon: '📄' },
+    { id: 'campus', name: 'Campus Schedules', icon: '🏢' },
+    { id: 'dentist', name: 'Dentist Schedules', icon: '🦷' }
+  ];
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-[#8B1538]"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout>
+      <Head>
+        <title>Admin Controls - WMSU Health Services</title>
+      </Head>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white shadow rounded-lg">
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8 px-6" aria-label="Tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`${
+                    activeTab === tab.id
+                      ? 'border-[#8B1538] text-[#8B1538]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+                >
+                  <span className="mr-2">{tab.icon}</span>
+                  {tab.name}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {/* Profile Requirements Tab */}
+            {activeTab === 'profile' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Profile Setup Requirements</h3>
+                    <p className="text-sm text-gray-500">Configure which fields are required during profile setup</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  {['personal', 'health', 'emergency', 'family'].map(category => (
+                    <div key={category} className="border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-medium text-gray-900 mb-3 capitalize">{category} Information</h4>
+                      <div className="space-y-3">
+                        {profileRequirements.filter(req => req.category === category).map((requirement) => (
+                          <div key={requirement.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3">
+                                <input
+                                  type="checkbox"
+                                  checked={requirement.required}
+                                  onChange={(e) => {
+                                    const updated = { ...requirement, required: e.target.checked };
+                                    setProfileRequirements(prev => prev.map(req => 
+                                      req.id === requirement.id ? updated : req
+                                    ));
+                                  }}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900">{requirement.name}</label>
+                                  <p className="text-xs text-gray-500">{requirement.description}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                requirement.required 
+                                  ? 'bg-red-100 text-red-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {requirement.required ? 'Required' : 'Optional'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Document Requirements Tab */}
+            {activeTab === 'documents' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Medical Document Requirements</h3>
+                    <p className="text-sm text-gray-500">Configure which documents are required for enrollment</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {documentRequirements.map((document) => (
+                    <div key={document.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            checked={document.required}
+                            onChange={(e) => {
+                              const updated = { ...document, required: e.target.checked };
+                              setDocumentRequirements(prev => prev.map(req => 
+                                req.id === document.id ? updated : req
+                              ));
+                            }}
+                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded mt-1"
+                          />
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{document.name}</h4>
+                            <p className="text-sm text-gray-500 mt-1">{document.description}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            document.required 
+                              ? 'bg-red-100 text-red-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {document.required ? 'Required' : 'Optional'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Validity Period (months)</label>
+                          <input
+                            type="number"
+                            value={document.validityPeriod}
+                            onChange={(e) => {
+                              const updated = { ...document, validityPeriod: parseInt(e.target.value) };
+                              setDocumentRequirements(prev => prev.map(req => 
+                                req.id === document.id ? updated : req
+                              ));
+                            }}
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                            min="1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Campus Schedules Tab */}
+            {activeTab === 'campus' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Campus Operating Hours</h3>
+                    <p className="text-sm text-gray-500">Configure opening and closing times for each campus</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {campusSchedules.map((schedule) => (
+                    <div key={schedule.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <h4 className="font-medium text-gray-900">{schedule.campus}</h4>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500">Active:</span>
+                          <input
+                            type="checkbox"
+                            checked={schedule.isActive}
+                            onChange={(e) => {
+                              const updated = { ...schedule, isActive: e.target.checked };
+                              setCampusSchedules(prev => prev.map(s => 
+                                s.id === schedule.id ? updated : s
+                              ));
+                            }}
+                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Opening Time</label>
+                          <input
+                            type="time"
+                            value={schedule.openTime}
+                            onChange={(e) => {
+                              const updated = { ...schedule, openTime: e.target.value };
+                              setCampusSchedules(prev => prev.map(s => 
+                                s.id === schedule.id ? updated : s
+                              ));
+                            }}
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700">Closing Time</label>
+                          <input
+                            type="time"
+                            value={schedule.closeTime}
+                            onChange={(e) => {
+                              const updated = { ...schedule, closeTime: e.target.value };
+                              setCampusSchedules(prev => prev.map(s => 
+                                s.id === schedule.id ? updated : s
+                              ));
+                            }}
+                            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Dentist Schedules Tab */}
+            {activeTab === 'dentist' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Dentist Schedules</h3>
+                    <p className="text-sm text-gray-500">Configure dentist availability for appointments</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {dentistSchedules.map((schedule) => (
+                    <div key={schedule.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-4">
+                          <h4 className="font-medium text-gray-900">{schedule.dentistName || 'Unnamed Dentist'}</h4>
+                          <span className="text-sm text-gray-500">{schedule.campus}</span>
+                        </div>
+                        
+                        <div className="flex items-center space-x-2">
+                          <span className="text-sm text-gray-500">Active:</span>
+                          <input
+                            type="checkbox"
+                            checked={schedule.isActive}
+                            onChange={(e) => {
+                              const updated = { ...schedule, isActive: e.target.checked };
+                              setDentistSchedules(prev => prev.map(s => 
+                                s.id === schedule.id ? updated : s
+                              ));
+                            }}
+                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Available Days</label>
+                          <div className="space-y-1">
+                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                              <label key={day} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={schedule.availableDays.includes(day)}
+                                  onChange={(e) => {
+                                    const newDays = e.target.checked 
+                                      ? [...schedule.availableDays, day]
+                                      : schedule.availableDays.filter(d => d !== day);
+                                    const updated = { ...schedule, availableDays: newDays };
+                                    setDentistSchedules(prev => prev.map(s => 
+                                      s.id === schedule.id ? updated : s
+                                    ));
+                                  }}
+                                  className="h-3 w-3 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">{day}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Time Slots</label>
+                          <div className="space-y-2 max-h-32 overflow-y-auto">
+                            {schedule.timeSlots.map((slot, index) => (
+                              <div key={index} className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  value={slot}
+                                  onChange={(e) => {
+                                    const newSlots = [...schedule.timeSlots];
+                                    newSlots[index] = e.target.value;
+                                    const updated = { ...schedule, timeSlots: newSlots };
+                                    setDentistSchedules(prev => prev.map(s => 
+                                      s.id === schedule.id ? updated : s
+                                    ));
+                                  }}
+                                  placeholder="09:00-10:00"
+                                  className="text-sm border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] flex-1"
+                                />
+                                <button
+                                  onClick={() => {
+                                    const newSlots = schedule.timeSlots.filter((_, i) => i !== index);
+                                    const updated = { ...schedule, timeSlots: newSlots };
+                                    setDentistSchedules(prev => prev.map(s => 
+                                      s.id === schedule.id ? updated : s
+                                    ));
+                                  }}
+                                  className="text-red-600 hover:text-red-800"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            ))}
+                            <button
+                              onClick={() => {
+                                const newSlots = [...schedule.timeSlots, ''];
+                                const updated = { ...schedule, timeSlots: newSlots };
+                                setDentistSchedules(prev => prev.map(s => 
+                                  s.id === schedule.id ? updated : s
+                                ));
+                              }}
+                              className="text-sm text-[#8B1538] hover:text-[#7A1230] flex items-center"
+                            >
+                              <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                              </svg>
+                              Add Time Slot
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Save Button */}
+        <div className="flex justify-end mt-6">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={`px-6 py-3 bg-[#8B1538] text-white font-medium rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538] ${
+              saving ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+          >
+            {saving ? (
+              <div className="flex items-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Saving...
+              </div>
+            ) : (
+              'Save Changes'
+            )}
+          </button>
+        </div>
+      </div>
+    
+      {/* Confirmation Modal */}
+      <ConfirmationModal
+        open={showConfirmModal}
+        title="Confirm Action"
+        message={confirmMessage}
+        onConfirm={() => {
+          confirmAction();
+          setShowConfirmModal(false);
+        }}
+        onClose={() => setShowConfirmModal(false)}
+        isDestructive={true}
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+      
+      {/* Alert Message */}
+      {alert && (
+        <div 
+          className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg z-50 ${
+            alert.type === 'success' ? 'bg-green-100 border border-green-500 text-green-700' : 'bg-red-100 border border-red-500 text-red-700'
+          }`}
+        >
+          <div className="flex items-center">
+            {alert.type === 'success' ? (
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            )}
+            <span>{alert.message}</span>
+          </div>
+        </div>
+      )}
+    </AdminLayout>
+  );
+}

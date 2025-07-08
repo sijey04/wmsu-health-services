@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMSU Health Services - Mobile Responsive Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .animate-fade-in-up {
+            animation: fadeInUp 0.8s cubic-bezier(0.39, 0.575, 0.565, 1) both;
+        }
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Enhanced mobile input styling */
+        @media (max-width: 640px) {
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="date"],
+            input[type="number"],
+            select,
+            textarea {
+                min-height: 48px;
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+            
+            button {
+                min-height: 48px;
+                font-size: 16px;
+            }
+            
+            .form-section {
+                padding: 16px;
+            }
+        }
+        
+        /* Improved focus states for better accessibility */
+        input:focus,
+        select:focus,
+        textarea:focus {
+            outline: 2px solid #800000;
+            outline-offset: 2px;
+        }
+        
+        /* Enhanced button animations */
+        button {
+            transform: translateY(0);
+            transition: all 0.2s ease;
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        /* Smooth transitions for all interactive elements */
+        .transition-enhanced {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-red-50 via-white to-red-50">
+    <div class="min-h-screen py-2 sm:py-4 px-3 sm:px-6 lg:px-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Mobile-first Header -->
+            <div class="text-center mb-4 sm:mb-6">
+                <div class="flex items-center justify-center mb-3 sm:mb-4">
+                    <div class="flex items-center bg-white rounded-full px-3 sm:px-4 py-2 shadow-lg">
+                        <span class="inline-block w-8 h-8 sm:w-10 sm:h-10 bg-red-800 text-white rounded-full flex items-center justify-center font-bold text-lg sm:text-xl mr-2 sm:mr-3">1</span>
+                        <span class="text-base sm:text-lg lg:text-2xl font-bold text-red-800">Personal Information</span>
+                    </div>
+                </div>
+                
+                <!-- Mobile Progress Bar -->
+                <div class="w-full bg-gray-200 rounded-full h-2 mb-3 sm:mb-4">
+                    <div class="bg-red-800 h-2 rounded-full transition-all duration-300" style="width: 25%"></div>
+                </div>
+                
+                <!-- Mobile-only current step indicator -->
+                <div class="sm:hidden">
+                    <span class="text-sm text-gray-600">Step 1 of 4</span>
+                </div>
+                
+                <!-- Step indicators - responsive visibility -->
+                <div class="hidden sm:flex justify-between text-xs sm:text-sm font-semibold">
+                    <div class="px-2 py-1 rounded-lg transition-colors text-red-800 bg-red-800 bg-opacity-10">
+                        Personal Information
+                    </div>
+                    <div class="px-2 py-1 rounded-lg transition-colors text-gray-400">
+                        Health History
+                    </div>
+                    <div class="px-2 py-1 rounded-lg transition-colors text-gray-400">
+                        Family History
+                    </div>
+                    <div class="px-2 py-1 rounded-lg transition-colors text-gray-400">
+                        Review & Submit
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Main Card - Enhanced responsive design -->
+            <div class="bg-white rounded-lg sm:rounded-xl lg:rounded-2xl shadow-md sm:shadow-lg lg:shadow-2xl border border-gray-200 animate-fade-in-up">
+                <!-- Content -->
+                <div class="p-3 sm:p-4 lg:p-8">
+                    <div class="space-y-6">
+                        <!-- Title -->
+                        <div class="text-center">
+                            <h2 class="text-xl sm:text-2xl font-bold text-red-800 mb-2">Personal Information</h2>
+                            <p class="text-sm text-gray-600">Please provide your basic information</p>
+                        </div>
+
+                        <!-- Photo Upload - Enhanced mobile design -->
+                        <div class="flex flex-col items-center justify-center mb-6">
+                            <label class="block text-base sm:text-lg font-semibold text-gray-700 mb-3 text-center">
+                                Profile Photo <span class="text-red-500">*</span>
+                            </label>
+                            <label class="cursor-pointer group">
+                                <div class="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed border-red-800 rounded-xl bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200 transition-all duration-200">
+                                    <div class="text-center">
+                                        <span class="text-2xl sm:text-3xl lg:text-4xl text-red-800 font-bold block">+</span>
+                                        <span class="text-xs sm:text-sm text-gray-500 mt-1">Upload Photo</span>
+                                    </div>
+                                </div>
+                                <input type="file" accept="image/*" class="hidden" />
+                            </label>
+                            <p class="text-xs text-gray-500 mt-2 text-center max-w-xs">
+                                Supported formats: JPG, PNG, GIF (max 5MB)
+                            </p>
+                        </div>
+
+                        <!-- Test Form Section -->
+                        <div class="bg-gray-50 p-4 sm:p-6 rounded-xl border border-gray-200 form-section">
+                            <h3 class="font-semibold text-gray-800 mb-4 flex items-center">
+                                <span class="w-5 h-5 bg-red-800 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                                Basic Information
+                            </h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">First Name *</label>
+                                    <input
+                                        type="text"
+                                        class="w-full border rounded-lg shadow-sm py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-800 focus:border-red-800 transition-colors border-gray-300"
+                                        placeholder="Enter first name"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Last Name *</label>
+                                    <input
+                                        type="text"
+                                        class="w-full border rounded-lg shadow-sm py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-800 focus:border-red-800 transition-colors border-gray-300"
+                                        placeholder="Enter last name"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Email *</label>
+                                    <input
+                                        type="email"
+                                        class="w-full border rounded-lg shadow-sm py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-800 focus:border-red-800 transition-colors border-gray-300"
+                                        placeholder="Enter email address"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Phone Number *</label>
+                                    <input
+                                        type="tel"
+                                        class="w-full border rounded-lg shadow-sm py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-800 focus:border-red-800 transition-colors border-gray-300"
+                                        placeholder="09XXXXXXXXX"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Date of Birth *</label>
+                                    <input
+                                        type="date"
+                                        class="w-full border rounded-lg shadow-sm py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-800 focus:border-red-800 transition-colors border-gray-300"
+                                    />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1.5">Gender *</label>
+                                    <select class="w-full border rounded-lg shadow-sm py-3 px-4 text-base focus:outline-none focus:ring-2 focus:ring-red-800 focus:border-red-800 transition-colors border-gray-300">
+                                        <option value="">Select gender</option>
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation Buttons - Enhanced mobile design -->
+                <div class="p-3 sm:p-4 lg:p-6 border-t border-gray-200 bg-gray-50 sm:bg-transparent rounded-b-lg sm:rounded-b-xl lg:rounded-b-2xl">
+                    <div class="flex flex-col sm:flex-row justify-between space-y-2 sm:space-y-0 sm:space-x-4">
+                        <button class="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 rounded-lg font-semibold transition-all duration-200 text-center text-sm sm:text-base bg-gray-200 text-gray-400 cursor-not-allowed">
+                            ← Back
+                        </button>
+                        <button class="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-red-800 text-white rounded-lg font-semibold hover:bg-red-700 active:bg-red-900 active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base">
+                            Next →
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mobile helper text -->
+            <div class="text-center mt-4 sm:hidden">
+                <p class="text-xs text-gray-500">
+                    Tap fields to focus • Use keyboard navigation • Required fields marked with *
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add some interactive testing
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test responsive behavior
+            const resizeHandler = () => {
+                const width = window.innerWidth;
+                const indicator = document.querySelector('.debug-indicator') || document.createElement('div');
+                indicator.className = 'debug-indicator fixed top-4 right-4 bg-black text-white px-3 py-1 rounded text-sm z-50';
+                
+                if (width < 640) {
+                    indicator.textContent = 'Mobile: ' + width + 'px';
+                } else if (width < 1024) {
+                    indicator.textContent = 'Tablet: ' + width + 'px';
+                } else {
+                    indicator.textContent = 'Desktop: ' + width + 'px';
+                }
+                
+                if (!document.querySelector('.debug-indicator')) {
+                    document.body.appendChild(indicator);
+                }
+            };
+            
+            window.addEventListener('resize', resizeHandler);
+            resizeHandler();
+            
+            // Test button interactions
+            document.querySelectorAll('button').forEach(button => {
+                button.addEventListener('click', function() {
+                    console.log('Button clicked:', this.textContent);
+                });
+            });
+            
+            // Test input focus states
+            document.querySelectorAll('input, select').forEach(input => {
+                input.addEventListener('focus', function() {
+                    console.log('Input focused:', this.placeholder || this.type);
+                });
+            });
+        });
+    </script>
+</body>
+</html>

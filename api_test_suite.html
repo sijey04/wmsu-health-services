@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMSU Health Services - API Test Suite</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-container { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .pass { background-color: #e8f5e8; border-color: #4caf50; }
+        .fail { background-color: #ffe8e8; border-color: #f44336; }
+        .info { background-color: #e8f4f8; border-color: #2196f3; }
+        .status { font-weight: bold; }
+        .pass .status { color: #4caf50; }
+        .fail .status { color: #f44336; }
+        .info .status { color: #2196f3; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .results { margin-top: 20px; }
+        .timestamp { font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>WMSU Health Services - API Test Suite</h1>
+    <p>Testing the fixed API endpoints and frontend functionality...</p>
+    
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results" class="results"></div>
+    
+    <script>
+        let testResults = [];
+        
+        function addResult(testName, status, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            testResults.push({ testName, status, message, timestamp });
+            displayResults();
+        }
+        
+        function displayResults() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            
+            testResults.forEach(result => {
+                const div = document.createElement('div');
+                div.className = `test-container ${result.status.toLowerCase()}`;
+                div.innerHTML = `
+                    <div class="status">${result.status}</div>
+                    <strong>${result.testName}</strong>
+                    <p>${result.message}</p>
+                    <div class="timestamp">${result.timestamp}</div>
+                `;
+                resultsDiv.appendChild(div);
+            });
+        }
+        
+        function clearResults() {
+            testResults = [];
+            displayResults();
+        }
+        
+        async function testEndpoint(url, testName, expectedStatus = null) {
+            try {
+                const response = await fetch(url);
+                const status = response.status;
+                const statusText = response.statusText;
+                
+                if (expectedStatus && status === expectedStatus) {
+                    addResult(testName, 'PASS', `Returned ${status} ${statusText} as expected`);
+                } else if (status === 401) {
+                    addResult(testName, 'PASS', `Returned 401 Unauthorized (authentication required)`);
+                } else if (status === 500) {
+                    const errorText = await response.text();
+                    addResult(testName, 'FAIL', `500 Internal Server Error: ${errorText.substring(0, 200)}...`);
+                } else {
+                    addResult(testName, 'INFO', `Returned ${status} ${statusText}`);
+                }
+            } catch (error) {
+                addResult(testName, 'FAIL', `Network error: ${error.message}`);
+            }
+        }
+        
+        async function runAllTests() {
+            clearResults();
+            addResult('Test Suite', 'INFO', 'Starting comprehensive API tests...');
+            
+            // Test 1: Medical Documents My Documents
+            await testEndpoint(
+                'http://localhost:8000/api/medical-documents/my_documents/',
+                'Medical Documents - My Documents',
+                401
+            );
+            
+            // Test 2: Waiver List
+            await testEndpoint(
+                'http://localhost:8000/api/waivers/',
+                'Waivers - List',
+                401
+            );
+            
+            // Test 3: Waiver Check Status
+            await testEndpoint(
+                'http://localhost:8000/api/waivers/check_status/',
+                'Waivers - Check Status',
+                401
+            );
+            
+            // Test 4: Django Admin
+            await testEndpoint(
+                'http://localhost:8000/admin/',
+                'Django Admin Interface',
+                200
+            );
+            
+            // Test 5: API Root
+            await testEndpoint(
+                'http://localhost:8000/api/',
+                'API Root',
+                200
+            );
+            
+            // Test 6: Frontend Application
+            await testEndpoint(
+                'http://localhost:3000/',
+                'Frontend Application',
+                200
+            );
+            
+            // Test 7: Test the specific endpoints that were failing
+            await testSpecificEndpoints();
+            
+            addResult('Test Suite', 'INFO', 'All tests completed');
+        }
+        
+        async function testSpecificEndpoints() {
+            // Test the specific medical documents endpoint that was causing issues
+            try {
+                const response = await fetch('http://localhost:8000/api/medical-documents/my_documents/');
+                const responseText = await response.text();
+                
+                if (response.status === 401) {
+                    addResult('Specific Test - Medical Documents', 'PASS', 'No 500 error, returns 401 as expected');
+                } else if (response.status === 500 && responseText.includes('academic_year_id')) {
+                    addResult('Specific Test - Medical Documents', 'FAIL', 'Still getting academic_year_id error');
+                } else {
+                    addResult('Specific Test - Medical Documents', 'PASS', `Returns ${response.status} without academic_year_id error`);
+                }
+            } catch (error) {
+                addResult('Specific Test - Medical Documents', 'FAIL', `Error: ${error.message}`);
+            }
+            
+            // Test waiver check status specifically
+            try {
+                const response = await fetch('http://localhost:8000/api/waivers/check_status/');
+                
+                if (response.status === 401) {
+                    addResult('Specific Test - Waiver Check Status', 'PASS', 'Endpoint exists and returns 401');
+                } else if (response.status === 404) {
+                    addResult('Specific Test - Waiver Check Status', 'FAIL', 'Endpoint not found - method may not be added');
+                } else {
+                    addResult('Specific Test - Waiver Check Status', 'PASS', `Returns ${response.status}`);
+                }
+            } catch (error) {
+                addResult('Specific Test - Waiver Check Status', 'FAIL', `Error: ${error.message}`);
+            }
+        }
+        
+        // Run tests automatically on page load
+        window.addEventListener('load', runAllTests);
+    </script>
+</body>
+</html>

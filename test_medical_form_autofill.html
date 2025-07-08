@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Medical Form Auto-Fill</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        .highlight {
+            background-color: yellow;
+            padding: 2px 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Medical Form Auto-Fill Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Enhanced Medical Form Get Patient Data</h3>
+        <p>This will test the updated endpoint with auto-fill for:</p>
+        <ul>
+            <li><span class="highlight">Examined By</span> - Current user's full name</li>
+            <li><span class="highlight">License Number</span> - From staff details</li>
+            <li><span class="highlight">Follow-up Date</span> - Suggested date (1 week from today)</li>
+            <li><span class="highlight">Follow-up Instructions</span> - Default instructions</li>
+        </ul>
+        
+        <div>
+            <label for="appointmentId">Appointment ID:</label>
+            <input type="number" id="appointmentId" value="31" placeholder="Enter appointment ID">
+            <button onclick="testEnhancedGetPatientData()">Test Enhanced Auto-Fill</button>
+        </div>
+        
+        <div id="result1" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Compare with Current User Info</h3>
+        <p>Check current user profile to verify examiner information</p>
+        
+        <button onclick="checkCurrentUser()">Check Current User</button>
+        <div id="result2" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = localStorage.getItem('authToken');
+
+        async function makeRequest(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                }
+            };
+            
+            const mergedOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+
+            try {
+                const response = await fetch(url, mergedOptions);
+                const data = await response.json();
+                return { response, data };
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+
+        async function testEnhancedGetPatientData() {
+            const appointmentId = document.getElementById('appointmentId').value;
+            const resultDiv = document.getElementById('result1');
+            
+            if (!appointmentId) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Please enter an appointment ID';
+                return;
+            }
+
+            resultDiv.textContent = 'Testing enhanced auto-fill...';
+            resultDiv.className = 'result';
+
+            const url = `${API_BASE}/medical-forms/get_patient_data/?appointment_id=${appointmentId}`;
+            const { response, data, error } = await makeRequest(url);
+
+            if (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Network Error: ${error}`;
+                return;
+            }
+
+            if (response.ok) {
+                resultDiv.className = 'result success';
+                
+                // Highlight the new auto-fill fields
+                const autoFillFields = {
+                    'examined_by': 'Examined By (Auto-filled)',
+                    'examiner_license': 'License Number (Auto-filled)',
+                    'follow_up_date': 'Follow-up Date (Auto-suggested)',
+                    'follow_up_instructions': 'Follow-up Instructions (Auto-suggested)',
+                    'date': 'Examination Date (Auto-filled)'
+                };
+                
+                let displayText = `SUCCESS (${response.status}) - Enhanced Auto-Fill Data:\n\n`;
+                displayText += `==== NEW AUTO-FILL FIELDS ====\n`;
+                
+                Object.keys(autoFillFields).forEach(field => {
+                    if (data[field]) {
+                        displayText += `${autoFillFields[field]}: ${data[field]}\n`;
+                    }
+                });
+                
+                displayText += `\n==== PATIENT DATA ====\n`;
+                displayText += `Patient ID: ${data.patient_id}\n`;
+                displayText += `Name: ${data.surname}, ${data.first_name} ${data.middle_name}\n`;
+                displayText += `Age: ${data.age}\n`;
+                displayText += `Sex: ${data.sex}\n`;
+                displayText += `Department: ${data.department}\n`;
+                displayText += `Contact: ${data.contact}\n`;
+                
+                displayText += `\n==== FULL API RESPONSE ====\n${JSON.stringify(data, null, 2)}`;
+                
+                resultDiv.textContent = displayText;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `ERROR (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        async function checkCurrentUser() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.textContent = 'Checking current user...';
+            resultDiv.className = 'result';
+
+            const url = `${API_BASE}/users/profile/`;
+            const { response, data, error } = await makeRequest(url);
+
+            if (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Network Error: ${error}`;
+                return;
+            }
+
+            if (response.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `Current User Info:\n\nUsername: ${data.username}\nEmail: ${data.email}\nFirst Name: ${data.first_name || 'Not set'}\nLast Name: ${data.last_name || 'Not set'}\nUser Type: ${data.user_type}\n\nFull Response:\n${JSON.stringify(data, null, 2)}`;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `ERROR (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        // Auto-check auth on page load
+        window.onload = () => {
+            if (authToken) {
+                document.body.insertAdjacentHTML('afterbegin', 
+                    '<div style="background: #d4edda; padding: 10px; margin-bottom: 20px; border-radius: 5px; color: #155724;">✓ Auth token found. Ready to test auto-fill functionality.</div>'
+                );
+            } else {
+                document.body.insertAdjacentHTML('afterbegin', 
+                    '<div style="background: #f8d7da; padding: 10px; margin-bottom: 20px; border-radius: 5px; color: #721c24;">⚠ No auth token found. Please login first to test authenticated endpoints.</div>'
+                );
+            }
+        };
+    </script>
+</body>
+</html>

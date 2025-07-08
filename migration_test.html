@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migration Status Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { 
+            margin: 10px 0; 
+            padding: 10px; 
+            border-radius: 5px; 
+            border: 1px solid #ccc;
+        }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        .loading { background-color: #fff3cd; border-color: #ffeaa7; }
+        h1 { color: #333; }
+        button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+        .status { font-weight: bold; }
+        .timestamp { font-size: 0.8em; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>Migration Status Test</h1>
+    <p>This test checks if the database migrations have been applied successfully.</p>
+    
+    <button onclick="runMigrationTest()">Test Migration Status</button>
+    <button onclick="clearResults()">Clear Results</button>
+    
+    <div id="results"></div>
+    
+    <div style="margin-top: 30px; padding: 15px; background-color: #f8f9fa; border-radius: 5px;">
+        <h3>What This Test Checks:</h3>
+        <ul>
+            <li><strong>No 500 Errors:</strong> API endpoints should return 401 (not 500) when unauthenticated</li>
+            <li><strong>Database Column:</strong> The academic_year_id column should exist</li>
+            <li><strong>ORM Functionality:</strong> Django ORM should work without errors</li>
+        </ul>
+        
+        <h3>Expected Results After Migration:</h3>
+        <ul>
+            <li>✅ <code>/api/medical-documents/my_documents/</code> returns 401 (not 500)</li>
+            <li>✅ <code>/api/waivers/check_status/</code> returns 401 (not 500)</li>
+            <li>✅ No "academic_year_id" column errors in responses</li>
+        </ul>
+    </div>
+    
+    <script>
+        let testResults = [];
+        
+        function addResult(test, status, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            testResults.push({ test, status, message, timestamp });
+            displayResults();
+        }
+        
+        function displayResults() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '';
+            
+            testResults.forEach(result => {
+                const div = document.createElement('div');
+                div.className = `test-result ${result.status.toLowerCase()}`;
+                div.innerHTML = `
+                    <div class="status">${result.status}</div>
+                    <strong>${result.test}</strong>
+                    <p>${result.message}</p>
+                    <div class="timestamp">${result.timestamp}</div>
+                `;
+                resultsDiv.appendChild(div);
+            });
+        }
+        
+        function clearResults() {
+            testResults = [];
+            displayResults();
+        }
+        
+        async function runMigrationTest() {
+            clearResults();
+            addResult('Migration Test', 'INFO', 'Starting migration status test...');
+            
+            // Test 1: Check medical documents endpoint
+            try {
+                const response = await fetch('http://localhost:8000/api/medical-documents/my_documents/');
+                const responseText = await response.text();
+                
+                if (response.status === 401) {
+                    if (responseText.includes('academic_year_id')) {
+                        addResult('Medical Documents API', 'FAIL', 'Returns 401 but still has academic_year_id error in response');
+                    } else {
+                        addResult('Medical Documents API', 'PASS', 'Returns 401 without academic_year_id error');
+                    }
+                } else if (response.status === 500) {
+                    if (responseText.includes('academic_year_id')) {
+                        addResult('Medical Documents API', 'FAIL', 'Still getting 500 error with academic_year_id column issue');
+                    } else {
+                        addResult('Medical Documents API', 'FAIL', `500 error for different reason: ${responseText.substring(0, 100)}...`);
+                    }
+                } else {
+                    addResult('Medical Documents API', 'INFO', `Returns ${response.status} - ${responseText.substring(0, 100)}...`);
+                }
+            } catch (error) {
+                addResult('Medical Documents API', 'FAIL', `Network error: ${error.message}`);
+            }
+            
+            // Test 2: Check waiver check_status endpoint
+            try {
+                const response = await fetch('http://localhost:8000/api/waivers/check_status/');
+                
+                if (response.status === 401) {
+                    addResult('Waiver Check Status API', 'PASS', 'Returns 401 as expected');
+                } else if (response.status === 404) {
+                    addResult('Waiver Check Status API', 'FAIL', 'Endpoint not found - check_status method not added');
+                } else if (response.status === 500) {
+                    const responseText = await response.text();
+                    addResult('Waiver Check Status API', 'FAIL', `500 error: ${responseText.substring(0, 100)}...`);
+                } else {
+                    addResult('Waiver Check Status API', 'INFO', `Returns ${response.status}`);
+                }
+            } catch (error) {
+                addResult('Waiver Check Status API', 'FAIL', `Network error: ${error.message}`);
+            }
+            
+            // Test 3: Check basic API root
+            try {
+                const response = await fetch('http://localhost:8000/api/');
+                
+                if (response.status === 200) {
+                    addResult('API Root', 'PASS', 'API root accessible');
+                } else {
+                    addResult('API Root', 'INFO', `Returns ${response.status}`);
+                }
+            } catch (error) {
+                addResult('API Root', 'FAIL', `Network error: ${error.message}`);
+            }
+            
+            // Test 4: Check Django admin (to verify server is running)
+            try {
+                const response = await fetch('http://localhost:8000/admin/');
+                
+                if (response.status === 200) {
+                    addResult('Django Server', 'PASS', 'Django server is running');
+                } else {
+                    addResult('Django Server', 'INFO', `Admin returns ${response.status}`);
+                }
+            } catch (error) {
+                addResult('Django Server', 'FAIL', `Server not accessible: ${error.message}`);
+            }
+            
+            // Summary
+            setTimeout(() => {
+                const passCount = testResults.filter(r => r.status === 'PASS').length;
+                const failCount = testResults.filter(r => r.status === 'FAIL').length;
+                
+                if (failCount === 0) {
+                    addResult('Migration Status', 'PASS', `All tests passed! (${passCount} passed, ${failCount} failed)`);
+                } else {
+                    addResult('Migration Status', 'FAIL', `Some tests failed. (${passCount} passed, ${failCount} failed)`);
+                }
+            }, 1000);
+        }
+        
+        // Auto-run test on page load
+        window.addEventListener('load', runMigrationTest);
+    </script>
+</body>
+</html>

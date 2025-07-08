@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WMSU Health Services - Mobile Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        
+        /* Test breakpoints display */
+        .breakpoint-indicator {
+            position: fixed;
+            top: 0;
+            left: 0;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px;
+            font-size: 12px;
+            z-index: 1000;
+            border-radius: 0 0 8px 0;
+        }
+        
+        .breakpoint-indicator::before {
+            content: "Mobile (< 640px)";
+        }
+        
+        @media (min-width: 640px) {
+            .breakpoint-indicator::before {
+                content: "Tablet (640px - 1024px)";
+            }
+        }
+        
+        @media (min-width: 1024px) {
+            .breakpoint-indicator::before {
+                content: "Desktop (≥ 1024px)";
+            }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <!-- Breakpoint indicator -->
+    <div class="breakpoint-indicator"></div>
+    
+    <!-- Services Section Test -->
+    <section class="py-12 sm:py-16 lg:py-20 mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-10 sm:mb-12 lg:mb-16">
+                <h2 class="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">Our Services</h2>
+                <p class="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto px-4 sm:px-0">
+                    Professional healthcare services tailored to meet your needs
+                </p>
+            </div>
+            
+            <!-- Mobile: 3 columns, larger screens: 2 and 3 columns -->
+            <div class="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
+                <!-- Primary Care -->
+                <div class="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Primary Care</h3>
+                    <!-- Show description only on larger screens -->
+                    <div class="hidden sm:block">
+                        <p class="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                            Comprehensive health check-ups and preventive care services.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Dental Care -->
+                <div class="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-green-100 to-green-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 0 1 0 5H9m0-5v5m0-5H7.5M9 15H7.5m3-5h1.5a2.5 2.5 0 0 1 0 5H9" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Dental Care</h3>
+                    <!-- Show description only on larger screens -->
+                    <div class="hidden sm:block">
+                        <p class="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                            Professional dental services including cleanings and treatments.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Pharmacy -->
+                <div class="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-red-100 to-red-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Pharmacy</h3>
+                    <!-- Show description only on larger screens -->
+                    <div class="hidden sm:block">
+                        <p class="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                            Prescription medications with expert pharmacist consultation.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Vaccinations -->
+                <div class="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Vaccinations</h3>
+                    <!-- Show description only on larger screens -->
+                    <div class="hidden sm:block">
+                        <p class="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                            Immunization services to protect against various diseases.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Health Screenings -->
+                <div class="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Health Screenings</h3>
+                    <!-- Show description only on larger screens -->
+                    <div class="hidden sm:block">
+                        <p class="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                            Regular health assessments and diagnostic screenings.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Health Education -->
+                <div class="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                    <div class="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                        <svg class="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                        </svg>
+                    </div>
+                    <h3 class="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Health Education</h3>
+                    <!-- Show description only on larger screens -->
+                    <div class="hidden sm:block">
+                        <p class="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                            Wellness programs and health awareness initiatives.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Test Instructions -->
+    <section class="py-8 bg-gray-100">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h3 class="text-xl font-bold mb-4">Mobile Responsiveness Test</h3>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h4 class="font-semibold mb-2">Test Instructions:</h4>
+                <ol class="list-decimal list-inside space-y-2 text-sm">
+                    <li><strong>Mobile (< 640px):</strong> Should show 3 columns with only icons and service titles</li>
+                    <li><strong>Tablet (640px - 1024px):</strong> Should show 2 columns with centered descriptions</li>
+                    <li><strong>Desktop (≥ 1024px):</strong> Should show 3 columns with centered descriptions</li>
+                    <li><strong>Background:</strong> Continuous gradient background across all sections</li>
+                    <li><strong>No "Learn More" links:</strong> All "Learn More" links have been removed</li>
+                </ol>
+                <p class="mt-4 text-sm text-gray-600">
+                    Use your browser's developer tools to test different screen sizes or resize your browser window.
+                </p>
+            </div>
+        </div>
+    </section>
+    
+    <script>
+        // Simple responsive testing
+        function updateBreakpointInfo() {
+            const width = window.innerWidth;
+            const indicator = document.querySelector('.breakpoint-indicator');
+            
+            if (width < 640) {
+                indicator.style.background = 'rgba(239, 68, 68, 0.9)'; // Red for mobile
+            } else if (width < 1024) {
+                indicator.style.background = 'rgba(245, 158, 11, 0.9)'; // Orange for tablet
+            } else {
+                indicator.style.background = 'rgba(34, 197, 94, 0.9)'; // Green for desktop
+            }
+        }
+        
+        window.addEventListener('resize', updateBreakpointInfo);
+        updateBreakpointInfo();
+    </script>
+</body>
+</html>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Patient Profile Modal Updates</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .result {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 3px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        input, select {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Patient Profile Modal Updates Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Patient Profiles List (Views1)</h3>
+        <p>This will test the updated patient profiles endpoint from views1.py</p>
+        
+        <button onclick="testPatientProfiles()">Test Patient Profiles</button>
+        <div id="result1" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test My Patient Profile (Views1)</h3>
+        <p>This will test the my_profile endpoint</p>
+        
+        <button onclick="testMyProfile()">Test My Profile</button>
+        <div id="result2" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test My Patient Profiles (All Years)</h3>
+        <p>This will test the my_profiles endpoint</p>
+        
+        <button onclick="testMyProfiles()">Test My Profiles</button>
+        <div id="result3" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Medical Form Get Patient Data</h3>
+        <p>This will test the updated medical form endpoint</p>
+        
+        <div>
+            <label for="appointmentId2">Appointment ID:</label>
+            <input type="number" id="appointmentId2" value="31" placeholder="Enter appointment ID">
+            <button onclick="testMedicalFormGetPatientData()">Test Get Patient Data</button>
+        </div>
+        
+        <div id="result4" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        let authToken = localStorage.getItem('authToken');
+
+        async function makeRequest(url, options = {}) {
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(authToken && { 'Authorization': `Bearer ${authToken}` })
+                }
+            };
+            
+            const mergedOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+
+            try {
+                const response = await fetch(url, mergedOptions);
+                const data = await response.json();
+                return { response, data };
+            } catch (error) {
+                return { error: error.message };
+            }
+        }
+
+        async function testPatientProfiles() {
+            const resultDiv = document.getElementById('result1');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = 'result';
+
+            const url = `${API_BASE}/patients/`;
+            const { response, data, error } = await makeRequest(url);
+
+            if (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Network Error: ${error}`;
+                return;
+            }
+
+            if (response.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `SUCCESS (${response.status}):\nFound ${data.results ? data.results.length : data.length || 0} patient profiles\n\n${JSON.stringify(data, null, 2)}`;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `ERROR (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        async function testMyProfile() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = 'result';
+
+            const url = `${API_BASE}/patients/my_profile/`;
+            const { response, data, error } = await makeRequest(url);
+
+            if (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Network Error: ${error}`;
+                return;
+            }
+
+            if (response.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `SUCCESS (${response.status}):\nProfile Data:\n${JSON.stringify(data, null, 2)}`;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `ERROR (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        async function testMyProfiles() {
+            const resultDiv = document.getElementById('result3');
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = 'result';
+
+            const url = `${API_BASE}/patients/my_profiles/`;
+            const { response, data, error } = await makeRequest(url);
+
+            if (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Network Error: ${error}`;
+                return;
+            }
+
+            if (response.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `SUCCESS (${response.status}):\nFound ${data.length || 0} profiles\n\n${JSON.stringify(data, null, 2)}`;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `ERROR (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        async function testMedicalFormGetPatientData() {
+            const appointmentId = document.getElementById('appointmentId2').value;
+            const resultDiv = document.getElementById('result4');
+            
+            if (!appointmentId) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Please enter an appointment ID';
+                return;
+            }
+
+            resultDiv.textContent = 'Testing...';
+            resultDiv.className = 'result';
+
+            const url = `${API_BASE}/medical-forms/get_patient_data/?appointment_id=${appointmentId}`;
+            const { response, data, error } = await makeRequest(url);
+
+            if (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `Network Error: ${error}`;
+                return;
+            }
+
+            if (response.ok) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `SUCCESS (${response.status}):\nPatient Data:\n${JSON.stringify(data, null, 2)}`;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `ERROR (${response.status}):\n${JSON.stringify(data, null, 2)}`;
+            }
+        }
+
+        // Auto-check auth on page load
+        window.onload = () => {
+            if (authToken) {
+                document.body.insertAdjacentHTML('afterbegin', 
+                    '<div style="background: #d4edda; padding: 10px; margin-bottom: 20px; border-radius: 5px; color: #155724;">✓ Auth token found. Ready to test endpoints.</div>'
+                );
+            } else {
+                document.body.insertAdjacentHTML('afterbegin', 
+                    '<div style="background: #f8d7da; padding: 10px; margin-bottom: 20px; border-radius: 5px; color: #721c24;">⚠ No auth token found. Please login first to test authenticated endpoints.</div>'
+                );
+            }
+        };
+    </script>
+</body>
+</html>

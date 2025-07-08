@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Database Status Check</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Database Status Check</h1>
+        
+        <div class="test-section">
+            <h3>Check Available Patients</h3>
+            <button onclick="checkPatients()">Get Patients List</button>
+            <div id="patientsResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Check Staff/Examiners</h3>
+            <button onclick="checkStaff()">Get Staff List</button>
+            <div id="staffResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Check Medical Forms</h3>
+            <button onclick="checkMedicalForms()">Get Recent Medical Forms</button>
+            <div id="formsResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>Test Endpoints Status</h3>
+            <button onclick="checkEndpoints()">Check All Endpoints</button>
+            <div id="endpointsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+
+        async function checkPatients() {
+            const resultDiv = document.getElementById('patientsResult');
+            
+            try {
+                resultDiv.textContent = 'Fetching patients...';
+                
+                const response = await fetch(`${API_BASE}/patients/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Found ${data.length || data.results?.length || 0} patients:\n\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Error ${response.status}:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network Error:\n${error.message}`;
+            }
+        }
+
+        async function checkStaff() {
+            const resultDiv = document.getElementById('staffResult');
+            
+            try {
+                resultDiv.textContent = 'Fetching staff...';
+                
+                const response = await fetch(`${API_BASE}/staff/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Found ${data.length || data.results?.length || 0} staff members:\n\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Error ${response.status}:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network Error:\n${error.message}`;
+            }
+        }
+
+        async function checkMedicalForms() {
+            const resultDiv = document.getElementById('formsResult');
+            
+            try {
+                resultDiv.textContent = 'Fetching medical forms...';
+                
+                const response = await fetch(`${API_BASE}/medical-forms/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Found ${data.length || data.results?.length || 0} medical forms:\n\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Error ${response.status}:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network Error:\n${error.message}`;
+            }
+        }
+
+        async function checkEndpoints() {
+            const resultDiv = document.getElementById('endpointsResult');
+            resultDiv.textContent = 'Checking endpoints...';
+            
+            const endpoints = [
+                '/patients/',
+                '/medical-forms/',
+                '/staff/',
+                '/medical-forms/get_patient_data/?patient_id=1'
+            ];
+            
+            let results = [];
+            
+            for (let endpoint of endpoints) {
+                try {
+                    const response = await fetch(`${API_BASE}${endpoint}`);
+                    const status = response.ok ? '✅' : '❌';
+                    results.push(`${status} ${endpoint} - Status: ${response.status}`);
+                } catch (error) {
+                    results.push(`❌ ${endpoint} - Error: ${error.message}`);
+                }
+            }
+            
+            resultDiv.className = 'result success';
+            resultDiv.textContent = `Endpoint Status Check:\n\n${results.join('\n')}`;
+        }
+
+        // Auto-run checks when page loads
+        window.onload = function() {
+            checkEndpoints();
+        };
+    </script>
+</body>
+</html>

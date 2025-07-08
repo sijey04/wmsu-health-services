@@ -1,0 +1,77 @@
+version: '3'
+
+services:
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: wmsu_health_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: wmsu_health_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./database/data:/var/lib/mysql
+      - ./database/setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    networks:
+      - wmsu_health_network
+      
+  # Express API
+  express_api:
+    build:
+      context: ./backend/express_api
+      dockerfile: Dockerfile
+    container_name: wmsu_health_express_api
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_NAME=wmsu_health_db
+      - PORT=3001
+      - JWT_SECRET=wmsu_health_express_api_secret
+    ports:
+      - "3001:3001"
+    depends_on:
+      - db
+    networks:
+      - wmsu_health_network
+  
+  # Django API
+  django_api:
+    build:
+      context: ./backend/django_api
+      dockerfile: Dockerfile
+    container_name: wmsu_health_django_api
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=password
+      - DB_NAME=wmsu_health_db
+      - DJANGO_SECRET_KEY=wmsu_health_django_api_secret
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    networks:
+      - wmsu_health_network
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: wmsu_health_frontend
+    environment:
+      - NEXT_PUBLIC_EXPRESS_API_URL=http://express_api:3001/api
+      - NEXT_PUBLIC_DJANGO_API_URL=http://django_api:8000/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - express_api
+      - django_api
+    networks:
+      - wmsu_health_network
+
+networks:
+  wmsu_health_network:
+    driver: bridge

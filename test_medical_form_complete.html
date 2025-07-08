@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Form Auto-fill Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        input, select {
+            margin: 5px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Medical Form Auto-fill Complete Test</h1>
+        
+        <div class="test-section">
+            <h3>1. Test Patient Data Auto-fill Endpoint</h3>
+            <div class="form-group">
+                <label>Patient ID:</label>
+                <input type="text" id="patientId" value="1" placeholder="Enter patient ID">
+                <button onclick="testPatientDataAutofill()">Test Auto-fill</button>
+            </div>
+            <div id="autofillResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>2. Test Medical Form Submission</h3>
+            <div class="form-group">
+                <label>Patient ID:</label>
+                <input type="text" id="submitPatientId" value="1">
+            </div>
+            <div class="form-group">
+                <label>Chief Complaint:</label>
+                <input type="text" id="chiefComplaint" value="Routine checkup">
+            </div>
+            <div class="form-group">
+                <label>Physical Examination:</label>
+                <input type="text" id="physicalExam" value="Normal examination">
+            </div>
+            <div class="form-group">
+                <label>Diagnosis:</label>
+                <input type="text" id="diagnosis" value="Healthy">
+            </div>
+            <div class="form-group">
+                <label>Treatment:</label>
+                <input type="text" id="treatment" value="Continue current routine">
+            </div>
+            <button onclick="testMedicalFormSubmit()">Submit Medical Form</button>
+            <div id="submitResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>3. Test Patient Profile Modal Data</h3>
+            <div class="form-group">
+                <label>Patient ID:</label>
+                <input type="text" id="profilePatientId" value="1">
+                <button onclick="testPatientProfile()">Get Profile Data</button>
+            </div>
+            <div id="profileResult" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>4. Medical Form Fields Preview</h3>
+            <div class="form-group">
+                <label>Examined By:</label>
+                <input type="text" id="examinedBy" readonly placeholder="Auto-filled from backend">
+            </div>
+            <div class="form-group">
+                <label>License Number:</label>
+                <input type="text" id="licenseNumber" readonly placeholder="Auto-filled from backend">
+            </div>
+            <div class="form-group">
+                <label>Follow-up Date:</label>
+                <input type="date" id="followupDate" readonly>
+            </div>
+            <div class="form-group">
+                <label>Follow-up Instructions:</label>
+                <input type="text" id="followupInstructions" readonly placeholder="Auto-filled suggestions">
+            </div>
+            <button onclick="simulateAutoFill()">Simulate Auto-fill</button>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000/api';
+
+        async function testPatientDataAutofill() {
+            const patientId = document.getElementById('patientId').value;
+            const resultDiv = document.getElementById('autofillResult');
+            
+            try {
+                resultDiv.textContent = 'Testing auto-fill endpoint...';
+                
+                const response = await fetch(`${API_BASE}/medical-forms/get_patient_data/?patient_id=${patientId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Success!\n\nAuto-fill Data:\n${JSON.stringify(data, null, 2)}`;
+                    
+                    // Update the form fields with auto-filled data
+                    if (data.examiner_name) {
+                        document.getElementById('examinedBy').value = data.examiner_name;
+                    }
+                    if (data.license_number) {
+                        document.getElementById('licenseNumber').value = data.license_number;
+                    }
+                    if (data.suggested_followup_date) {
+                        document.getElementById('followupDate').value = data.suggested_followup_date;
+                    }
+                    if (data.suggested_followup_instructions) {
+                        document.getElementById('followupInstructions').value = data.suggested_followup_instructions;
+                    }
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Error ${response.status}:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network Error:\n${error.message}`;
+            }
+        }
+
+        async function testMedicalFormSubmit() {
+            const patientId = document.getElementById('submitPatientId').value;
+            const resultDiv = document.getElementById('submitResult');
+            
+            const formData = {
+                patient: parseInt(patientId),
+                chief_complaint: document.getElementById('chiefComplaint').value,
+                physical_examination: document.getElementById('physicalExam').value,
+                diagnosis: document.getElementById('diagnosis').value,
+                treatment: document.getElementById('treatment').value,
+                examined_by: document.getElementById('examinedBy').value,
+                license_number: document.getElementById('licenseNumber').value,
+                followup_date: document.getElementById('followupDate').value,
+                followup_instructions: document.getElementById('followupInstructions').value
+            };
+            
+            try {
+                resultDiv.textContent = 'Submitting medical form...';
+                
+                const response = await fetch(`${API_BASE}/medical-forms/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Medical Form Submitted Successfully!\n\nResponse:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Submission Error ${response.status}:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network Error:\n${error.message}`;
+            }
+        }
+
+        async function testPatientProfile() {
+            const patientId = document.getElementById('profilePatientId').value;
+            const resultDiv = document.getElementById('profileResult');
+            
+            try {
+                resultDiv.textContent = 'Fetching patient profile...';
+                
+                const response = await fetch(`${API_BASE}/patients/${patientId}/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Patient Profile Retrieved!\n\nProfile Data:\n${JSON.stringify(data, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Error ${response.status}:\n${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Network Error:\n${error.message}`;
+            }
+        }
+
+        function simulateAutoFill() {
+            // Simulate the auto-fill with sample data
+            document.getElementById('examinedBy').value = 'Dr. John Smith';
+            document.getElementById('licenseNumber').value = 'MD12345';
+            document.getElementById('followupDate').value = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 1 week from now
+            document.getElementById('followupInstructions').value = 'Follow up in 1 week if symptoms persist';
+        }
+
+        // Auto-run the first test when page loads
+        window.onload = function() {
+            testPatientDataAutofill();
+        };
+    </script>
+</body>
+</html>
