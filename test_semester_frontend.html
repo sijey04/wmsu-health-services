@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Semester Profile System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background-color: #800000;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #a83232;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        label {
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Semester Profile System Test</h1>
+    
+    <div class="test-section">
+        <h2>1. Test Current Semester Detection</h2>
+        <p>This test checks if the system correctly determines the current semester based on school year dates.</p>
+        <div id="semester-test-result"></div>
+        <button onclick="testCurrentSemester()">Test Current Semester</button>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Test Profile API Endpoints</h2>
+        <p>Test if the patient profile API endpoints support semester parameters.</p>
+        
+        <div class="form-group">
+            <label>School Year ID:</label>
+            <input type="number" id="schoolYearId" placeholder="e.g., 1" value="1">
+        </div>
+        <div class="form-group">
+            <label>Semester:</label>
+            <select id="semester">
+                <option value="1st_semester">First Semester</option>
+                <option value="2nd_semester">Second Semester</option>
+                <option value="summer">Summer</option>
+            </select>
+        </div>
+        
+        <button onclick="testGetProfile()">Test Get Profile</button>
+        <button onclick="testAutofillData()">Test Autofill Data</button>
+        <div id="api-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Test Profile Creation with Semester</h2>
+        <p>Test creating a profile for a specific semester.</p>
+        
+        <div class="form-group">
+            <label>Access Token:</label>
+            <input type="text" id="accessToken" placeholder="Bearer token for authentication">
+        </div>
+        
+        <button onclick="testCreateProfile()">Test Create Profile</button>
+        <div id="create-test-result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Test Frontend Integration</h2>
+        <p>Test the frontend profile setup integration with semester support.</p>
+        <a href="/patient/profile-setup" target="_blank">
+            <button>Open Profile Setup Page</button>
+        </a>
+        <div class="info">
+            <p>Check the profile setup page for:</p>
+            <ul>
+                <li>Semester information display in the header</li>
+                <li>Auto-fill from previous semester data</li>
+                <li>Semester-specific profile saving</li>
+                <li>Proper error handling for missing semester data</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const BACKEND_URL = 'http://localhost:8000/api';
+
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `test-result ${type}`;
+            div.innerHTML = message;
+            container.appendChild(div);
+        }
+
+        function clearResults(containerId) {
+            document.getElementById(containerId).innerHTML = '';
+        }
+
+        async function testCurrentSemester() {
+            clearResults('semester-test-result');
+            addResult('semester-test-result', 'Testing current semester detection...', 'info');
+
+            try {
+                const response = await fetch(`${BACKEND_URL}/academic-school-years/current/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('semester-test-result', `✓ Current school year loaded: ${data.academic_year}`, 'success');
+                    
+                    // Test semester logic
+                    const today = new Date();
+                    let currentSemester = '1st_semester'; // Default
+                    
+                    if (data.first_sem_start && data.first_sem_end && 
+                        data.second_sem_start && data.second_sem_end &&
+                        data.summer_start && data.summer_end) {
+                        
+                        const firstSemStart = new Date(data.first_sem_start);
+                        const firstSemEnd = new Date(data.first_sem_end);
+                        const secondSemStart = new Date(data.second_sem_start);
+                        const secondSemEnd = new Date(data.second_sem_end);
+                        const summerStart = new Date(data.summer_start);
+                        const summerEnd = new Date(data.summer_end);
+                        
+                        if (today >= firstSemStart && today <= firstSemEnd) {
+                            currentSemester = '1st_semester';
+                        } else if (today >= secondSemStart && today <= secondSemEnd) {
+                            currentSemester = '2nd_semester';
+                        } else if (today >= summerStart && today <= summerEnd) {
+                            currentSemester = 'summer';
+                        }
+                        
+                        addResult('semester-test-result', `✓ Current semester detected: ${currentSemester}`, 'success');
+                        addResult('semester-test-result', `Semester dates: 1st: ${data.first_sem_start} to ${data.first_sem_end}, 2nd: ${data.second_sem_start} to ${data.second_sem_end}, Summer: ${data.summer_start} to ${data.summer_end}`, 'info');
+                    } else {
+                        addResult('semester-test-result', '⚠ Semester dates not configured in school year', 'error');
+                    }
+                } else {
+                    addResult('semester-test-result', `✗ Failed to load current school year: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult('semester-test-result', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetProfile() {
+            clearResults('api-test-result');
+            const schoolYearId = document.getElementById('schoolYearId').value;
+            const semester = document.getElementById('semester').value;
+            
+            addResult('api-test-result', `Testing GET profile for school year ${schoolYearId}, semester ${semester}...`, 'info');
+
+            try {
+                const url = `${BACKEND_URL}/patients/my_profile/?school_year=${schoolYearId}&semester=${semester}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token') || 'test-token'}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('api-test-result', `✓ Profile loaded successfully for ${semester}`, 'success');
+                    addResult('api-test-result', `Profile data: ${JSON.stringify(data, null, 2)}`, 'info');
+                } else if (response.status === 404) {
+                    addResult('api-test-result', `✓ No profile found for ${semester} (expected for new semester)`, 'success');
+                } else {
+                    const errorData = await response.text();
+                    addResult('api-test-result', `✗ Error ${response.status}: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                addResult('api-test-result', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAutofillData() {
+            const schoolYearId = document.getElementById('schoolYearId').value;
+            const semester = document.getElementById('semester').value;
+            
+            addResult('api-test-result', `Testing autofill data for school year ${schoolYearId}, semester ${semester}...`, 'info');
+
+            try {
+                const url = `${BACKEND_URL}/patients/autofill_data/?school_year=${schoolYearId}&semester=${semester}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('access_token') || 'test-token'}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('api-test-result', `✓ Autofill data loaded successfully`, 'success');
+                    addResult('api-test-result', `Has previous data: ${data.has_previous_data}`, 'info');
+                    if (data.autofilled_from_year) {
+                        addResult('api-test-result', `Auto-filled from: ${data.autofilled_from_year} - ${data.autofilled_from_semester || 'Unknown semester'}`, 'info');
+                    }
+                } else {
+                    const errorData = await response.text();
+                    addResult('api-test-result', `✗ Error ${response.status}: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                addResult('api-test-result', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCreateProfile() {
+            clearResults('create-test-result');
+            const schoolYearId = document.getElementById('schoolYearId').value;
+            const semester = document.getElementById('semester').value;
+            const accessToken = document.getElementById('accessToken').value;
+            
+            if (!accessToken) {
+                addResult('create-test-result', '✗ Please provide an access token', 'error');
+                return;
+            }
+            
+            addResult('create-test-result', `Testing profile creation for school year ${schoolYearId}, semester ${semester}...`, 'info');
+
+            try {
+                const formData = new FormData();
+                formData.append('school_year', schoolYearId);
+                formData.append('semester', semester);
+                formData.append('first_name', 'Test');
+                formData.append('name', 'User, Test');
+                formData.append('email', 'test@example.com');
+                
+                const response = await fetch(`${BACKEND_URL}/patients/create_my_profile/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
+                    },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('create-test-result', `✓ Profile created successfully for ${semester}`, 'success');
+                    addResult('create-test-result', `Created profile ID: ${data.id}`, 'info');
+                } else {
+                    const errorData = await response.text();
+                    addResult('create-test-result', `✗ Error ${response.status}: ${errorData}`, 'error');
+                }
+            } catch (error) {
+                addResult('create-test-result', `✗ Error: ${error.message}`, 'error');
+            }
+        }
+
+        // Auto-run semester test on page load
+        window.addEventListener('load', () => {
+            testCurrentSemester();
+        });
+    </script>
+</body>
+</html>

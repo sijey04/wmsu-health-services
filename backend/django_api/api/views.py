@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.http import HttpResponse
 import io
 from .models import (
-    CustomUser, Patient, MedicalRecord, Appointment, Inventory, Waiver, 
+    CustomUser, Patient, MedicalRecord, Appointment, Inventory, Waiver, DentalWaiver,
     MedicalDocument, DentalFormData, MedicalFormData, StaffDetails,
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
@@ -19,7 +19,7 @@ from .models import (
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
     AppointmentSerializer, InventorySerializer, SignupSerializer,
-    LoginSerializer, EmailVerificationSerializer, WaiverSerializer,
+    LoginSerializer, EmailVerificationSerializer, WaiverSerializer, DentalWaiverSerializer,
     PatientProfileUpdateSerializer, MedicalDocumentSerializer, 
     DentalFormDataSerializer, MedicalFormDataSerializer, StaffDetailsSerializer,
     SystemConfigurationSerializer, ProfileRequirementSerializer, 
@@ -473,41 +473,76 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def my_profile(self, request):
-        """Get the current user's patient profile"""
+        """Get the current user's patient profile for specific school year and semester"""
         user = request.user
         
-        current_patient_profile = user.get_current_patient_profile()
-        if not current_patient_profile:
-            return Response({'detail': 'No patient profile found.'}, status=status.HTTP_404_NOT_FOUND)
+        # Get school year and semester from query parameters
+        school_year_id = request.query_params.get('school_year')
+        semester = request.query_params.get('semester')
         
-        serializer = self.get_serializer(current_patient_profile)
+        if school_year_id and semester:
+            # Get profile for specific school year and semester
+            try:
+                patient_profile = user.patient_profiles.get(
+                    school_year_id=school_year_id,
+                    semester=semester
+                )
+            except Patient.DoesNotExist:
+                return Response({'detail': 'No patient profile found for this semester.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Fallback to current profile method
+            patient_profile = user.get_current_patient_profile()
+            if not patient_profile:
+                return Response({'detail': 'No patient profile found.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = self.get_serializer(patient_profile)
         return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
     def create_my_profile(self, request):
-        """Create or update a patient profile for the current user"""
+        """Create a patient profile for the current user for specific school year and semester"""
         user = request.user
         
-        # Get current school year
-        try:
-            current_school_year = AcademicSchoolYear.objects.get(is_current=True)
-        except AcademicSchoolYear.DoesNotExist:
-            return Response({'detail': 'No active school year found.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Get school year and semester from request data
+        school_year_id = request.data.get('school_year')
+        semester = request.data.get('semester', '1st_semester')  # Default to first semester
         
-        # Check if profile already exists for current school year
-        current_patient_profile = user.get_current_patient_profile()
+        # Get the school year object
+        if school_year_id:
+            try:
+                school_year = AcademicSchoolYear.objects.get(id=school_year_id)
+            except AcademicSchoolYear.DoesNotExist:
+                return Response({'detail': 'School year not found.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Get current school year
+            try:
+                school_year = AcademicSchoolYear.objects.get(is_current=True)
+            except AcademicSchoolYear.DoesNotExist:
+                return Response({'detail': 'No active school year found.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Also check for profiles without school year (created during signup)
-        if not current_patient_profile:
-            signup_profile = user.patient_profiles.filter(school_year__isnull=True).first()
+        # Check if profile already exists for this school year and semester
+        existing_profile = user.patient_profiles.filter(
+            school_year=school_year,
+            semester=semester
+        ).first()
+        
+        # Also check for profiles without school year/semester (created during signup)
+        if not existing_profile:
+            signup_profile = user.patient_profiles.filter(
+                school_year__isnull=True,
+                semester__isnull=True
+            ).first()
             if signup_profile:
-                # Update the signup profile with current school year
-                signup_profile.school_year = current_school_year
+                # Update the signup profile with current school year and semester
+                signup_profile.school_year = school_year
+                signup_profile.semester = semester
                 signup_profile.save()
-                current_patient_profile = signup_profile
+                existing_profile = signup_profile
         
         data = request.data.copy()
         data['user'] = user.id
+        data['school_year'] = school_year.id
+        data['semester'] = semester
         
         # Auto-fill fields from user account (only if not already provided)
         if not data.get('name') and user.first_name and user.last_name:
@@ -521,9 +556,9 @@ class PatientViewSet(viewsets.ModelViewSet):
         if not data.get('student_id'):
             data['student_id'] = f"TEMP-{user.id}"
         
-        if current_patient_profile:
+        if existing_profile:
             # Update existing profile using PatientProfileUpdateSerializer for better file handling
-            serializer = PatientProfileUpdateSerializer(current_patient_profile, data=data, partial=True, context={'request': request})
+            serializer = PatientProfileUpdateSerializer(existing_profile, data=data, partial=True, context={'request': request})
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -532,7 +567,7 @@ class PatientViewSet(viewsets.ModelViewSet):
             # Create new profile using PatientProfileUpdateSerializer
             serializer = PatientProfileUpdateSerializer(data=data, context={'request': request})
             if serializer.is_valid():
-                patient = serializer.save(user=user, school_year=current_school_year)
+                patient = serializer.save(user=user, school_year=school_year, semester=semester)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -600,15 +635,30 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['put', 'patch'])
     def update_my_profile(self, request):
-        """Update the current user's patient profile"""
+        """Update the current user's patient profile for specific school year and semester"""
         user = request.user
         
-        current_patient_profile = user.get_current_patient_profile()
-        if not current_patient_profile:
-            return Response({'detail': 'No patient profile found.'}, status=status.HTTP_404_NOT_FOUND)
+        # Get school year and semester from request data
+        school_year_id = request.data.get('school_year')
+        semester = request.data.get('semester')
+        
+        if school_year_id and semester:
+            # Update profile for specific school year and semester
+            try:
+                patient_profile = user.patient_profiles.get(
+                    school_year_id=school_year_id,
+                    semester=semester
+                )
+            except Patient.DoesNotExist:
+                return Response({'detail': 'No patient profile found for this semester.'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Fallback to current profile method
+            patient_profile = user.get_current_patient_profile()
+            if not patient_profile:
+                return Response({'detail': 'No patient profile found.'}, status=status.HTTP_404_NOT_FOUND)
         
         partial = request.method == 'PATCH'
-        serializer = PatientProfileUpdateSerializer(current_patient_profile, data=request.data, partial=partial, context={'request': request})
+        serializer = PatientProfileUpdateSerializer(patient_profile, data=request.data, partial=partial, context={'request': request})
         
         if serializer.is_valid():
             serializer.save()
@@ -653,8 +703,12 @@ class PatientViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def autofill_data(self, request):
-        """Get user information for autofill purposes with data from previous years"""
+        """Get user information for autofill purposes with data from previous semesters/years"""
         user = request.user
+        
+        # Get school year and semester from query parameters
+        school_year_id = request.query_params.get('school_year')
+        semester = request.query_params.get('semester')
         
         # Get current school year
         try:
@@ -662,15 +716,39 @@ class PatientViewSet(viewsets.ModelViewSet):
         except AcademicSchoolYear.DoesNotExist:
             current_school_year = None
         
-        # Check if user has an existing profile for current school year
-        existing_profile = None
-        if current_school_year:
-            existing_profile = user.patient_profiles.filter(school_year=current_school_year).first()
+        # Use provided school year or fall back to current
+        target_school_year_id = school_year_id or (current_school_year.id if current_school_year else None)
+        target_semester = semester or '1st_semester'  # Default to first semester
         
-        # Get the most recent profile from any previous year for autofill
+        # Check if user has an existing profile for target school year and semester
+        existing_profile = None
+        if target_school_year_id and target_semester:
+            existing_profile = user.patient_profiles.filter(
+                school_year_id=target_school_year_id,
+                semester=target_semester
+            ).first()
+        
+        # Get the most recent profile from previous semester/year for autofill
         previous_profile = None
+        autofilled_from_year = None
+        autofilled_from_semester = None
+        
         if not existing_profile:
-            previous_profile = user.patient_profiles.order_by('-created_at').first()
+            # Look for profiles in previous semesters, prioritizing recent ones
+            all_profiles = user.patient_profiles.exclude(
+                school_year_id=target_school_year_id,
+                semester=target_semester
+            ).order_by('-school_year__end_date', '-created_at')
+            
+            previous_profile = all_profiles.first()
+            if previous_profile:
+                autofilled_from_year = str(previous_profile.school_year) if previous_profile.school_year else 'Unknown Year'
+                semester_display = {
+                    '1st_semester': 'First Semester',
+                    '2nd_semester': 'Second Semester', 
+                    'summer': 'Summer Semester'
+                }.get(previous_profile.semester, previous_profile.semester)
+                autofilled_from_semester = semester_display
         
         # Use existing profile if available, otherwise use previous profile for autofill
         source_profile = existing_profile or previous_profile
@@ -687,7 +765,8 @@ class PatientViewSet(viewsets.ModelViewSet):
             'current_school_year': current_school_year.id if current_school_year else None,
             'current_school_year_name': str(current_school_year) if current_school_year else None,
             'has_previous_data': previous_profile is not None,
-            'autofilled_from_year': str(previous_profile.school_year) if previous_profile else None,
+            'autofilled_from_year': autofilled_from_year,
+            'autofilled_from_semester': autofilled_from_semester,
         }
         
         # If we have a source profile (current or previous), include comprehensive autofill data
@@ -1547,6 +1626,54 @@ class WaiverViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("You already have a waiver on file.")
         
         serializer.save(user=user)
+
+
+class DentalWaiverViewSet(viewsets.ModelViewSet):
+    """Dental Informed Consent to Care waiver management"""
+    queryset = DentalWaiver.objects.all()
+    serializer_class = DentalWaiverSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        user = self.request.user
+        queryset = DentalWaiver.objects.all()
+        
+        # If user is not staff/admin, only show their own dental waivers
+        if not (user.is_staff or user.user_type in ['staff', 'admin']):
+            queryset = queryset.filter(user=user)
+        
+        return queryset.order_by('-created_at')
+    
+    def perform_create(self, serializer):
+        """Users can only create dental waivers for themselves"""
+        user = self.request.user
+        
+        # Check if user already has a dental waiver
+        if DentalWaiver.objects.filter(user=user).exists():
+            raise serializers.ValidationError("You already have a dental informed consent waiver on file.")
+        
+        serializer.save(user=user)
+
+    @action(detail=False, methods=['get'])
+    def check_status(self, request):
+        """Check if current user has signed a dental waiver"""
+        user = request.user
+        has_signed = DentalWaiver.objects.filter(user=user).exists()
+        
+        dental_waiver_data = None
+        if has_signed:
+            dental_waiver = DentalWaiver.objects.filter(user=user).first()
+            dental_waiver_data = {
+                'id': dental_waiver.id,
+                'patient_name': dental_waiver.patient_name,
+                'date_signed': dental_waiver.date_signed,
+                'created_at': dental_waiver.created_at
+            }
+        
+        return Response({
+            'has_signed': has_signed,
+            'dental_waiver': dental_waiver_data
+        })
     
     @action(detail=False, methods=['get'])
     def check_status(self, request):

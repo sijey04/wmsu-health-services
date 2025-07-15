@@ -25,8 +25,10 @@ export default function PatientProfileSetupPage() {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<any>({});
   const [currentSchoolYear, setCurrentSchoolYear] = useState<any>(null);
+  const [currentSemester, setCurrentSemester] = useState<string>('');
   const [isAutoFilled, setIsAutoFilled] = useState(false);
   const [autoFilledFromYear, setAutoFilledFromYear] = useState<string>('');
+  const [autoFilledFromSemester, setAutoFilledFromSemester] = useState<string>('');
 
   // Medical lists state
   const [comorbidIllnesses, setComorbidIllnesses] = useState<any[]>([]);
@@ -48,6 +50,183 @@ export default function PatientProfileSetupPage() {
     3: [
       'hospital_admission_or_surgery'
     ]
+  };
+
+  // Define fetchProfile function outside useEffect so it can be called from multiple places
+  const fetchProfile = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      // Build query parameters for semester-specific profile
+      const params: any = {};
+      if (currentSchoolYear?.id) {
+        params.school_year = currentSchoolYear.id;
+      }
+      if (currentSemester) {
+        params.semester = currentSemester;
+      }
+      
+      const res = await patientProfileAPI.get(params);
+      let profileData = res.data;
+      // Get user info from localStorage
+      const userStr = localStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        // If profile fields are empty, use user info
+        if (!profileData.name && user.last_name) profileData.name = user.last_name;
+        if (!profileData.first_name && user.first_name) profileData.first_name = user.first_name;
+        if (!profileData.middle_name && user.middle_name) profileData.middle_name = user.middle_name;
+        if (!profileData.suffix && user.suffix) profileData.suffix = user.suffix;
+        if (!profileData.email && user.email) profileData.email = user.email;
+        if (!profileData.nationality) profileData.nationality = 'Filipino';
+        
+        // Handle backward compatibility for address field
+        if (profileData.address && !profileData.city_municipality && !profileData.barangay && !profileData.street) {
+          // Try to parse the old address format
+          const addressParts = profileData.address.split(',').map(part => part.trim());
+          if (addressParts.length >= 3) {
+            profileData.street = addressParts[0];
+            profileData.barangay = addressParts[1];
+            profileData.city_municipality = addressParts[2];
+          } else if (addressParts.length === 2) {
+            profileData.barangay = addressParts[0];
+            profileData.city_municipality = addressParts[1];
+          } else if (addressParts.length === 1) {
+            profileData.city_municipality = addressParts[0];
+          }
+        }
+        
+        // Handle backward compatibility for emergency contact address field
+        if (profileData.emergency_contact_address && !profileData.emergency_contact_barangay && !profileData.emergency_contact_street) {
+          // Try to parse the old emergency contact address format
+          let emergencyAddress = profileData.emergency_contact_address.trim();
+          
+          // Remove "Zamboanga City" from the end if present
+          if (emergencyAddress.toLowerCase().endsWith(', zamboanga city')) {
+            emergencyAddress = emergencyAddress.slice(0, -15).trim();
+          } else if (emergencyAddress.toLowerCase().endsWith('zamboanga city')) {
+            emergencyAddress = emergencyAddress.slice(0, -13).trim();
+          }
+          
+          const emergencyAddressParts = emergencyAddress.split(',').map(part => part.trim());
+          if (emergencyAddressParts.length >= 2) {
+            profileData.emergency_contact_street = emergencyAddressParts[0];
+            profileData.emergency_contact_barangay = emergencyAddressParts[1];
+          } else if (emergencyAddressParts.length === 1 && emergencyAddressParts[0]) {
+            profileData.emergency_contact_barangay = emergencyAddressParts[0];
+          }
+        }
+        
+        // Set default address components if still empty
+        if (!profileData.city_municipality) profileData.city_municipality = 'Zamboanga City';
+        if (!profileData.barangay) profileData.barangay = '';
+        if (!profileData.street) profileData.street = '';
+      }
+      setProfile(profileData);
+      
+      // Debug photo loading
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Profile loaded with photo:', {
+          photo: profileData.photo,
+          photoType: typeof profileData.photo,
+          photoLength: profileData.photo?.length
+        });
+      }
+    } catch (err: any) {
+      if (err.response && err.response.status === 404) {
+        // No profile exists for current school year/semester - use autofill data from backend
+        try {
+          // Build autofill query parameters
+          const autofillParams: any = {};
+          if (currentSchoolYear?.id) {
+            autofillParams.school_year = currentSchoolYear.id;
+          }
+          if (currentSemester) {
+            autofillParams.semester = currentSemester;
+          }
+          
+          // Get autofill data which includes previous semester/year data
+          const autofillResponse = await patientProfileAPI.autofillData(autofillParams);
+          const autofillData = autofillResponse.data;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Autofill data received:', autofillData);
+          }
+          
+          // Use autofill data as the profile
+          let defaultProfile: any = {
+            name: autofillData.name || '',
+            first_name: autofillData.first_name || '',
+            middle_name: autofillData.middle_name || '',
+            suffix: autofillData.suffix || '',
+            email: autofillData.email || '',
+            nationality: autofillData.nationality || 'Filipino',
+            city_municipality: autofillData.city_municipality || 'Zamboanga City',
+            barangay: autofillData.barangay || '',
+            street: autofillData.street || '',
+            emergency_contact_barangay: autofillData.emergency_contact_barangay || '',
+            emergency_contact_street: autofillData.emergency_contact_street || '',
+          };
+          
+          // Add all other fields from autofill data
+          Object.keys(autofillData).forEach(key => {
+            if (autofillData[key] !== undefined && autofillData[key] !== null && 
+                !['has_existing_profile', 'current_school_year', 'current_school_year_name', 
+                  'has_previous_data', 'autofilled_from_year', 'profile_completion_status'].includes(key)) {
+              defaultProfile[key] = autofillData[key];
+            }
+          });
+          
+          // Mark as auto-filled if we have previous data
+          if (autofillData.has_previous_data && autofillData.autofilled_from_year) {
+            setIsAutoFilled(true);
+            setAutoFilledFromYear(autofillData.autofilled_from_year);
+            
+            // Set autofilled semester if available
+            if (autofillData.autofilled_from_semester) {
+              setAutoFilledFromSemester(autofillData.autofilled_from_semester);
+            }
+            
+            console.log('Auto-filled profile from:', autofillData.autofilled_from_year, autofillData.autofilled_from_semester);
+          }
+          
+          setProfile(defaultProfile);
+        } catch (autofillErr: any) {
+          console.error('Failed to get autofill data:', autofillErr);
+          // Fallback to basic user info
+          const userStr = localStorage.getItem('user');
+          let defaultProfile: any = {
+            name: '',
+            first_name: '',
+            middle_name: '',
+            suffix: '',
+            email: '',
+            nationality: 'Filipino',
+            city_municipality: 'Zamboanga City',
+            barangay: '',
+            street: '',
+            emergency_contact_barangay: '',
+            emergency_contact_street: '',
+          };
+          
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            if (user.last_name) defaultProfile.name = user.last_name;
+            if (user.first_name) defaultProfile.first_name = user.first_name;
+            if (user.middle_name) defaultProfile.middle_name = user.middle_name;
+            if (user.suffix) defaultProfile.suffix = user.suffix;
+            if (user.email) defaultProfile.email = user.email;
+          }
+          
+          setProfile(defaultProfile);
+        }
+      } else {
+        console.error('Error fetching profile:', err);
+        setError(err.response?.data?.error || err.message || 'Failed to fetch profile');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const validateStep = (step: number) => {
@@ -255,167 +434,51 @@ export default function PatientProfileSetupPage() {
   };
 
   useEffect(() => {
-    async function fetchProfile() {
-      setLoading(true);
-      setError('');
-      try {
-        const res = await patientProfileAPI.get();
-        let profileData = res.data;
-        // Get user info from localStorage
-        const userStr = localStorage.getItem('user');
-        if (userStr) {
-          const user = JSON.parse(userStr);
-          // If profile fields are empty, use user info
-          if (!profileData.name && user.last_name) profileData.name = user.last_name;
-          if (!profileData.first_name && user.first_name) profileData.first_name = user.first_name;
-          if (!profileData.middle_name && user.middle_name) profileData.middle_name = user.middle_name;
-          if (!profileData.suffix && user.suffix) profileData.suffix = user.suffix;
-          if (!profileData.email && user.email) profileData.email = user.email;
-          if (!profileData.nationality) profileData.nationality = 'Filipino';
-          
-          // Handle backward compatibility for address field
-          if (profileData.address && !profileData.city_municipality && !profileData.barangay && !profileData.street) {
-            // Try to parse the old address format
-            const addressParts = profileData.address.split(',').map(part => part.trim());
-            if (addressParts.length >= 3) {
-              profileData.street = addressParts[0];
-              profileData.barangay = addressParts[1];
-              profileData.city_municipality = addressParts[2];
-            } else if (addressParts.length === 2) {
-              profileData.barangay = addressParts[0];
-              profileData.city_municipality = addressParts[1];
-            } else if (addressParts.length === 1) {
-              profileData.city_municipality = addressParts[0];
-            }
-          }
-          
-          // Handle backward compatibility for emergency contact address field
-          if (profileData.emergency_contact_address && !profileData.emergency_contact_barangay && !profileData.emergency_contact_street) {
-            // Try to parse the old emergency contact address format
-            let emergencyAddress = profileData.emergency_contact_address.trim();
-            
-            // Remove "Zamboanga City" from the end if present
-            if (emergencyAddress.toLowerCase().endsWith(', zamboanga city')) {
-              emergencyAddress = emergencyAddress.slice(0, -15).trim();
-            } else if (emergencyAddress.toLowerCase().endsWith('zamboanga city')) {
-              emergencyAddress = emergencyAddress.slice(0, -13).trim();
-            }
-            
-            const emergencyAddressParts = emergencyAddress.split(',').map(part => part.trim());
-            if (emergencyAddressParts.length >= 2) {
-              profileData.emergency_contact_street = emergencyAddressParts[0];
-              profileData.emergency_contact_barangay = emergencyAddressParts[1];
-            } else if (emergencyAddressParts.length === 1 && emergencyAddressParts[0]) {
-              profileData.emergency_contact_barangay = emergencyAddressParts[0];
-            }
-          }
-          
-          // Set default address components if still empty
-          if (!profileData.city_municipality) profileData.city_municipality = 'Zamboanga City';
-          if (!profileData.barangay) profileData.barangay = '';
-          if (!profileData.street) profileData.street = '';
-        }
-        setProfile(profileData);
-        
-        // Debug photo loading
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Profile loaded with photo:', {
-            photo: profileData.photo,
-            photoType: typeof profileData.photo,
-            photoLength: profileData.photo?.length
-          });
-        }
-      } catch (err: any) {
-        if (err.response && err.response.status === 404) {
-          // No profile exists for current school year - use autofill data from backend
-          try {
-            // Get autofill data which includes previous year data
-            const autofillResponse = await patientProfileAPI.autofillData();
-            const autofillData = autofillResponse.data;
-            
-            if (process.env.NODE_ENV === 'development') {
-              console.log('Autofill data received:', autofillData);
-            }
-            
-            // Use autofill data as the profile
-            let defaultProfile: any = {
-              name: autofillData.name || '',
-              first_name: autofillData.first_name || '',
-              middle_name: autofillData.middle_name || '',
-              suffix: autofillData.suffix || '',
-              email: autofillData.email || '',
-              nationality: autofillData.nationality || 'Filipino',
-              city_municipality: autofillData.city_municipality || 'Zamboanga City',
-              barangay: autofillData.barangay || '',
-              street: autofillData.street || '',
-              emergency_contact_barangay: autofillData.emergency_contact_barangay || '',
-              emergency_contact_street: autofillData.emergency_contact_street || '',
-            };
-            
-            // Add all other fields from autofill data
-            Object.keys(autofillData).forEach(key => {
-              if (autofillData[key] !== undefined && autofillData[key] !== null && 
-                  !['has_existing_profile', 'current_school_year', 'current_school_year_name', 
-                    'has_previous_data', 'autofilled_from_year', 'profile_completion_status'].includes(key)) {
-                defaultProfile[key] = autofillData[key];
-              }
-            });
-            
-            // Mark as auto-filled if we have previous data
-            if (autofillData.has_previous_data && autofillData.autofilled_from_year) {
-              setIsAutoFilled(true);
-              setAutoFilledFromYear(autofillData.autofilled_from_year);
-              console.log('Auto-filled profile from:', autofillData.autofilled_from_year);
-            }
-            
-            setProfile(defaultProfile);
-          } catch (autofillErr: any) {
-            console.error('Failed to get autofill data:', autofillErr);
-            // Fallback to basic user info
-            const userStr = localStorage.getItem('user');
-            let defaultProfile: any = {
-              name: '',
-              first_name: '',
-              middle_name: '',
-              suffix: '',
-              email: '',
-              nationality: 'Filipino',
-              city_municipality: 'Zamboanga City',
-              barangay: '',
-              street: '',
-              emergency_contact_barangay: '',
-              emergency_contact_street: '',
-            };
-            
-            if (userStr) {
-              const user = JSON.parse(userStr);
-              if (user.last_name) defaultProfile.name = user.last_name;
-              if (user.first_name) defaultProfile.first_name = user.first_name;
-              if (user.middle_name) defaultProfile.middle_name = user.middle_name;
-              if (user.suffix) defaultProfile.suffix = user.suffix;
-              if (user.email) defaultProfile.email = user.email;
-            }
-            
-            setProfile(defaultProfile);
-          }
-        } else {
-          console.error('Error fetching profile:', err);
-          setError(err.response?.data?.error || err.message || 'Failed to fetch profile');
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-
     async function loadCurrentSchoolYear() {
       try {
         const response = await djangoApiClient.get('/academic-school-years/current/');
         if (response.data) {
           setCurrentSchoolYear(response.data);
+          console.log('Loaded current school year:', response.data);
+          
+          // Determine current semester
+          const schoolYear = response.data;
+          let currentSem = '';
+          
+          if (schoolYear.first_sem_start && schoolYear.first_sem_end && 
+              schoolYear.second_sem_start && schoolYear.second_sem_end &&
+              schoolYear.summer_start && schoolYear.summer_end) {
+            
+            const today = new Date();
+            const firstSemStart = new Date(schoolYear.first_sem_start);
+            const firstSemEnd = new Date(schoolYear.first_sem_end);
+            const secondSemStart = new Date(schoolYear.second_sem_start);
+            const secondSemEnd = new Date(schoolYear.second_sem_end);
+            const summerStart = new Date(schoolYear.summer_start);
+            const summerEnd = new Date(schoolYear.summer_end);
+            
+            if (today >= firstSemStart && today <= firstSemEnd) {
+              currentSem = '1st_semester';
+            } else if (today >= secondSemStart && today <= secondSemEnd) {
+              currentSem = '2nd_semester';
+            } else if (today >= summerStart && today <= summerEnd) {
+              currentSem = 'summer';
+            } else {
+              // Default to first semester if we're outside all periods
+              currentSem = '1st_semester';
+            }
+          } else {
+            // Default to first semester if semester dates aren't configured
+            currentSem = '1st_semester';
+          }
+          
+          setCurrentSemester(currentSem);
+          console.log('Current semester determined as:', currentSem);
         }
       } catch (error) {
         console.error('Error loading current school year:', error);
         // Continue without school year if API fails
+        setCurrentSemester('1st_semester'); // Default semester
       }
     }
 
@@ -502,10 +565,16 @@ export default function PatientProfileSetupPage() {
       }
     };
 
-    fetchProfile();
     loadCurrentSchoolYear();
     loadMedicalLists();
   }, []);
+
+  // Fetch profile after school year and semester are loaded
+  useEffect(() => {
+    if (currentSchoolYear && currentSemester) {
+      fetchProfile();
+    }
+  }, [currentSchoolYear, currentSemester]);
 
   const handleProfileChange = (field: string, value: any) => {
     if (field === 'date_of_birth') {
@@ -544,34 +613,49 @@ export default function PatientProfileSetupPage() {
         formData.append('photo', photoFile);
       }
 
-      // Add school year if available
+      // Add school year and semester if available
       if (currentSchoolYear?.id) {
         formData.append('school_year', currentSchoolYear.id.toString());
+      }
+      if (currentSemester) {
+        formData.append('semester', currentSemester);
       }
 
       // Check if we need to create a new profile version or update existing one
       let shouldCreateNew = false;
       
-      if (currentSchoolYear?.id && profile?.school_year) {
-        // If the current profile has a school year and it's different from the active one,
-        // we need to create a new profile version
-        shouldCreateNew = profile.school_year !== currentSchoolYear.id;
-      } else if (currentSchoolYear?.id && !profile?.school_year) {
-        // If current profile has no school year but we have an active school year,
-        // we need to create a new profile version
+      if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
+        // If the current profile has a different school year OR semester, create new profile
+        shouldCreateNew = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
+      } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
+        // If current profile has no school year or semester but we have active ones, create new profile
         shouldCreateNew = true;
       }
 
+      const getSemesterDisplayName = (sem: string) => {
+        switch (sem) {
+          case '1st_semester': return 'First Semester';
+          case '2nd_semester': return 'Second Semester';  
+          case 'summer': return 'Summer Semester';
+          default: return sem;
+        }
+      };
+
       if (shouldCreateNew) {
-        // Create a new profile version for the current school year
+        // Create a new profile version for the current school year and semester
         // Remove the id to force creation of a new record
         formData.delete('id');
         await patientProfileAPI.create(formData);
-        setFeedbackMessage(`Profile saved for school year ${currentSchoolYear.academic_year}!`);
+        const semesterDisplay = getSemesterDisplayName(currentSemester);
+        setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        setAutoFilledFromYear(currentSchoolYear.academic_year);
+        setAutoFilledFromSemester(semesterDisplay);
+        setIsAutoFilled(true);
       } else {
         // Update the existing profile
         await patientProfileAPI.update(formData);
-        setFeedbackMessage('Profile updated successfully!');
+        const semesterDisplay = getSemesterDisplayName(currentSemester);
+        setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
       }
       
       setSuccess(true);
@@ -2040,6 +2124,39 @@ export default function PatientProfileSetupPage() {
                   Step {currentStep} of {steps.length}
                 </span>
               </div>
+              
+              {/* School Year and Semester Information */}
+              {currentSchoolYear && currentSemester && (
+                <div className="mt-4 mb-2">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mx-auto max-w-md">
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-blue-800">
+                        {currentSchoolYear.academic_year} • {
+                          currentSemester === '1st_semester' ? 'First Semester' :
+                          currentSemester === '2nd_semester' ? 'Second Semester' :
+                          currentSemester === 'summer' ? 'Summer Semester' : currentSemester
+                        }
+                      </p>
+                      <p className="text-xs text-blue-600 mt-1">
+                        Profile will be saved for this academic period
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Auto-fill notification */}
+              {isAutoFilled && autoFilledFromYear && autoFilledFromSemester && (
+                <div className="mt-2 mb-2">
+                  <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 mx-auto max-w-md">
+                    <div className="text-center">
+                      <p className="text-xs text-green-700">
+                        ✓ Profile data auto-filled from {autoFilledFromSemester}, {autoFilledFromYear}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Main Card - Enhanced responsive design */}

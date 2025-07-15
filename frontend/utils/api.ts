@@ -188,6 +188,20 @@ export const waiversAPI = {
   },
 };
 
+// Dental Waiver APIs (Django backend)
+export const dentalWaiversAPI = {
+  create: (waiverData: any) => djangoApiClient.post('/dental-waivers/', waiverData),
+  getAll: () => djangoApiClient.get('/dental-waivers/'),
+  getById: (id: string | number) => djangoApiClient.get(`/dental-waivers/${id}/`),
+  getByPatient: (patientId: string | number) => djangoApiClient.get(`/dental-waivers/?patient=${patientId}`),
+  checkStatus: () => {
+    // Use the check_status endpoint to see if current user has signed dental waiver
+    return djangoApiClient.get('/dental-waivers/check_status/', {
+      headers: { ...getAuthHeaders() },
+    });
+  },
+};
+
 function getAuthHeaders() {
   const token = localStorage.getItem('access_token') || localStorage.getItem('token');
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -195,20 +209,22 @@ function getAuthHeaders() {
 
 // Patient Profile APIs
 export const patientProfileAPI = {
-  get: () => djangoApiClient.get('/patients/my_profile/', {
+  get: (params?: any) => djangoApiClient.get('/patients/my_profile/', {
     headers: {
       ...getAuthHeaders(),
     },
+    params,
   }),
   getAllProfiles: () => djangoApiClient.get('/patients/my_profiles/', {
     headers: {
       ...getAuthHeaders(),
     },
   }),
-  autofillData: () => djangoApiClient.get('/patients/autofill_data/', {
+  autofillData: (params?: any) => djangoApiClient.get('/patients/autofill_data/', {
     headers: {
       ...getAuthHeaders(),
     },
+    params,
   }),
   update: (formData: any) => djangoApiClient.put('/patients/update_my_profile/', formData, {
     headers: {

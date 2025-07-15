@@ -49,8 +49,16 @@ interface SchoolYear {
   academic_year: string;
   start_date: string;
   end_date: string;
+  first_sem_start: string;
+  first_sem_end: string;
+  second_sem_start: string;
+  second_sem_end: string;
+  summer_start: string;
+  summer_end: string;
   is_current: boolean;
   status: string;
+  current_semester?: string;
+  current_semester_display?: string;
   isNew?: boolean;
 }
 
@@ -142,18 +150,34 @@ export default function AdminControls() {
           {
             id: 1,
             academic_year: '2025-2026',
-            start_date: '2025-06-15',
-            end_date: '2026-03-15',
+            start_date: '2025-08-15',
+            end_date: '2026-07-31',
+            first_sem_start: '2025-08-15',
+            first_sem_end: '2025-12-20',
+            second_sem_start: '2026-01-15',
+            second_sem_end: '2026-05-15',
+            summer_start: '2026-06-01',
+            summer_end: '2026-07-31',
             is_current: true,
-            status: 'active'
+            status: 'active',
+            current_semester: '1st_semester',
+            current_semester_display: 'First Semester'
           },
           {
             id: 2,
             academic_year: '2026-2027',
-            start_date: '2026-06-15',
-            end_date: '2027-03-15',
+            start_date: '2026-08-15',
+            end_date: '2027-07-31',
+            first_sem_start: '2026-08-15',
+            first_sem_end: '2026-12-20',
+            second_sem_start: '2027-01-15',
+            second_sem_end: '2027-05-15',
+            summer_start: '2027-06-01',
+            summer_end: '2027-07-31',
             is_current: false,
-            status: 'upcoming'
+            status: 'upcoming',
+            current_semester: null,
+            current_semester_display: 'Not in session'
           }
         ];
       }
@@ -207,8 +231,16 @@ export default function AdminControls() {
         academic_year: year.academic_year,
         start_date: year.start_date,
         end_date: year.end_date,
+        first_sem_start: year.first_sem_start || '',
+        first_sem_end: year.first_sem_end || '',
+        second_sem_start: year.second_sem_start || '',
+        second_sem_end: year.second_sem_end || '',
+        summer_start: year.summer_start || '',
+        summer_end: year.summer_end || '',
         is_current: year.is_current,
-        status: year.status
+        status: year.status,
+        current_semester: year.current_semester,
+        current_semester_display: year.current_semester_display
       })));
 
       // Set medical list data from backend
@@ -421,6 +453,12 @@ export default function AdminControls() {
             academic_year: newYear.academic_year,
             start_date: newYear.start_date,
             end_date: newYear.end_date,
+            first_sem_start: newYear.first_sem_start,
+            first_sem_end: newYear.first_sem_end,
+            second_sem_start: newYear.second_sem_start,
+            second_sem_end: newYear.second_sem_end,
+            summer_start: newYear.summer_start,
+            summer_end: newYear.summer_end,
             is_current: newYear.is_current,
             status: newYear.status
           });
@@ -434,6 +472,12 @@ export default function AdminControls() {
               academic_year: year.academic_year,
               start_date: year.start_date,
               end_date: year.end_date,
+              first_sem_start: year.first_sem_start,
+              first_sem_end: year.first_sem_end,
+              second_sem_start: year.second_sem_start,
+              second_sem_end: year.second_sem_end,
+              summer_start: year.summer_start,
+              summer_end: year.summer_end,
               is_current: year.is_current,
               status: year.status
             }))
@@ -448,8 +492,16 @@ export default function AdminControls() {
             academic_year: year.academic_year,
             start_date: year.start_date,
             end_date: year.end_date,
+            first_sem_start: year.first_sem_start || '',
+            first_sem_end: year.first_sem_end || '',
+            second_sem_start: year.second_sem_start || '',
+            second_sem_end: year.second_sem_end || '',
+            summer_start: year.summer_start || '',
+            summer_end: year.summer_end || '',
             is_current: year.is_current,
-            status: year.status
+            status: year.status,
+            current_semester: year.current_semester,
+            current_semester_display: year.current_semester_display
           })));
         }
         
@@ -521,10 +573,18 @@ export default function AdminControls() {
     const newSchoolYear: SchoolYear = {
       id: `new-${Date.now()}`, // Temporary ID until saved
       academic_year: `${nextStartYear}-${nextStartYear + 1}`,
-      start_date: new Date(nextStartYear, 5, 15).toISOString().split('T')[0], // June 15
-      end_date: new Date(nextStartYear + 1, 2, 15).toISOString().split('T')[0], // March 15 of next year
+      start_date: new Date(nextStartYear, 7, 15).toISOString().split('T')[0], // August 15
+      end_date: new Date(nextStartYear + 1, 6, 31).toISOString().split('T')[0], // July 31 of next year
+      first_sem_start: new Date(nextStartYear, 7, 15).toISOString().split('T')[0], // August 15
+      first_sem_end: new Date(nextStartYear, 11, 20).toISOString().split('T')[0], // December 20
+      second_sem_start: new Date(nextStartYear + 1, 0, 15).toISOString().split('T')[0], // January 15
+      second_sem_end: new Date(nextStartYear + 1, 4, 15).toISOString().split('T')[0], // May 15
+      summer_start: new Date(nextStartYear + 1, 5, 1).toISOString().split('T')[0], // June 1
+      summer_end: new Date(nextStartYear + 1, 6, 31).toISOString().split('T')[0], // July 31
       is_current: true, // Set as current/active by default
       status: 'active', // Set as active by default
+      current_semester: '1st_semester',
+      current_semester_display: 'First Semester',
       isNew: true
     };
     
@@ -1107,7 +1167,7 @@ export default function AdminControls() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Academic School Years</h3>
-                    <p className="text-sm text-gray-500">Manage academic years for health records tracking</p>
+                    <p className="text-sm text-gray-500">Manage academic years with semester periods for health records tracking</p>
                   </div>
                   <button
                     onClick={showAddSchoolYearModal}
@@ -1124,7 +1184,16 @@ export default function AdminControls() {
                         <div className="flex items-center space-x-3">
                           <h4 className="font-medium text-gray-900">
                             School Year {year.academic_year}
-                            {year.is_current && <span className="ml-2 px-2 py-1 text-xs bg-[#8B1538] text-white rounded-full">Current</span>}
+                            {year.is_current && (
+                              <div className="inline-flex items-center space-x-2">
+                                <span className="ml-2 px-2 py-1 text-xs bg-[#8B1538] text-white rounded-full">Current</span>
+                                {year.current_semester_display && (
+                                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                    {year.current_semester_display}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </h4>
                         </div>
                         <div className="flex items-center space-x-4">
@@ -1152,7 +1221,8 @@ export default function AdminControls() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Academic Year Basic Info */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Academic Year</label>
                           <input
@@ -1165,23 +1235,136 @@ export default function AdminControls() {
                         </div>
                         
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Start Date</label>
+                          <label className="block text-sm font-medium text-gray-700">Overall Start Date</label>
                           <input
                             type="date"
                             value={year.start_date}
                             onChange={(e) => handleUpdateSchoolYearField(year.id, 'start_date', e.target.value)}
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                            readOnly
+                            title="Auto-calculated from First Semester start date"
                           />
                         </div>
 
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">End Date</label>
+                          <label className="block text-sm font-medium text-gray-700">Overall End Date</label>
                           <input
                             type="date"
                             value={year.end_date}
                             onChange={(e) => handleUpdateSchoolYearField(year.id, 'end_date', e.target.value)}
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                            readOnly
+                            title="Auto-calculated from Summer semester end date"
                           />
+                        </div>
+                      </div>
+
+                      {/* Semester Periods */}
+                      <div className="border-t pt-4">
+                        <h5 className="text-md font-medium text-gray-800 mb-4">Semester Periods</h5>
+                        
+                        {/* First Semester */}
+                        <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                          <h6 className="text-sm font-medium text-blue-800 mb-2">First Semester</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700">Start Date</label>
+                              <input
+                                type="date"
+                                value={year.first_sem_start}
+                                onChange={(e) => {
+                                  handleUpdateSchoolYearField(year.id, 'first_sem_start', e.target.value);
+                                  // Auto-update overall start date
+                                  handleUpdateSchoolYearField(year.id, 'start_date', e.target.value);
+                                }}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700">End Date</label>
+                              <input
+                                type="date"
+                                value={year.first_sem_end}
+                                onChange={(e) => handleUpdateSchoolYearField(year.id, 'first_sem_end', e.target.value)}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Second Semester */}
+                        <div className="mb-4 p-3 bg-green-50 rounded-lg">
+                          <h6 className="text-sm font-medium text-green-800 mb-2">Second Semester</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700">Start Date</label>
+                              <input
+                                type="date"
+                                value={year.second_sem_start}
+                                onChange={(e) => handleUpdateSchoolYearField(year.id, 'second_sem_start', e.target.value)}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700">End Date</label>
+                              <input
+                                type="date"
+                                value={year.second_sem_end}
+                                onChange={(e) => handleUpdateSchoolYearField(year.id, 'second_sem_end', e.target.value)}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Summer Semester */}
+                        <div className="mb-4 p-3 bg-yellow-50 rounded-lg">
+                          <h6 className="text-sm font-medium text-yellow-800 mb-2">Summer Semester</h6>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700">Start Date</label>
+                              <input
+                                type="date"
+                                value={year.summer_start}
+                                onChange={(e) => handleUpdateSchoolYearField(year.id, 'summer_start', e.target.value)}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700">End Date</label>
+                              <input
+                                type="date"
+                                value={year.summer_end}
+                                onChange={(e) => {
+                                  handleUpdateSchoolYearField(year.id, 'summer_end', e.target.value);
+                                  // Auto-update overall end date
+                                  handleUpdateSchoolYearField(year.id, 'end_date', e.target.value);
+                                }}
+                                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-yellow-500 focus:border-yellow-500 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Semester Timeline Visualization */}
+                        <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                          <h6 className="text-sm font-medium text-gray-700 mb-2">Semester Timeline</h6>
+                          <div className="flex items-center space-x-2 text-xs">
+                            <div className="flex items-center space-x-1">
+                              <div className="w-3 h-3 bg-blue-400 rounded"></div>
+                              <span>1st Sem: {year.first_sem_start || 'Not set'} - {year.first_sem_end || 'Not set'}</span>
+                            </div>
+                            <span className="text-gray-400">→</span>
+                            <div className="flex items-center space-x-1">
+                              <div className="w-3 h-3 bg-green-400 rounded"></div>
+                              <span>2nd Sem: {year.second_sem_start || 'Not set'} - {year.second_sem_end || 'Not set'}</span>
+                            </div>
+                            <span className="text-gray-400">→</span>
+                            <div className="flex items-center space-x-1">
+                              <div className="w-3 h-3 bg-yellow-400 rounded"></div>
+                              <span>Summer: {year.summer_start || 'Not set'} - {year.summer_end || 'Not set'}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

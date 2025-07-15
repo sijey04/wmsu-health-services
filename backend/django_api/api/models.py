@@ -79,23 +79,35 @@ class CustomUser(AbstractUser):
         return False
     
     def get_current_patient_profile(self):
-        """Get the patient profile for the current active school year"""
+        """Get the patient profile for the current active school year and semester"""
         try:
             current_school_year = AcademicSchoolYear.objects.get(is_current=True)
-            return self.patient_profiles.filter(school_year=current_school_year).first()
+            current_semester = current_school_year.get_current_semester()
+            if current_semester:
+                return self.patient_profiles.filter(
+                    school_year=current_school_year,
+                    semester=current_semester
+                ).first()
+            else:
+                # If no current semester, get the most recent profile for current year
+                return self.patient_profiles.filter(school_year=current_school_year).first()
         except AcademicSchoolYear.DoesNotExist:
             return None
     
-    def get_or_create_patient_profile(self, school_year=None):
-        """Get or create a patient profile for the specified school year"""
+    def get_or_create_patient_profile(self, school_year=None, semester=None):
+        """Get or create a patient profile for the specified school year and semester"""
         if school_year is None:
             try:
                 school_year = AcademicSchoolYear.objects.get(is_current=True)
             except AcademicSchoolYear.DoesNotExist:
                 return None, False
         
+        if semester is None and school_year:
+            semester = school_year.get_current_semester()
+        
         profile, created = self.patient_profiles.get_or_create(
             school_year=school_year,
+            semester=semester,
             defaults={
                 'name': f"{self.last_name}, {self.first_name}" if self.first_name and self.last_name else self.username,
                 'first_name': self.first_name or '',
@@ -165,6 +177,11 @@ class Patient(models.Model):
         ('boosted', 'Boosted'),
         ('lapsed', 'Lapsed'),
     ]
+    SEMESTER_CHOICES = [
+        ('1st_semester', 'First Semester'),
+        ('2nd_semester', 'Second Semester'),
+        ('summer', 'Summer Semester'),
+    ]
     
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='patient_profiles', null=True, blank=True)
     student_id = models.CharField(max_length=20)
@@ -213,19 +230,21 @@ class Patient(models.Model):
     
     # School Year Reference
     school_year = models.ForeignKey('AcademicSchoolYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='patients')
+    semester = models.CharField(max_length=20, choices=SEMESTER_CHOICES, blank=True, null=True, help_text='Semester period for this patient profile')
     
     allergies = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        unique_together = ['user', 'school_year']
+        unique_together = ['user', 'school_year', 'semester']
         indexes = [
-            models.Index(fields=['user', 'school_year']),
+            models.Index(fields=['user', 'school_year', 'semester']),
         ]
     
     def __str__(self):
-        return f"{self.name} ({self.student_id}) - {self.school_year}"
+        semester_display = f" ({self.get_semester_display()})" if self.semester else ""
+        return f"{self.name} ({self.student_id}) - {self.school_year}{semester_display}"
     
     def save(self, *args, **kwargs):
         """
@@ -252,6 +271,19 @@ class Patient(models.Model):
             if not self.student_id:
                 self.student_id = f"TEMP-{self.user.id}"
         
+        # Auto-assign current school year if not set
+        if not self.school_year:
+            try:
+                current_year = AcademicSchoolYear.get_current_school_year()
+                if current_year:
+                    self.school_year = current_year
+            except:
+                pass
+        
+        # Auto-determine semester if not explicitly set
+        if not self.semester and self.school_year:
+            self.semester = self.school_year.get_current_semester()
+        
         super().save(*args, **kwargs)
     
     def get_current_medical_record(self):
@@ -267,6 +299,29 @@ class Patient(models.Model):
         if self.date_of_birth:
             return (timezone.now().date() - self.date_of_birth).days // 365
         return None
+    
+    def get_semester_display(self):
+        """Get human-readable semester name"""
+        if self.semester == '1st_semester':
+            return 'First Semester'
+        elif self.semester == '2nd_semester':
+            return 'Second Semester'
+        elif self.semester == 'summer':
+            return 'Summer Semester'
+        else:
+            return 'Unassigned'
+    
+    def is_current_semester_patient(self):
+        """Check if this patient profile is for the current semester"""
+        if not self.school_year or not self.semester:
+            return False
+        
+        current_year = AcademicSchoolYear.get_current_school_year()
+        if not current_year or current_year != self.school_year:
+            return False
+        
+        current_semester = current_year.get_current_semester()
+        return current_semester == self.semester
 
 
 class MedicalRecord(models.Model):
@@ -300,6 +355,11 @@ class Appointment(models.Model):
         ('b', 'Campus B'),
         ('c', 'Campus C'),
     ]
+    SEMESTER_CHOICES = [
+        ('1st_semester', 'First Semester'),
+        ('2nd_semester', 'Second Semester'),
+        ('summer', 'Summer Semester'),
+    ]
     
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='appointments')
     doctor = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='appointments')
@@ -313,6 +373,7 @@ class Appointment(models.Model):
     concern = models.TextField(blank=True, null=True)  # for dental
     campus = models.CharField(max_length=20, choices=CAMPUS_CHOICES, default='a')
     school_year = models.ForeignKey('AcademicSchoolYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='appointments')
+    semester = models.CharField(max_length=20, choices=SEMESTER_CHOICES, blank=True, null=True, help_text='Semester period for this appointment')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -325,7 +386,57 @@ class Appointment(models.Model):
     reschedule_reason = models.TextField(blank=True, null=True, help_text='Reason for rescheduling')
     
     def __str__(self):
-        return f"{self.patient.name}'s appointment on {self.appointment_date} at {self.appointment_time}"
+        semester_display = f" ({self.get_semester_display()})" if self.semester else ""
+        return f"{self.patient.name}'s appointment on {self.appointment_date} at {self.appointment_time}{semester_display}"
+    
+    def determine_semester(self):
+        """
+        Automatically determine which semester this appointment falls into
+        based on the appointment date and school year
+        """
+        if not self.school_year or not self.appointment_date:
+            return None
+            
+        # Check which semester period the appointment date falls into
+        if (self.school_year.first_sem_start and self.school_year.first_sem_end and
+            self.school_year.first_sem_start <= self.appointment_date <= self.school_year.first_sem_end):
+            return '1st_semester'
+        elif (self.school_year.second_sem_start and self.school_year.second_sem_end and
+              self.school_year.second_sem_start <= self.appointment_date <= self.school_year.second_sem_end):
+            return '2nd_semester'
+        elif (self.school_year.summer_start and self.school_year.summer_end and
+              self.school_year.summer_start <= self.appointment_date <= self.school_year.summer_end):
+            return 'summer'
+        else:
+            return None
+    
+    def get_semester_display(self):
+        """Get human-readable semester name"""
+        if self.semester == '1st_semester':
+            return 'First Semester'
+        elif self.semester == '2nd_semester':
+            return 'Second Semester'
+        elif self.semester == 'summer':
+            return 'Summer Semester'
+        else:
+            return 'Unassigned'
+    
+    def save(self, *args, **kwargs):
+        """Override save to automatically set semester and school year"""
+        # Auto-assign current school year if not set
+        if not self.school_year:
+            try:
+                current_year = AcademicSchoolYear.get_current_school_year()
+                if current_year:
+                    self.school_year = current_year
+            except:
+                pass
+        
+        # Auto-determine semester if not explicitly set
+        if not self.semester and self.school_year and self.appointment_date:
+            self.semester = self.determine_semester()
+        
+        super().save(*args, **kwargs)
     
     def reschedule_appointment(self, new_date, new_time, rescheduled_by, reason=""):
         """
@@ -411,6 +522,63 @@ class Waiver(models.Model):
 
     def __str__(self):
         return f"Waiver for {self.full_name} on {self.date_signed}"
+
+
+class DentalWaiver(models.Model):
+    """Informed Consent to Care waiver specifically for dental appointments"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='dental_waivers')
+    patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name='dental_waivers', null=True, blank=True)
+    patient_name = models.CharField(max_length=100, help_text='Full name of patient')
+    guardian_name = models.CharField(max_length=100, blank=True, null=True, help_text='Name of parent/guardian if patient is minor')
+    patient_signature = models.TextField(help_text='Base64-encoded patient signature image')
+    guardian_signature = models.TextField(blank=True, null=True, help_text='Base64-encoded parent/guardian signature image')
+    date_signed = models.DateField()
+    school_year = models.ForeignKey('AcademicSchoolYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='dental_waivers')
+    semester = models.CharField(max_length=20, choices=Patient.SEMESTER_CHOICES, blank=True, null=True, help_text='Semester period for this dental waiver')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'school_year', 'semester'], name='unique_dental_waiver_per_user_semester')
+        ]
+
+    def __str__(self):
+        semester_display = f" ({self.get_semester_display()})" if self.semester else ""
+        return f"Dental Waiver for {self.patient_name} - {self.school_year}{semester_display}"
+    
+    def get_semester_display(self):
+        """Get human-readable semester name"""
+        if self.semester == '1st_semester':
+            return 'First Semester'
+        elif self.semester == '2nd_semester':
+            return 'Second Semester'
+        elif self.semester == 'summer':
+            return 'Summer Semester'
+        else:
+            return 'Unassigned'
+    
+    def save(self, *args, **kwargs):
+        """Override save to auto-assign school year and semester"""
+        # Auto-assign current school year if not set
+        if not self.school_year:
+            try:
+                current_year = AcademicSchoolYear.get_current_school_year()
+                if current_year:
+                    self.school_year = current_year
+            except:
+                pass
+        
+        # Auto-determine semester if not explicitly set
+        if not self.semester and self.school_year:
+            self.semester = self.school_year.get_current_semester()
+        
+        # Auto-populate patient field from user's current patient profile
+        if not self.patient and self.user:
+            current_profile = self.user.get_current_patient_profile()
+            if current_profile:
+                self.patient = current_profile
+        
+        super().save(*args, **kwargs)
 
 
 class MedicalDocument(models.Model):
@@ -931,6 +1099,14 @@ class AcademicSchoolYear(models.Model):
     is_current = models.BooleanField(default=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='upcoming')
     
+    # Semester periods
+    first_sem_start = models.DateField(help_text='First semester start date', null=True, blank=True)
+    first_sem_end = models.DateField(help_text='First semester end date', null=True, blank=True)
+    second_sem_start = models.DateField(help_text='Second semester start date', null=True, blank=True)
+    second_sem_end = models.DateField(help_text='Second semester end date', null=True, blank=True)
+    summer_start = models.DateField(help_text='Summer semester start date', null=True, blank=True)
+    summer_end = models.DateField(help_text='Summer semester end date', null=True, blank=True)
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -942,11 +1118,82 @@ class AcademicSchoolYear(models.Model):
         return f"{self.academic_year}"
     
     def save(self, *args, **kwargs):
-        """Ensure only one current academic school year"""
+        """Ensure only one current academic school year and validate semester dates"""
+        # Validate semester dates if they are provided
+        if self.first_sem_start and self.first_sem_end:
+            if self.first_sem_start >= self.first_sem_end:
+                raise ValueError("First semester start date must be before end date")
+        
+        if self.second_sem_start and self.second_sem_end:
+            if self.second_sem_start >= self.second_sem_end:
+                raise ValueError("Second semester start date must be before end date")
+        
+        if self.summer_start and self.summer_end:
+            if self.summer_start >= self.summer_end:
+                raise ValueError("Summer semester start date must be before end date")
+        
+        # Ensure semester periods don't overlap (if all dates are provided)
+        if (self.first_sem_end and self.second_sem_start and 
+            self.first_sem_end >= self.second_sem_start):
+            raise ValueError("First semester must end before second semester starts")
+        
+        if (self.second_sem_end and self.summer_start and 
+            self.second_sem_end >= self.summer_start):
+            raise ValueError("Second semester must end before summer semester starts")
+        
+        # Update overall start and end dates based on semesters (if semester dates are provided)
+        if self.first_sem_start:
+            self.start_date = self.first_sem_start
+        if self.summer_end:
+            self.end_date = self.summer_end
+        
         if self.is_current:
             # Set all other academic school years to not current
             AcademicSchoolYear.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
         super().save(*args, **kwargs)
+
+    def get_current_semester(self):
+        """Get the current semester based on today's date"""
+        from django.utils import timezone
+        today = timezone.now().date()
+        
+        # Check if semester dates are configured
+        if not all([self.first_sem_start, self.first_sem_end, 
+                   self.second_sem_start, self.second_sem_end,
+                   self.summer_start, self.summer_end]):
+            return None
+        
+        if self.first_sem_start <= today <= self.first_sem_end:
+            return '1st_semester'
+        elif self.second_sem_start <= today <= self.second_sem_end:
+            return '2nd_semester'
+        elif self.summer_start <= today <= self.summer_end:
+            return 'summer'
+        else:
+            return None
+    
+    def get_semester_display(self):
+        """Get human-readable current semester"""
+        semester = self.get_current_semester()
+        if semester == '1st_semester':
+            return 'First Semester'
+        elif semester == '2nd_semester':
+            return 'Second Semester'
+        elif semester == 'summer':
+            return 'Summer Semester'
+        else:
+            return 'Not in session' if semester is None else 'Semester dates not configured'
+    
+    def get_semester_dates(self, semester):
+        """Get start and end dates for a specific semester"""
+        if semester == '1st_semester':
+            return self.first_sem_start, self.first_sem_end
+        elif semester == '2nd_semester':
+            return self.second_sem_start, self.second_sem_end
+        elif semester == 'summer':
+            return self.summer_start, self.summer_end
+        else:
+            return None, None
 
     @classmethod
     def get_current_school_year(cls):

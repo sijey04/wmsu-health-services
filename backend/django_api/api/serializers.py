@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import (
-    CustomUser, Patient, MedicalRecord, Appointment, Inventory, Waiver, 
+    CustomUser, Patient, MedicalRecord, Appointment, Inventory, Waiver, DentalWaiver,
     MedicalDocument, DentalFormData, MedicalFormData, StaffDetails,
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
@@ -147,6 +147,8 @@ class AppointmentSerializer(serializers.ModelSerializer):
     form_type = serializers.SerializerMethodField()
     has_medical_certificate = serializers.SerializerMethodField()
     medical_certificate_url = serializers.SerializerMethodField()
+    semester_display = serializers.CharField(source='get_semester_display', read_only=True)
+    school_year_display = serializers.CharField(source='school_year.academic_year', read_only=True)
     
     class Meta:
         model = Appointment
@@ -246,6 +248,20 @@ class WaiverSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         if Waiver.objects.filter(user=user).exists():
             raise serializers.ValidationError('You have already signed a waiver.')
+        return attrs
+
+
+class DentalWaiverSerializer(serializers.ModelSerializer):
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    
+    class Meta:
+        model = DentalWaiver
+        fields = '__all__'
+
+    def validate(self, attrs):
+        user = self.context['request'].user
+        if DentalWaiver.objects.filter(user=user).exists():
+            raise serializers.ValidationError('You have already signed a dental informed consent waiver.')
         return attrs
 
 
@@ -732,20 +748,57 @@ class DentistScheduleSerializer(serializers.ModelSerializer):
 
 class AcademicSchoolYearSerializer(serializers.ModelSerializer):
     """Serializer for Academic School Year"""
+    current_semester = serializers.SerializerMethodField()
+    current_semester_display = serializers.SerializerMethodField()
     
     class Meta:
         model = AcademicSchoolYear
         fields = [
             'id', 'academic_year', 'start_date', 'end_date', 
-            'is_current', 'status', 'created_at', 'updated_at'
+            'first_sem_start', 'first_sem_end',
+            'second_sem_start', 'second_sem_end', 
+            'summer_start', 'summer_end',
+            'is_current', 'status', 'current_semester', 'current_semester_display',
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'start_date', 'end_date']
+    
+    def get_current_semester(self, obj):
+        """Get the current semester code"""
+        return obj.get_current_semester()
+    
+    def get_current_semester_display(self, obj):
+        """Get the current semester display name"""
+        return obj.get_semester_display()
     
     def validate(self, data):
-        """Validate school year data"""
-        if data.get('start_date') and data.get('end_date'):
-            if data['start_date'] >= data['end_date']:
-                raise serializers.ValidationError("End date must be after start date")
+        """Validate school year data including semester dates"""
+        # Validate semester dates if provided
+        if data.get('first_sem_start') and data.get('first_sem_end'):
+            if data['first_sem_start'] >= data['first_sem_end']:
+                raise serializers.ValidationError("First semester start date must be before end date")
+        
+        if data.get('second_sem_start') and data.get('second_sem_end'):
+            if data['second_sem_start'] >= data['second_sem_end']:
+                raise serializers.ValidationError("Second semester start date must be before end date")
+        
+        if data.get('summer_start') and data.get('summer_end'):
+            if data['summer_start'] >= data['summer_end']:
+                raise serializers.ValidationError("Summer semester start date must be before end date")
+        
+        # Validate semester sequence
+        first_sem_end = data.get('first_sem_end')
+        second_sem_start = data.get('second_sem_start')
+        second_sem_end = data.get('second_sem_end')
+        summer_start = data.get('summer_start')
+        
+        if first_sem_end and second_sem_start:
+            if first_sem_end >= second_sem_start:
+                raise serializers.ValidationError("First semester must end before second semester starts")
+        
+        if second_sem_end and summer_start:
+            if second_sem_end >= summer_start:
+                raise serializers.ValidationError("Second semester must end before summer semester starts")
         
         return data
 

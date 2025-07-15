@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django_api.settings.settings')
 django.setup()
 
-from api.models import CustomUser, Patient, MedicalRecord, Appointment, MedicalDocument, DentalFormData
+from api.models import CustomUser, Patient, MedicalRecord, Appointment, MedicalDocument, DentalFormData, AcademicSchoolYear, Waiver, DentalWaiver
 
 def clear_database():
     print("🗑️  Clearing Database for Fresh Testing")
@@ -24,14 +24,26 @@ def clear_database():
     appointment_count = Appointment.objects.count()
     medical_doc_count = MedicalDocument.objects.count()
     dental_count = DentalFormData.objects.count()
+    school_year_count = AcademicSchoolYear.objects.count()
+    
+    # Count appointments by semester
+    first_sem_count = Appointment.objects.filter(semester='1st_semester').count()
+    second_sem_count = Appointment.objects.filter(semester='2nd_semester').count()
+    summer_count = Appointment.objects.filter(semester='summer').count()
+    unassigned_count = Appointment.objects.filter(semester__isnull=True).count()
     
     print(f"📊 Current Database State:")
     print(f"   Users: {user_count}")
     print(f"   Patients: {patient_count}")
     print(f"   Medical Records: {medical_record_count}")
     print(f"   Appointments: {appointment_count}")
+    print(f"     📚 First Semester: {first_sem_count}")
+    print(f"     📚 Second Semester: {second_sem_count}")
+    print(f"     ☀️ Summer Semester: {summer_count}")
+    print(f"     ❓ Unassigned: {unassigned_count}")
     print(f"   Medical Documents: {medical_doc_count}")
     print(f"   Dental Forms: {dental_count}")
+    print(f"   School Years: {school_year_count}")
     
     if user_count == 0 and patient_count == 0:
         print("✅ Database is already clean!")

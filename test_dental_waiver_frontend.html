@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dental Waiver Frontend Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+        }
+        button {
+            background-color: #800000;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #600000;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dental Waiver Frontend Integration Test</h1>
+    
+    <div class="test-section info">
+        <h2>Test Overview</h2>
+        <p>This page tests the dental waiver functionality integration between frontend and backend:</p>
+        <ul>
+            <li>API connectivity to dental waiver endpoints</li>
+            <li>Check waiver status functionality</li>
+            <li>Integration with dental appointment booking flow</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>API Tests</h2>
+        <button onclick="testDentalWaiverAPI()">Test Dental Waiver API</button>
+        <button onclick="testCheckStatus()">Test Check Status</button>
+        <button onclick="testIntegrationFlow()">Test Integration Flow</button>
+        <div id="results"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Navigation Tests</h2>
+        <button onclick="goToDentalWaiver()">Go to Dental Waiver Page</button>
+        <button onclick="goToDentalBooking()">Go to Dental Booking Page</button>
+        <p><em>Note: These will only work if the Next.js frontend is running on localhost:3000</em></p>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+        const FRONTEND_BASE = 'http://localhost:3000';
+
+        function addResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-section ${type}`;
+            resultDiv.innerHTML = `<p>${message}</p>`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testDentalWaiverAPI() {
+            addResult('Testing dental waiver API endpoints...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/dental-waivers/`);
+                if (response.ok) {
+                    addResult('✓ Dental waiver API endpoint is accessible', 'success');
+                } else if (response.status === 401) {
+                    addResult('✓ Dental waiver API endpoint exists (requires authentication)', 'success');
+                } else {
+                    addResult(`✗ API error: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`✗ Connection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCheckStatus() {
+            addResult('Testing check status endpoint...', 'info');
+            
+            try {
+                const response = await fetch(`${API_BASE}/dental-waivers/check_status/`);
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✓ Check status endpoint working. Response: ${JSON.stringify(data)}`, 'success');
+                } else if (response.status === 401) {
+                    addResult('✓ Check status endpoint exists (requires authentication)', 'success');
+                } else {
+                    addResult(`✗ Check status error: ${response.status} - ${response.statusText}`, 'error');
+                }
+            } catch (error) {
+                addResult(`✗ Connection error: ${error.message}`, 'error');
+            }
+        }
+
+        async function testIntegrationFlow() {
+            addResult('Testing integration flow...', 'info');
+            
+            // Test if both backend and frontend are running
+            try {
+                const backendResponse = await fetch(`${API_BASE}/dental-waivers/`);
+                const frontendResponse = await fetch(`${FRONTEND_BASE}/`);
+                
+                if (backendResponse.status === 401 || backendResponse.ok) {
+                    addResult('✓ Backend is running', 'success');
+                } else {
+                    addResult('✗ Backend not accessible', 'error');
+                }
+                
+                if (frontendResponse.ok) {
+                    addResult('✓ Frontend is running', 'success');
+                    addResult('✓ Integration should work - both services are running', 'success');
+                } else {
+                    addResult('✗ Frontend not accessible', 'error');
+                }
+            } catch (error) {
+                addResult(`✗ Integration test error: ${error.message}`, 'error');
+            }
+        }
+
+        function goToDentalWaiver() {
+            window.open(`${FRONTEND_BASE}/patient/dental-waiver`, '_blank');
+        }
+
+        function goToDentalBooking() {
+            window.open(`${FRONTEND_BASE}/appointments/dental`, '_blank');
+        }
+
+        // Auto-run basic tests on page load
+        window.addEventListener('load', () => {
+            addResult('Page loaded. Click buttons to run tests.', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     AuthViewSet, UserViewSet, UserManagementViewSet, StaffManagementViewSet, 
     MedicalRecordViewSet, AppointmentViewSet, AcademicSchoolYearViewSet,
-    InventoryViewSet, WaiverViewSet, DentalFormDataViewSet, 
+    InventoryViewSet, WaiverViewSet, DentalWaiverViewSet, DentalFormDataViewSet, 
     MedicalDocumentViewSet, StaffDetailsViewSet,
     ComorbidIllnessViewSet, VaccinationViewSet, PastMedicalHistoryItemViewSet,
     FamilyMedicalHistoryItemViewSet, SystemConfigurationViewSet,
@@ -21,6 +21,7 @@ router.register(r'appointments', AppointmentViewSet)
 router.register(r'academic-school-years', AcademicSchoolYearViewSet)
 router.register(r'inventory', InventoryViewSet)
 router.register(r'waivers', WaiverViewSet)
+router.register(r'dental-waivers', DentalWaiverViewSet)
 router.register(r'dental-forms', DentalFormDataViewSet)
 router.register(r'medical-forms', MedicalFormDataViewSet)
 router.register(r'medical-documents', MedicalDocumentViewSet)

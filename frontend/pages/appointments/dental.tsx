@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { appointmentsAPI, djangoApiClient } from '../../utils/api';
+import { appointmentsAPI, djangoApiClient, dentalWaiversAPI } from '../../utils/api';
 
 function addDays(date, days) {
   const d = new Date(date);
@@ -112,12 +112,29 @@ export default function DentalAppointmentPage() {
   const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
   const [currentSchoolYear, setCurrentSchoolYear] = useState(null);
   const [needsProfile, setNeedsProfile] = useState(false);
+  const [dentalWaiverSigned, setDentalWaiverSigned] = useState(false);
+  const [checkingWaiver, setCheckingWaiver] = useState(true);
 
   // Load dentist schedule and current school year from admin controls
   useEffect(() => {
     loadDentistSchedule();
     loadCurrentSchoolYear();
+    checkDentalWaiverStatus();
   }, []);
+
+  const checkDentalWaiverStatus = async () => {
+    setCheckingWaiver(true);
+    try {
+      const response = await dentalWaiversAPI.checkStatus();
+      setDentalWaiverSigned(response.data.has_signed);
+    } catch (error) {
+      console.error('Error checking dental waiver status:', error);
+      // Assume not signed on error to be safe
+      setDentalWaiverSigned(false);
+    } finally {
+      setCheckingWaiver(false);
+    }
+  };
 
   const loadDentistSchedule = async () => {
     try {
@@ -250,6 +267,17 @@ export default function DentalAppointmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    // Check if dental waiver is signed
+    if (!dentalWaiverSigned) {
+      // Redirect to dental waiver page with current query params
+      router.push({
+        pathname: '/patient/dental-waiver',
+        query: router.query,
+      });
+      return;
+    }
+    
     if (!isCampusOpen(campus, date)) {
       setError('Dental services are not available on the selected day.');
       return;
@@ -319,9 +347,36 @@ export default function DentalAppointmentPage() {
 
   return (
     <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick}>
-      <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md">
-          {submitted ? (
+      {checkingWaiver ? (
+        <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md text-center">
+            <svg className="animate-spin h-12 w-12 text-[#800000] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+            <p className="text-gray-600">Checking dental waiver status...</p>
+          </div>
+        </div>
+      ) : needsProfile ? (
+        <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md text-center">
+            <svg className="w-16 h-16 mx-auto mb-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <h3 className="text-xl font-bold text-yellow-600 mb-4">Profile Setup Required</h3>
+            <p className="text-gray-600 mb-6">You need to create your patient profile before booking appointments.</p>
+            <button
+              onClick={() => router.push('/patient/profile-setup')}
+              className="px-6 py-2 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#600000] transition-all duration-200"
+            >
+              Set Up Profile
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md">
+            {submitted ? (
             <div className="text-center py-8">
               <svg className="w-16 h-16 mx-auto mb-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
               <h3 className="text-xl font-bold text-green-600">Appointment Submitted!</h3>
@@ -347,6 +402,26 @@ export default function DentalAppointmentPage() {
                   </div>
                   <div className="text-sm text-blue-600">
                     Available: {dentistSchedule.available_days.join(', ')}
+                  </div>
+                </div>
+              )}
+              {!dentalWaiverSigned && (
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="text-sm text-orange-800">
+                    <strong>Notice:</strong> You will need to sign a dental waiver before your appointment can be processed.
+                  </div>
+                  <div className="text-xs text-orange-600">
+                    The waiver will be presented when you submit your appointment request.
+                  </div>
+                </div>
+              )}
+              {dentalWaiverSigned && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="text-sm text-green-800">
+                    ✓ Dental waiver signed
+                  </div>
+                  <div className="text-xs text-green-600">
+                    You can proceed with booking your appointment.
                   </div>
                 </div>
               )}
@@ -461,6 +536,7 @@ export default function DentalAppointmentPage() {
           )}
         </div>
       </div>
+      )}
     </Layout>
   );
 }
