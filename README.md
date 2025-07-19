@@ -5,8 +5,8 @@ A full-stack web application for Western Mindanao State University Health Servic
 ## Tech Stack
 
 - **Frontend**: React, Next.js, Tailwind CSS
-- **Backend**: Django, Express.js
-- **Database**: MySQL
+- **Backend**: Django REST Framework
+- **Database**: MySQL/MariaDB (XAMPP compatible)
 
 ## Features
 
@@ -37,14 +37,10 @@ wmsu-health-services/
 │   ├── styles/              # CSS and Tailwind styles
 │   └── utils/               # Helper functions
 ├── backend/
-│   ├── django_api/          # Django API
-│   │   ├── api/             # API endpoints
-│   │   ├── models/          # Database models
-│   │   └── settings/        # Django settings
-│   └── express_api/         # Express.js middleware API
-│       ├── routes/          # API routes
-│       ├── controllers/     # Request handlers
-│       └── models/          # Data models
+│   └── django_api/          # Django REST API
+│       ├── api/             # API endpoints
+│       ├── models/          # Database models
+│       └── settings/        # Django settings
 └── database/                # Database scripts and migrations
 ```
 
@@ -53,8 +49,7 @@ wmsu-health-services/
 The WMSU Health Services system has been developed with the following features:
 
 - ✅ Frontend with Next.js and Tailwind CSS
-- ✅ Express API for backend functionality
-- ✅ Django API for additional backend functionality
+- ✅ Django REST Framework API for backend functionality
 - ✅ MySQL database setup
 - ✅ Patient management system
 - ✅ Appointment scheduling system
@@ -73,7 +68,6 @@ start_dev.bat
 
 This will start all the necessary services:
 - Frontend on http://localhost:3000
-- Express API on http://localhost:3001
 - Django API on http://localhost:8000
 
 ## Setup Instructions
@@ -100,20 +94,7 @@ exit;
 mysql -u root -p wmsu_health_db < database/setup.sql
 ```
 
-### 3. Set up the Express.js backend
-```bash
-# Navigate to Express API directory
-cd backend/express_api
-
-# Install dependencies
-npm install
-
-# Create .env file
-cp .env.example .env
-# Edit .env with your database credentials
-```
-
-### 4. Set up the Django backend
+### 3. Set up the Django backend
 ```bash
 # Navigate to Django API directory
 cd backend/django_api
@@ -133,7 +114,7 @@ cp .env.example .env
 python manage.py migrate
 ```
 
-### 5. Set up the Next.js frontend
+### 4. Set up the Next.js frontend
 ```bash
 # Navigate to frontend directory
 cd frontend
@@ -147,12 +128,6 @@ cp .env.example .env.local
 ```
 
 ### 6. Running the application
-
-#### Start the Express API server
-```bash
-cd backend/express_api
-npm run dev
-```
 
 #### Start the Django API server
 ```bash
@@ -176,17 +151,35 @@ Visit `http://localhost:3000` to access the application.
 
 ## API Endpoints
 
-- `GET /api/patients` - List all patients
-- `GET /api/patients/:id` - Get patient details
-- `POST /api/patients` - Add new patient
-- `PUT /api/patients/:id` - Update patient information
-- `DELETE /api/patients/:id` - Delete patient
-- `GET /api/appointments` - List all appointments
-- `POST /api/appointments` - Create new appointment
-- `PUT /api/appointments/:id` - Update appointment
-- `GET /api/staff` - List all staff members
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
+### Authentication
+- `POST /api/auth/signup/` - User registration
+- `POST /api/auth/login/` - User login
+- `POST /api/auth/verify_email/` - Email verification
+- `POST /api/auth/resend_verification/` - Resend verification email
+
+### Patients
+- `GET /api/patients/` - List all patients
+- `GET /api/patients/{id}/` - Get patient details
+- `POST /api/patients/` - Add new patient
+- `PUT /api/patients/{id}/` - Update patient information
+- `DELETE /api/patients/{id}/` - Delete patient
+
+### Appointments
+- `GET /api/appointments/` - List all appointments
+- `POST /api/appointments/` - Create new appointment
+- `PUT /api/appointments/{id}/` - Update appointment
+- `DELETE /api/appointments/{id}/` - Delete appointment
+
+### Staff
+- `GET /api/staff-details/` - List all staff members
+- `POST /api/staff-details/` - Add new staff member
+- `PUT /api/staff-details/{id}/` - Update staff information
+
+### Medical Records
+- `GET /api/medical-records/` - List medical records
+- `POST /api/medical-records/` - Create medical record
+- `GET /api/dental-forms/` - List dental forms
+- `POST /api/dental-forms/` - Create dental form
 
 ## Email Configuration
 

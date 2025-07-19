@@ -767,6 +767,7 @@ class PatientViewSet(viewsets.ModelViewSet):
             'has_previous_data': previous_profile is not None,
             'autofilled_from_year': autofilled_from_year,
             'autofilled_from_semester': autofilled_from_semester,
+            'user_type': user.grade_level or '',  # Add user type from signup
         }
         
         # If we have a source profile (current or previous), include comprehensive autofill data
@@ -789,6 +790,15 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'religion': source_profile.religion or '',
                 'nationality': source_profile.nationality or '',
                 'civil_status': source_profile.civil_status or '',
+                
+                # User type specific fields
+                'user_type': source_profile.user_type or user.grade_level or '',
+                'employee_id': source_profile.employee_id or '',
+                'department': source_profile.department or '',
+                'position_type': source_profile.position_type or '',
+                'course': source_profile.course or '',
+                'year_level': source_profile.year_level or '',
+                'strand': source_profile.strand or '',
                 
                 # Contact Information
                 'email': source_profile.email or user.email,

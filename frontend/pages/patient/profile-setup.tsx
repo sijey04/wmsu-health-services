@@ -37,6 +37,12 @@ export default function PatientProfileSetupPage() {
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<any[]>([]);
   const [medicalListsLoading, setMedicalListsLoading] = useState(false);
 
+  // Edit mode and versioning state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalProfile, setOriginalProfile] = useState<any>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isNewProfile, setIsNewProfile] = useState(false); // Track if this is a newly created profile
+
   const progress = (currentStep / steps.length) * 100;
 
   const requiredFieldsByStep = {
@@ -79,6 +85,9 @@ export default function PatientProfileSetupPage() {
         if (!profileData.suffix && user.suffix) profileData.suffix = user.suffix;
         if (!profileData.email && user.email) profileData.email = user.email;
         if (!profileData.nationality) profileData.nationality = 'Filipino';
+        
+        // Add user type information
+        if (!profileData.user_type && user.grade_level) profileData.user_type = user.grade_level;
         
         // Handle backward compatibility for address field
         if (profileData.address && !profileData.city_municipality && !profileData.barangay && !profileData.street) {
@@ -123,6 +132,18 @@ export default function PatientProfileSetupPage() {
         if (!profileData.street) profileData.street = '';
       }
       setProfile(profileData);
+      
+      // Store original profile for change detection
+      setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
+      
+      // Check if profile exists (not a new one)
+      if (profileData.id) {
+        setIsEditMode(false); // Start in view mode for existing profiles
+        setIsNewProfile(false); // This is an existing profile
+      } else {
+        setIsEditMode(true); // Start in edit mode for new profiles
+        setIsNewProfile(true); // This is a new profile
+      }
       
       // Debug photo loading
       if (process.env.NODE_ENV === 'development') {
@@ -191,6 +212,11 @@ export default function PatientProfileSetupPage() {
           }
           
           setProfile(defaultProfile);
+          
+          // Store original profile for change detection
+          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
+          setIsEditMode(true); // Start in edit mode for new profiles
+          setIsNewProfile(true); // This is a new profile
         } catch (autofillErr: any) {
           console.error('Failed to get autofill data:', autofillErr);
           // Fallback to basic user info
@@ -216,9 +242,15 @@ export default function PatientProfileSetupPage() {
             if (user.middle_name) defaultProfile.middle_name = user.middle_name;
             if (user.suffix) defaultProfile.suffix = user.suffix;
             if (user.email) defaultProfile.email = user.email;
+            if (user.grade_level) defaultProfile.user_type = user.grade_level;
           }
           
           setProfile(defaultProfile);
+          
+          // Store original profile for change detection
+          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
+          setIsEditMode(true); // Start in edit mode for new profiles
+          setIsNewProfile(true); // This is a new profile
         }
       } else {
         console.error('Error fetching profile:', err);
@@ -323,6 +355,45 @@ export default function PatientProfileSetupPage() {
           console.log('Photo is required for new profile');
         }
       }
+
+      // Conditional validation based on user type
+      if (profile?.user_type === 'Employee') {
+        if (!profile?.employee_id || profile.employee_id.trim() === '') {
+          errors.employee_id = 'Employee ID is required.';
+        }
+        if (!profile?.department || profile.department.trim() === '') {
+          errors.department = 'Department is required.';
+        }
+        if (!profile?.position_type || profile.position_type.trim() === '') {
+          errors.position_type = 'Position type is required.';
+        }
+      }
+
+      if (profile?.user_type === 'College' || profile?.user_type === 'Incoming Freshman') {
+        if (!profile?.course || profile.course.trim() === '') {
+          errors.course = 'Course is required.';
+        }
+        if (!profile?.year_level || profile.year_level.trim() === '') {
+          errors.year_level = 'Year level is required.';
+        }
+      }
+
+      if (profile?.user_type === 'High School' || profile?.user_type === 'Senior High School') {
+        if (!profile?.year_level || profile.year_level.trim() === '') {
+          errors.year_level = 'Year level is required.';
+        }
+        if (profile?.user_type === 'Senior High School') {
+          if (!profile?.strand || profile.strand.trim() === '') {
+            errors.strand = 'Strand is required.';
+          }
+        }
+      }
+
+      if (profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') {
+        if (!profile?.year_level || profile.year_level.trim() === '') {
+          errors.year_level = 'Year level is required.';
+        }
+      }
     }
 
     // CONDITIONAL VALIDATION - Only run for relevant steps and when conditions are actually met
@@ -415,6 +486,13 @@ export default function PatientProfileSetupPage() {
     // Include conditional validation errors based on the step
     if (step === 1) {
       if (errors.photo) stepSpecificErrors.photo = errors.photo;
+      // User type conditional fields
+      if (errors.employee_id) stepSpecificErrors.employee_id = errors.employee_id;
+      if (errors.department) stepSpecificErrors.department = errors.department;
+      if (errors.position_type) stepSpecificErrors.position_type = errors.position_type;
+      if (errors.course) stepSpecificErrors.course = errors.course;
+      if (errors.year_level) stepSpecificErrors.year_level = errors.year_level;
+      if (errors.strand) stepSpecificErrors.strand = errors.strand;
     } else if (step === 2) {
       if (errors.food_allergy_specify) stepSpecificErrors.food_allergy_specify = errors.food_allergy_specify;
       if (errors.other_comorbid_specify) stepSpecificErrors.other_comorbid_specify = errors.other_comorbid_specify;
@@ -585,10 +663,31 @@ export default function PatientProfileSetupPage() {
       if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
         age--;
       }
-      setProfile((prev: any) => ({ ...prev, date_of_birth: value, age: age > 0 ? age : '' }));
+      setProfile((prev: any) => {
+        const newProfile = { ...prev, date_of_birth: value, age: age > 0 ? age : '' };
+        
+        // Check for changes
+        if (originalProfile) {
+          const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+          setHasUnsavedChanges(hasChanges);
+        }
+        
+        return newProfile;
+      });
       return;
     }
-    setProfile((prev: any) => ({ ...prev, [field]: value }));
+    
+    setProfile((prev: any) => {
+      const newProfile = { ...prev, [field]: value };
+      
+      // Check for changes
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+      return newProfile;
+    });
   };
 
   const handleProfileSave = async () => {
@@ -624,11 +723,29 @@ export default function PatientProfileSetupPage() {
       // Check if we need to create a new profile version or update existing one
       let shouldCreateNew = false;
       
-      if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
-        // If the current profile has a different school year OR semester, create new profile
+      // Logic for versioning:
+      // 1. If it's a new profile (no existing ID), always create new
+      // 2. If it's an existing profile with changes, create new version (versioning)
+      // 3. If it's a newly created profile being edited, just update (overwrite)
+      
+      if (!profile?.id) {
+        // No ID means it's a completely new profile
+        shouldCreateNew = true;
+      } else if (isNewProfile && hasUnsavedChanges) {
+        // This is a profile that was just created in this session, overwrite it
+        shouldCreateNew = false;
+      } else if (!isNewProfile && hasUnsavedChanges) {
+        // This is an existing profile with changes, create new version
+        shouldCreateNew = true;
+        // Add version increment logic
+        const currentVersion = profile.version || 1;
+        formData.append('version', (currentVersion + 1).toString());
+        formData.append('previous_version_id', profile.id.toString());
+      } else if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
+        // Different school year or semester, create new profile
         shouldCreateNew = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
       } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
-        // If current profile has no school year or semester but we have active ones, create new profile
+        // Profile has no school year or semester but we have active ones, create new profile
         shouldCreateNew = true;
       }
 
@@ -647,16 +764,37 @@ export default function PatientProfileSetupPage() {
         formData.delete('id');
         await patientProfileAPI.create(formData);
         const semesterDisplay = getSemesterDisplayName(currentSemester);
-        setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        if (hasUnsavedChanges && profile?.id && !isNewProfile) {
+          setFeedbackMessage(`New profile version created for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        } else {
+          setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        }
         setAutoFilledFromYear(currentSchoolYear.academic_year);
         setAutoFilledFromSemester(semesterDisplay);
         setIsAutoFilled(true);
+        
+        // Reset change tracking
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+        setIsNewProfile(false); // After saving, it's no longer a new profile
       } else {
-        // Update the existing profile
+        // Update the existing profile (overwrite)
         await patientProfileAPI.update(formData);
         const semesterDisplay = getSemesterDisplayName(currentSemester);
-        setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        if (isNewProfile) {
+          setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+          setIsNewProfile(false); // After updating, it's no longer a new profile
+        } else {
+          setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        }
+        
+        // Reset change tracking
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
       }
+      
+      // Refresh the profile data
+      await fetchProfile();
       
       setSuccess(true);
       setFeedbackOpen(true);
@@ -701,7 +839,16 @@ export default function PatientProfileSetupPage() {
         const idx = arr.indexOf(value);
         if (idx > -1) arr.splice(idx, 1);
       }
-      return { ...prev, [field]: arr };
+      
+      const newProfile = { ...prev, [field]: arr };
+      
+      // Check for changes
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+      return newProfile;
     });
   };
 
@@ -709,7 +856,16 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [{}];
       meds[idx] = { ...meds[idx], [key]: value };
-      return { ...prev, maintenance_medications: meds };
+      
+      const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Check for changes (medications can be changed independently)
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+      return newProfile;
     });
   };
 
@@ -717,7 +873,16 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
       meds.push({ drug: '', dose: '', unit: 'mg', frequency: '' });
-      return { ...prev, maintenance_medications: meds };
+      
+      const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Check for changes (medications can be changed independently)
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+      return newProfile;
     });
   };
 
@@ -725,8 +890,125 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
       meds.splice(idx, 1);
-      return { ...prev, maintenance_medications: meds };
+      
+      const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Check for changes (medications can be changed independently)
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+      return newProfile;
     });
+  };
+
+  // Edit mode functions
+  const handleEditModeToggle = () => {
+    if (isEditMode && hasUnsavedChanges) {
+      // Confirm before discarding changes
+      if (window.confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+        setProfile(JSON.parse(JSON.stringify(originalProfile)));
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+      }
+    } else {
+      setIsEditMode(!isEditMode);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (hasUnsavedChanges) {
+      if (window.confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+        setProfile(JSON.parse(JSON.stringify(originalProfile)));
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+      }
+    } else {
+      setIsEditMode(false);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    // Validate current step before saving
+    if (!validateStep(currentStep)) {
+      return;
+    }
+    await handleProfileSave();
+  };
+
+  // Save medications independently without requiring full edit mode
+  const handleSaveMedications = async () => {
+    if (!hasUnsavedChanges) return;
+    
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      
+      // Only send medication data
+      if (profile?.maintenance_medications) {
+        formData.append('maintenance_medications', JSON.stringify(profile.maintenance_medications));
+      }
+      
+      // Add required fields for the update
+      if (profile?.id) {
+        formData.append('id', profile.id.toString());
+      }
+      if (currentSchoolYear?.id) {
+        formData.append('school_year', currentSchoolYear.id.toString());
+      }
+      if (currentSemester) {
+        formData.append('semester', currentSemester);
+      }
+
+      // Determine if we need to create new version or update
+      if (!isNewProfile && profile?.id) {
+        // Existing profile - create new version for medication changes
+        const currentVersion = profile.version || 1;
+        formData.append('version', (currentVersion + 1).toString());
+        formData.append('previous_version_id', profile.id.toString());
+        
+        // Include all existing profile data to create complete new version
+        for (const key in profile) {
+          if (profile[key] !== undefined && profile[key] !== null && key !== 'maintenance_medications' && key !== 'id') {
+            if (typeof profile[key] === 'object' && !(profile[key] instanceof File)) {
+              formData.append(key, JSON.stringify(profile[key]));
+            } else if (key !== 'photo') {
+              formData.append(key, profile[key]);
+            }
+          }
+        }
+        
+        formData.delete('id'); // Remove ID to force creation of new record
+        await patientProfileAPI.create(formData);
+        setFeedbackMessage('Medications updated - new profile version created!');
+        setIsNewProfile(false);
+      } else {
+        // New profile - just update
+        await patientProfileAPI.update(formData);
+        setFeedbackMessage('Medications updated successfully!');
+      }
+      
+      // Refresh the profile data
+      await fetchProfile();
+      
+      setSuccess(true);
+      setFeedbackOpen(true);
+    } catch (err: any) {
+      let msg = 'Failed to update medications.';
+      if (err.response && err.response.data) {
+        if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        } else if (typeof err.response.data === 'object') {
+          msg = Object.values(err.response.data).flat().join(' ');
+        }
+      }
+      setError(msg);
+      setFeedbackMessage(msg);
+      setFeedbackOpen(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderStepContent = () => {
@@ -771,30 +1053,40 @@ export default function PatientProfileSetupPage() {
               <label className="block text-base sm:text-lg font-medium text-gray-700 mb-4 text-center">
                 Profile Photo {!profile?.photo && <span className="text-red-500">*</span>}
               </label>
-              <label htmlFor="photo-upload" className="cursor-pointer group">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed border-gray-400 rounded-lg bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200 transition-all duration-200">
+              <label htmlFor="photo-upload" className={`cursor-pointer group ${!isEditMode ? 'pointer-events-none' : ''}`}>
+                <div className={`w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed rounded-lg transition-all duration-200 ${
+                  !isEditMode 
+                    ? 'border-gray-300 bg-gray-100' 
+                    : 'border-gray-400 bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200'
+                }`}>
                   {photoPreview ? (
                     <div className="relative w-full h-full">
                       <img src={photoPreview} alt="Preview" className="object-cover w-full h-full rounded-md" />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
-                        <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          Tap to change
-                        </span>
-                      </div>
+                      {isEditMode && (
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
+                          <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            Tap to change
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0 && profile.photo !== 'null' && profile.photo !== 'undefined') ? (
                     <div className="relative w-full h-full">
                       <img src={profile.photo} alt="Current Photo" className="object-cover w-full h-full rounded-md" />
-                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
-                        <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          Tap to change
-                        </span>
-                      </div>
+                      {isEditMode && (
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
+                          <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                            Tap to change
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="text-center">
-                      <span className="text-2xl sm:text-3xl lg:text-4xl text-gray-400 font-light block">+</span>
-                      <span className="text-xs sm:text-sm text-gray-500 mt-1">Upload Photo</span>
+                      <span className={`text-2xl sm:text-3xl lg:text-4xl font-light block ${!isEditMode ? 'text-gray-300' : 'text-gray-400'}`}>+</span>
+                      <span className={`text-xs sm:text-sm mt-1 ${!isEditMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                        {isEditMode ? 'Upload Photo' : 'No Photo'}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -804,6 +1096,7 @@ export default function PatientProfileSetupPage() {
                   accept="image/*"
                   className="hidden"
                   onChange={handlePhotoChange}
+                  disabled={!isEditMode}
                 />
               </label>
               {fieldErrors.photo && (
@@ -811,9 +1104,11 @@ export default function PatientProfileSetupPage() {
                   {fieldErrors.photo}
                 </div>
               )}
-              <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
-                Supported formats: JPG, PNG, GIF (max 5MB)
-              </p>
+              {isEditMode && (
+                <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
+                  Supported formats: JPG, PNG, GIF (max 5MB)
+                </p>
+              )}
             </div>
 
             {/* Personal Info Form - Mobile-first responsive */}
@@ -829,10 +1124,16 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Surname *</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                        !isEditMode 
+                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                      } ${fieldErrors.name ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.name || ''}
                       onChange={e => handleProfileChange('name', e.target.value)}
                       placeholder="Enter surname"
+                      disabled={!isEditMode}
+                      readOnly={!isEditMode}
                     />
                     {fieldErrors.name && <div className="text-red-500 text-xs mt-1">{fieldErrors.name}</div>}
                   </div>
@@ -840,10 +1141,16 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.first_name ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                        !isEditMode 
+                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                      } ${fieldErrors.first_name ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.first_name || ''}
                       onChange={e => handleProfileChange('first_name', e.target.value)}
                       placeholder="Enter first name"
+                      disabled={!isEditMode}
+                      readOnly={!isEditMode}
                     />
                     {fieldErrors.first_name && <div className="text-red-500 text-xs mt-1">{fieldErrors.first_name}</div>}
                   </div>
@@ -851,10 +1158,16 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.middle_name ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                        !isEditMode 
+                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                      } ${fieldErrors.middle_name ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.middle_name || ''}
                       onChange={e => handleProfileChange('middle_name', e.target.value)}
                       placeholder="Enter middle name"
+                      disabled={!isEditMode}
+                      readOnly={!isEditMode}
                     />
                     {fieldErrors.middle_name && <div className="text-red-500 text-xs mt-1">{fieldErrors.middle_name}</div>}
                   </div>
@@ -862,10 +1175,16 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Suffix</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.suffix ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                        !isEditMode 
+                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                      } ${fieldErrors.suffix ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.suffix || ''}
                       onChange={e => handleProfileChange('suffix', e.target.value)}
                       placeholder="Jr., Sr., III"
+                      disabled={!isEditMode}
+                      readOnly={!isEditMode}
                     />
                     {fieldErrors.suffix && <div className="text-red-500 text-xs mt-1">{fieldErrors.suffix}</div>}
                   </div>
@@ -913,6 +1232,256 @@ export default function PatientProfileSetupPage() {
                     </select>
                     {fieldErrors.gender && <div className="text-red-500 text-xs mt-1">{fieldErrors.gender}</div>}
                   </div>
+                </div>
+              </div>
+
+              {/* User Type Section */}
+              <div className="border border-gray-200 rounded-lg p-6">
+                <h3 className="font-medium text-gray-900 mb-4 flex items-center">
+                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-3">U</span>
+                  User Type Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-md shadow-sm py-3 px-4 bg-gray-50 border-gray-300"
+                      value={profile?.user_type || ''}
+                      readOnly
+                      placeholder="User type from signup"
+                    />
+                  </div>
+                  
+                  {/* Employee Fields */}
+                  {profile?.user_type === 'Employee' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID *</label>
+                        <input
+                          type="text"
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                            !isEditMode 
+                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                          } ${fieldErrors.employee_id ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.employee_id || ''}
+                          onChange={e => handleProfileChange('employee_id', e.target.value)}
+                          placeholder="Enter employee ID"
+                          disabled={!isEditMode}
+                          readOnly={!isEditMode}
+                        />
+                        {fieldErrors.employee_id && <div className="text-red-500 text-xs mt-1">{fieldErrors.employee_id}</div>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                            !isEditMode 
+                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                          } ${fieldErrors.department ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.department || ''}
+                          onChange={e => handleProfileChange('department', e.target.value)}
+                          disabled={!isEditMode}
+                        >
+                          <option value="">Select department</option>
+                          <option value="Academic Affairs">Academic Affairs</option>
+                          <option value="Administration">Administration</option>
+                          <option value="Admissions">Admissions</option>
+                          <option value="Business Administration">Business Administration</option>
+                          <option value="Computer Science">Computer Science</option>
+                          <option value="Education">Education</option>
+                          <option value="Engineering">Engineering</option>
+                          <option value="Finance">Finance</option>
+                          <option value="Health Sciences">Health Sciences</option>
+                          <option value="Human Resources">Human Resources</option>
+                          <option value="Information Technology">Information Technology</option>
+                          <option value="Liberal Arts">Liberal Arts</option>
+                          <option value="Library Services">Library Services</option>
+                          <option value="Maintenance">Maintenance</option>
+                          <option value="Medical Services">Medical Services</option>
+                          <option value="Nursing">Nursing</option>
+                          <option value="Physical Education">Physical Education</option>
+                          <option value="Psychology">Psychology</option>
+                          <option value="Registrar">Registrar</option>
+                          <option value="Research">Research</option>
+                          <option value="Science">Science</option>
+                          <option value="Security">Security</option>
+                          <option value="Social Sciences">Social Sciences</option>
+                          <option value="Student Affairs">Student Affairs</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        {fieldErrors.department && <div className="text-red-500 text-xs mt-1">{fieldErrors.department}</div>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Position Type *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                            !isEditMode 
+                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                          } ${fieldErrors.position_type ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.position_type || ''}
+                          onChange={e => handleProfileChange('position_type', e.target.value)}
+                          disabled={!isEditMode}
+                        >
+                          <option value="">Select position type</option>
+                          <option value="Teaching">Teaching</option>
+                          <option value="Non-Teaching">Non-Teaching</option>
+                        </select>
+                        {fieldErrors.position_type && <div className="text-red-500 text-xs mt-1">{fieldErrors.position_type}</div>}
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* College and Incoming Freshman Fields */}
+                  {(profile?.user_type === 'College' || profile?.user_type === 'Incoming Freshman') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                            !isEditMode 
+                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                          } ${fieldErrors.course ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.course || ''}
+                          onChange={e => handleProfileChange('course', e.target.value)}
+                          disabled={!isEditMode}
+                        >
+                          <option value="">Select course</option>
+                          <option value="BS Business Administration">BS Business Administration</option>
+                          <option value="BS Computer Science">BS Computer Science</option>
+                          <option value="BS Education">BS Education</option>
+                          <option value="BS Engineering">BS Engineering</option>
+                          <option value="BS Information Technology">BS Information Technology</option>
+                          <option value="BS Nursing">BS Nursing</option>
+                          <option value="BS Psychology">BS Psychology</option>
+                          <option value="BA Communication">BA Communication</option>
+                          <option value="BA Political Science">BA Political Science</option>
+                          <option value="BA Sociology">BA Sociology</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        {fieldErrors.course && <div className="text-red-500 text-xs mt-1">{fieldErrors.course}</div>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                            !isEditMode 
+                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                          } ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.year_level || ''}
+                          onChange={e => handleProfileChange('year_level', e.target.value)}
+                          disabled={!isEditMode}
+                        >
+                          <option value="">Select year level</option>
+                          <option value="1st Year">1st Year</option>
+                          <option value="2nd Year">2nd Year</option>
+                          <option value="3rd Year">3rd Year</option>
+                          <option value="4th Year">4th Year</option>
+                          <option value="5th Year">5th Year</option>
+                        </select>
+                        {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* High School and Senior High School Fields */}
+                  {(profile?.user_type === 'High School' || profile?.user_type === 'Senior High School') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                            !isEditMode 
+                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                          } ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.year_level || ''}
+                          onChange={e => handleProfileChange('year_level', e.target.value)}
+                          disabled={!isEditMode}
+                        >
+                          <option value="">Select year level</option>
+                          {profile?.user_type === 'High School' && (
+                            <>
+                              <option value="Grade 7">Grade 7</option>
+                              <option value="Grade 8">Grade 8</option>
+                              <option value="Grade 9">Grade 9</option>
+                              <option value="Grade 10">Grade 10</option>
+                            </>
+                          )}
+                          {profile?.user_type === 'Senior High School' && (
+                            <>
+                              <option value="Grade 11">Grade 11</option>
+                              <option value="Grade 12">Grade 12</option>
+                            </>
+                          )}
+                        </select>
+                        {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
+                      </div>
+                      {profile?.user_type === 'Senior High School' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Strand *</label>
+                          <select
+                            className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                              !isEditMode 
+                                ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                                : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                            } ${fieldErrors.strand ? 'border-red-500' : 'border-gray-300'}`}
+                            value={profile?.strand || ''}
+                            onChange={e => handleProfileChange('strand', e.target.value)}
+                            disabled={!isEditMode}
+                          >
+                            <option value="">Select strand</option>
+                            <option value="ABM">ABM (Accountancy, Business and Management)</option>
+                            <option value="HUMSS">HUMSS (Humanities and Social Sciences)</option>
+                            <option value="STEM">STEM (Science, Technology, Engineering and Mathematics)</option>
+                            <option value="GAS">GAS (General Academic Strand)</option>
+                            <option value="TVL">TVL (Technical-Vocational-Livelihood)</option>
+                            <option value="Arts and Design">Arts and Design</option>
+                            <option value="Sports">Sports</option>
+                          </select>
+                          {fieldErrors.strand && <div className="text-red-500 text-xs mt-1">{fieldErrors.strand}</div>}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Elementary and Kindergarten Fields */}
+                  {(profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                      <select
+                        className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
+                          !isEditMode 
+                            ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
+                            : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
+                        } ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                        value={profile?.year_level || ''}
+                        onChange={e => handleProfileChange('year_level', e.target.value)}
+                        disabled={!isEditMode}
+                      >
+                        <option value="">Select year level</option>
+                        {profile?.user_type === 'Kindergarten' && (
+                          <option value="Kindergarten">Kindergarten</option>
+                        )}
+                        {profile?.user_type === 'Elementary' && (
+                          <>
+                            <option value="Grade 1">Grade 1</option>
+                            <option value="Grade 2">Grade 2</option>
+                            <option value="Grade 3">Grade 3</option>
+                            <option value="Grade 4">Grade 4</option>
+                            <option value="Grade 5">Grade 5</option>
+                            <option value="Grade 6">Grade 6</option>
+                          </>
+                        )}
+                      </select>
+                      {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1210,7 +1779,7 @@ export default function PatientProfileSetupPage() {
                         <input
                           type="text"
                           placeholder="Specify food allergies (e.g., shellfish, nuts)"
-                          className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.food_allergy_specify ? 'border-red-500' : 'border-gray-300'}`}
+                          className="w-full border rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
                           value={profile?.food_allergy_specify || ''}
                           onChange={e => handleProfileChange('food_allergy_specify', e.target.value)}
                         />
@@ -1322,17 +1891,24 @@ export default function PatientProfileSetupPage() {
               
               {/* Mobile-optimized medication table */}
               <div className="space-y-4">
-                {(profile?.maintenance_medications || [{}]).map((med: any, idx: number) => (
+                {(!profile?.maintenance_medications || profile.maintenance_medications.length === 0) && !isEditMode ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-center">
+                    <p className="text-sm text-gray-500">No current medications recorded</p>
+                  </div>
+                ) : (
+                  (profile?.maintenance_medications && profile.maintenance_medications.length > 0 
+                    ? profile.maintenance_medications 
+                    : isEditMode ? [{}] : []
+                  ).map((med: any, idx: number) => (
                   <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-gray-800">Medication #{idx + 1}</span>
-                      {(profile?.maintenance_medications || []).length > 1 && (
-                        <button
-                          className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
-                          onClick={() => handleRemoveMedication(idx)}
-                          type="button"
-                        >×</button>
-                      )}
+                      <button
+                        className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+                        onClick={() => handleRemoveMedication(idx)}
+                        type="button"
+                        title="Remove medication"
+                      >×</button>
                     </div>
                     
                     <div className="space-y-3">
@@ -1386,13 +1962,28 @@ export default function PatientProfileSetupPage() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
                 
-                <button
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                  onClick={handleAddMedication}
-                  type="button"
-                >+ Add Medication</button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    className="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                    onClick={handleAddMedication}
+                    type="button"
+                  >+ Add Medication</button>
+                  
+                  {/* Save Medications Button - shows when there are unsaved medication changes */}
+                  {hasUnsavedChanges && (
+                    <button
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                      onClick={handleSaveMedications}
+                      type="button"
+                      disabled={loading}
+                    >
+                      {loading ? 'Saving...' : 'Save Medications'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -1991,10 +2582,13 @@ export default function PatientProfileSetupPage() {
     if (process.env.NODE_ENV === 'development') {
       console.log('=== HANDLE NEXT CLICKED ===');
       console.log('Current step:', currentStep);
+      console.log('Is edit mode:', isEditMode);
+      console.log('Has unsaved changes:', hasUnsavedChanges);
       console.log('About to validate step:', currentStep);
     }
     
-    if (!validateStep(currentStep)) {
+    // If in edit mode and there are changes, require validation
+    if (isEditMode && !validateStep(currentStep)) {
       // Get specific error messages for missing fields
       const errorMessages = Object.entries(fieldErrors)
         .filter(([_, message]) => message)
@@ -2024,6 +2618,12 @@ export default function PatientProfileSetupPage() {
             'emergency_contact_relationship': 'Emergency Contact Relationship',
             'emergency_contact_barangay': 'Emergency Contact Barangay',
             'emergency_contact_street': 'Emergency Contact Street',
+            'employee_id': 'Employee ID',
+            'department': 'Department',
+            'position_type': 'Position Type',
+            'course': 'Course',
+            'year_level': 'Year Level',
+            'strand': 'Strand',
             'hospital_admission_or_surgery': 'Hospital Admission/Surgery',
             'hospital_admission_details': 'Hospital Admission/Surgery Details',
             'past_medical_history_other': 'Past Medical History (Other)',
@@ -2045,12 +2645,17 @@ export default function PatientProfileSetupPage() {
       setFeedbackOpen(true);
       return;
     }
+    
     if (currentStep < steps.length) {
       // Clear any previous errors when moving to next step
       setFieldErrors({});
       setCurrentStep(currentStep + 1);
     } else {
-      await handleProfileSave();
+      // Final submission - save if in edit mode or if there are changes
+      if (isEditMode || hasUnsavedChanges) {
+        await handleProfileSave();
+      }
+      
       setTimeout(() => {
         if (option === 'Request Medical Certificate') {
           router.push('/patient/upload-documents');
@@ -2160,6 +2765,66 @@ export default function PatientProfileSetupPage() {
                   </div>
                 </div>
               )}
+
+              {/* Edit Mode Controls */}
+              {profile?.id && (
+                <div className="mt-4 mb-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+                    {/* Edit Mode Status */}
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      isEditMode 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {isEditMode ? '✏️ Edit Mode' : '👁️ View Mode'}
+                    </div>
+
+                    {/* Profile Type Indicator */}
+                    {isNewProfile && (
+                      <div className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        🆕 New Profile
+                      </div>
+                    )}
+
+                    {/* Unsaved Changes Indicator */}
+                    {hasUnsavedChanges && (
+                      <div className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        📝 Unsaved Changes
+                      </div>
+                    )}
+
+                    {/* Edit/Cancel Button */}
+                    <button
+                      onClick={handleEditModeToggle}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isEditMode
+                          ? 'bg-gray-500 text-white hover:bg-gray-600'
+                          : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
+                    >
+                      {isEditMode ? 'Cancel Edit' : 'Edit Profile'}
+                    </button>
+
+                    {/* Save Changes Button - only show in edit mode */}
+                    {isEditMode && hasUnsavedChanges && (
+                      <button
+                        onClick={handleSaveChanges}
+                        disabled={loading}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Helpful text about medications */}
+                  <div className="text-center mt-2">
+                    <p className="text-xs text-gray-500">
+                      💊 Medications can be added/removed anytime • Other fields require edit mode
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Main Card - Enhanced responsive design */}
@@ -2183,12 +2848,34 @@ export default function PatientProfileSetupPage() {
                   >
                     ← Back
                   </button>
-                  <button
-                    onClick={handleNext}
-                    className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] active:bg-[#600000] active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
-                  >
-                    {currentStep === steps.length ? 'Submit Profile' : 'Next →'}
-                  </button>
+                  
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                    {/* Save Changes Button - only show in edit mode with unsaved changes */}
+                    {isEditMode && hasUnsavedChanges && (
+                      <button
+                        onClick={handleSaveChanges}
+                        disabled={loading}
+                        className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-center text-sm sm:text-base"
+                      >
+                        {loading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    )}
+                    
+                    {/* Next/Submit Button */}
+                    <button
+                      onClick={handleNext}
+                      className={`w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 rounded-lg font-semibold transition-all duration-200 shadow-md text-center text-sm sm:text-base ${
+                        (!isEditMode && profile?.id) 
+                          ? 'bg-gray-500 text-white hover:bg-gray-600 active:bg-gray-700 active:scale-95'
+                          : 'bg-[#800000] text-white hover:bg-[#a83232] active:bg-[#600000] active:scale-95'
+                      }`}
+                    >
+                      {currentStep === steps.length 
+                        ? (isEditMode || hasUnsavedChanges ? 'Submit Profile' : 'Continue') 
+                        : 'Next →'
+                      }
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

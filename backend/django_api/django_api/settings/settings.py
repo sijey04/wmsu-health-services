@@ -5,6 +5,10 @@ Django settings for django_api project.
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import pymysql
+
+# Use PyMySQL instead of mysqlclient for MariaDB 10.4.32 compatibility
+pymysql.install_as_MySQLdb()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -67,15 +71,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'django_api.wsgi.application'
 
-# Database
+# Database - MySQL configuration for XAMPP with version compatibility bypass
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        'ENGINE': 'django_api.db_backends.mysql_compat',
         'NAME': os.getenv('DATABASE_NAME', 'wmsu_health_db'),
         'USER': os.getenv('DATABASE_USER', 'root'),
         'PASSWORD': os.getenv('DATABASE_PASSWORD', ''),
         'HOST': os.getenv('DATABASE_HOST', 'localhost'),
         'PORT': os.getenv('DATABASE_PORT', '3306'),
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='TRADITIONAL'",
+        },
     }
 }
 
@@ -118,7 +126,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = False  # Better to explicitly list allowed origins
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
+    "http://localhost:3001",  # Next.js might run on 3001 if 3000 is taken
     "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
 ]
 CORS_ALLOW_CREDENTIALS = True
 

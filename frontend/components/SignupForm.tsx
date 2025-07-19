@@ -204,6 +204,8 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
               <option value="">Select User Type</option>
                 <option value="Kindergarten">Kindergarten</option>
                 <option value="Elementary">Elementary</option>
+                <option value="High School">High School</option>
+                <option value="Senior High School">Senior High School</option>
                 <option value="College">College</option>
                 <option value="Employee">Employee</option>
                 <option value="Incoming Freshman">Incoming Freshman</option>

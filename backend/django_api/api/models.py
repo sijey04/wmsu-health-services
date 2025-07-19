@@ -29,6 +29,13 @@ class CustomUser(AbstractUser):
     blocked_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='blocked_users', help_text='Admin who blocked this user')
     block_reason = models.TextField(blank=True, null=True, help_text='Reason for blocking the user')
     
+    # Additional fields that match production database
+    education_level = models.CharField(max_length=20, blank=True, null=True)
+    education_year = models.IntegerField(blank=True, null=True)
+    education_program = models.CharField(max_length=200, blank=True, null=True)
+    department_college = models.CharField(max_length=200, blank=True, null=True)
+    employee_position = models.CharField(max_length=200, blank=True, null=True)
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
     
@@ -235,6 +242,37 @@ class Patient(models.Model):
     allergies = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Additional fields that match production database
+    surname = models.CharField(max_length=100, blank=True, null=True)
+    sex = models.CharField(max_length=10, blank=True, null=True)
+    course = models.CharField(max_length=200, blank=True, null=True)
+    year_level = models.CharField(max_length=50, blank=True, null=True)
+    
+    # User type specific fields
+    user_type = models.CharField(max_length=50, blank=True, null=True, help_text='User type from signup (Employee, College, etc.)')
+    employee_id = models.CharField(max_length=50, blank=True, null=True, help_text='Employee ID for Employee user type')
+    position_type = models.CharField(max_length=50, blank=True, null=True, help_text='Teaching or Non-Teaching for Employee user type')
+    strand = models.CharField(max_length=100, blank=True, null=True, help_text='Strand for Senior High School user type')
+    
+    birthday = models.DateField(blank=True, null=True)
+    city_address = models.TextField(blank=True, null=True)
+    provincial_address = models.TextField(blank=True, null=True)
+    emergency_contact_name = models.CharField(max_length=200, blank=True, null=True)
+    emergency_contact_city_address = models.TextField(blank=True, null=True)
+    covid19_vaccination_status = models.CharField(max_length=50, blank=True, null=True)
+    menstruation_age_began = models.IntegerField(blank=True, null=True)
+    menstruation_regular = models.BooleanField(default=False)
+    menstruation_irregular = models.BooleanField(default=False)
+    number_of_pregnancies = models.IntegerField(blank=True, null=True)
+    number_of_live_children = models.IntegerField(blank=True, null=True)
+    menstrual_symptoms = models.TextField(blank=True, null=True)
+    past_conditions_this_year = models.TextField(blank=True, null=True)
+    hospital_admissions = models.TextField(blank=True, null=True)
+    uhs_template_compliant = models.BooleanField(default=False)
+    record_completion_status = models.CharField(max_length=20, default='incomplete')
+    staff_notes = models.TextField(blank=True, null=True)
+    semester_id = models.IntegerField(blank=True, null=True)
     
     class Meta:
         unique_together = ['user', 'school_year', 'semester']
