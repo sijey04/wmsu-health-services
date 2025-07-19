@@ -14,39 +14,11 @@ import FeedbackModal from './feedbackmodal';
  * when appointmentId or patientId is provided.
  */
 
-// Calculate tooth positions for perfect centering and even spacing
-const calculateToothPositions = (): { [key: number]: { x: number; y: number } } => {
-  const positions: { [key: number]: { x: number; y: number } } = {};
-  
-  // Perfect centering with even distribution
-  const totalTeethPerRow = 16;
-  const spacingPercentage = 95; // Use 95% of the container width for better margins
-  const leftMargin = (100 - spacingPercentage) / 2; // Center the teeth horizontally
-  const spacingInterval = spacingPercentage / (totalTeethPerRow - 1); // Even spacing between teeth
-  
-  // Upper teeth (1-16) - positioned above the image
-  for (let i = 1; i <= 16; i++) {
-    positions[i] = {
-      x: leftMargin + (i - 1) * spacingInterval,
-      y: -10 // Above the image with some breathing room
-    };
-  }
-  
-  // Lower teeth (17-32) - positioned below the image  
-  for (let i = 17; i <= 32; i++) {
-    const position = i - 16; // Convert to 1-16 range for positioning
-    positions[i] = {
-      x: leftMargin + (position - 1) * spacingInterval,
-      y: 120 // Below the image with more breathing room
-    };
-  }
-  
-  return positions;
-};
-
-const TOOTH_POSITIONS = calculateToothPositions();
-
+// Simplified dental chart with full-view modals for accuracy
 const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus }) => {
+  const [showUpperModal, setShowUpperModal] = useState(false);
+  const [showLowerModal, setShowLowerModal] = useState(false);
+
   const getToothStatus = (toothNumber) => {
     return permanentTeethStatus[toothNumber] || temporaryTeethStatus[toothNumber] || {};
   };
@@ -56,65 +28,258 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
     return status.treatment || status.status;
   };
 
+  const handleAreaClick = (e, toothNumber) => {
+    e.preventDefault();
+    onToothClick(parseInt(toothNumber));
+  };
+
+  // Upper jaw tooth coordinates (from updated SVG image map - viewBox 0 0 600 453)
+  const upperToothCoords = {
+    1: "117,342,135,364,108,391,69,374,70,337",
+    2: "119,277,139,288,145,308,134,329,124,334,89,324,73,305,92,273",
+    3: "119,211,156,222,158,243,148,273,100,267,91,251,100,216",
+    4: "143,177,164,191,160,221,113,204,112,179",
+    5: "148,135,175,151,182,167,175,181,126,168,130,144",
+    6: "165,100,185,106,193,119,202,132,196,149,168,143,148,116",
+    7: "206,76,224,97,229,124,216,126,194,107,184,91",
+    8: "231,67,261,66,270,84,268,109,244,123,221,79",
+    9: "292,60,311,67,319,106,297,121,276,110,267,68",
+    10: "338,81,353,84,351,100,331,120,309,124,321,71",
+    11: "352,144,356,151,338,145,334,128,355,106,370,97,382,111,393,127,374,133,360,138,349,151,349,152",
+    12: "399,137,409,152,403,169,375,179,361,162,379,141",
+    13: "417,175,426,203,388,222,374,202,374,183,401,172",
+    14: "448,256,442,241,435,215,403,217,385,230,386,273,404,278,418,269,441,269,443,266",
+    15: "394,306,399,329,419,335,451,328,460,296,451,284,419,276,393,287",
+    16: "463,336,473,362,451,377,420,385,412,359,441,336"
+  };
+
+  // Generate lower jaw coordinates by flipping upper jaw vertically
+  const generateLowerToothCoords = () => {
+    const lowerCoords = {};
+    const imageHeight = 453; // Height based on the SVG viewBox (0 0 600 453)
+    
+    Object.entries(upperToothCoords).forEach(([toothNum, coords]) => {
+      const coordPairs = coords.split(',');
+      const flippedCoords = [];
+      
+      // Flip Y coordinates and map tooth numbers 1-16 to 17-32
+      for (let i = 0; i < coordPairs.length; i += 2) {
+        const x = parseFloat(coordPairs[i]);
+        const y = imageHeight - parseFloat(coordPairs[i + 1]);
+        flippedCoords.push(x.toString(), y.toString());
+      }
+      
+      const lowerToothNum = parseInt(toothNum) + 16; // Map 1->17, 2->18, etc.
+      lowerCoords[lowerToothNum] = flippedCoords.join(',');
+    });
+    
+    return lowerCoords;
+  };
+
+  const lowerToothCoords = generateLowerToothCoords();
+
   return (
-    <div className="flex flex-col items-center space-y-6 p-6 bg-white ">
-      <h3 className="text-xl font-bold text-gray-800 mb-4"> </h3>
-      <p className="text-sm text-gray-600 mb-6"></p>
-      {/* Dental Chart Container */}
-      <div className="mb-20 relative inline-block max-w-full overflow-visible" style={{ width: '106%', marginLeft: '-3%' }}>
-        <img 
-          src="/full set.png" 
-          alt="Dental Chart" 
-          className="max-w-full h-auto mx-auto"
-          style={{ maxHeight: '600px' }}
-        />
-        {/* Clickable tooth number overlay buttons */}
-        {Object.entries(TOOTH_POSITIONS).map(([toothNumber, position]) => {
-          const toothNum = parseInt(toothNumber);
-          const hasData = hasToothData(toothNum);
-          return (
-            <button
-              key={toothNum}
-              type="button"
-              onClick={() => onToothClick(toothNum)}
-              style={{
-                position: 'absolute',
-                left: `${position.x}%`,
-                top: `${position.y}%`,
-                transform: 'translate(-50%, -50%)',
-                zIndex: 2,
-                background: hasData ? '#ef4444' : '#3b82f6',
-                border: hasData ? '2px solid #b91c1c' : '2px solid #2563eb',
-                color: 'white',
-                width: 32,
-                height: 32,
-                borderRadius: '50%',
-                fontWeight: 600,
-                fontSize: 14,
-                boxShadow: hasData ? '0 0 0 2px #fee2e2' : '0 0 0 2px #dbeafe',
-                cursor: 'pointer',
-                transition: 'background 0.2s, border 0.2s',
-              }}
-              title={`Tooth ${toothNum}`}
+    <>
+      <div className="flex flex-col items-center space-y-8 p-6 bg-white">
+        <div className="text-center">
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">Interactive Dental Chart</h3>
+          <p className="text-sm text-gray-600">Click on jaw images below to open full-size view for accurate tooth selection</p>
+        </div>
+        
+        {/* Upper Jaw Preview */}
+        <div className="mb-12 w-full max-w-4xl">
+          <h4 className="text-lg font-semibold text-gray-700 mb-6 text-center">Upper Jaw (Teeth 1-16)</h4>
+          <div 
+            className="relative inline-block bg-gray-50 rounded-lg p-4 shadow-md w-full cursor-pointer hover:bg-gray-100 transition-colors duration-200"
+            onClick={() => setShowUpperModal(true)}
+          >
+            <img 
+              src="/upper jaw.svg" 
+              alt="Upper Jaw Dental Chart - Click to open full view" 
+              className="block w-full h-auto max-w-full opacity-90 hover:opacity-100 transition-opacity duration-200"
+              style={{ maxWidth: '500px', margin: '0 auto', display: 'block' }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200">
+              <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
+                <span className="text-sm font-medium text-gray-800">🔍 Click to open full view</span>
+              </div>
+            </div>
+            {/* Stats overlay */}
+            <div className="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+              {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 1 && parseInt(t) <= 16).length} teeth with data
+            </div>
+          </div>
+        </div>
+
+        {/* Lower Jaw Preview */}
+        <div className="mb-12 w-full max-w-4xl">
+          <h4 className="text-lg font-semibold text-gray-700 mb-6 text-center">Lower Jaw (Teeth 17-32)</h4>
+          <div 
+            className="relative inline-block bg-gray-50 rounded-lg p-4 shadow-md w-full cursor-pointer hover:bg-gray-100 transition-colors duration-200"
+            onClick={() => setShowLowerModal(true)}
+          >
+            <img 
+              src="/upper jaw.svg" 
+              alt="Lower Jaw Dental Chart - Click to open full view" 
+              className="block w-full h-auto max-w-full transform rotate-180 opacity-90 hover:opacity-100 transition-opacity duration-200"
+              style={{ maxWidth: '500px', margin: '0 auto', display: 'block' }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200">
+              <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
+                <span className="text-sm font-medium text-gray-800">🔍 Click to open full view</span>
+              </div>
+            </div>
+            {/* Stats overlay */}
+            <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
+              {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 17 && parseInt(t) <= 32).length} teeth with data
+            </div>
+          </div>
+        </div>
+
+        {/* Enhanced Legend */}
+        <div className="mt-8 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl shadow-sm border border-gray-200 w-full max-w-2xl">
+          <h4 className="text-sm font-semibold text-gray-800 mb-3 text-center">How to Use</h4>
+          <div className="space-y-2 text-sm text-gray-600">
+            <p>• Click on either jaw image above to open full-size view</p>
+            <p>• In the full view, click directly on individual teeth for precise selection</p>
+            <p>• Teeth with existing data will be highlighted in red</p>
+            <p>• Available teeth will be highlighted in blue</p>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl">
+          <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
+            <div className="text-lg font-bold text-blue-600">
+              {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 1 && parseInt(t) <= 16).length}
+            </div>
+            <div className="text-xs text-blue-600">Upper Teeth Data</div>
+          </div>
+          <div className="bg-green-50 p-3 rounded-lg text-center border border-green-200">
+            <div className="text-lg font-bold text-green-600">
+              {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 17 && parseInt(t) <= 32).length}
+            </div>
+            <div className="text-xs text-green-600">Lower Teeth Data</div>
+          </div>
+          <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-200">
+            <div className="text-lg font-bold text-purple-600">
+              {Object.keys(temporaryTeethStatus).length}
+            </div>
+            <div className="text-xs text-purple-600">Temporary Teeth</div>
+          </div>
+          <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
+            <div className="text-lg font-bold text-gray-600">
+              {Object.keys(permanentTeethStatus).length + Object.keys(temporaryTeethStatus).length}
+            </div>
+            <div className="text-xs text-gray-600">Total Entries</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upper Jaw Full View Modal */}
+      {showUpperModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl max-h-[95vh] overflow-auto relative">
+            <button 
+              className="absolute top-4 right-4 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-colors duration-200"
+              onClick={() => setShowUpperModal(false)}
             >
-              {toothNum}
+              ×
             </button>
-          );
-        })}
-      </div>
-      {/* Tooth numbers row (for mobile/extra clarity) */}
-      {/* Legend at the bottom */}
-      <div className="mt-8 flex flex-wrap justify-center gap-4 p-4 bg-gray-50 rounded-lg">
-        <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-blue-500 rounded-full border-2 border-blue-600" style={{ clipPath: 'polygon(50% 0%, 80% 20%, 100% 50%, 80% 80%, 50% 100%, 20% 80%, 0% 50%, 20% 20%)' }}></div>
-          <span className="text-sm font-medium">Available for data entry</span>
+            <div className="p-6">
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Upper Jaw - Full View</h3>
+              <p className="text-sm text-gray-600 mb-6 text-center">Click on any tooth to add treatment and status information</p>
+              <div className="relative inline-block">
+                <img 
+                  src="/upper jaw.svg" 
+                  alt="Upper Jaw Dental Chart - Full View" 
+                  useMap="#upper-jaw-modal-map"
+                  className="block max-w-full h-auto"
+                  style={{ width: '100%', maxWidth: '600px' }}
+                />
+                <map name="upper-jaw-modal-map">
+                  {Object.entries(upperToothCoords).map(([toothNum, coords]) => {
+                    const toothNumber = parseInt(toothNum);
+                    const hasData = hasToothData(toothNumber);
+                    return (
+                      <area
+                        key={toothNumber}
+                        alt={`tooth${toothNumber}`}
+                        title={`Tooth ${toothNumber}${hasData ? ' (Has Data)' : ''} - Click to edit`}
+                        coords={coords as string}
+                        shape="poly"
+                        onClick={(e) => {
+                          handleAreaClick(e, toothNumber);
+                          setShowUpperModal(false);
+                        }}
+                        className="cursor-pointer"
+                        style={{
+                          fill: hasData ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.3)',
+                          stroke: hasData ? '#ef4444' : '#3b82f6',
+                          strokeWidth: '3'
+                        }}
+                      />
+                    );
+                  })}
+                </map>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-red-600" style={{ clipPath: 'polygon(50% 0%, 80% 20%, 100% 50%, 80% 80%, 50% 100%, 20% 80%, 0% 50%, 20% 20%)' }}></div>
-          <span className="text-sm font-medium">Has treatment/status data</span>
+      )}
+
+      {/* Lower Jaw Full View Modal */}
+      {showLowerModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl max-h-[95vh] overflow-auto relative">
+            <button 
+              className="absolute top-4 right-4 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-colors duration-200"
+              onClick={() => setShowLowerModal(false)}
+            >
+              ×
+            </button>
+            <div className="p-6">
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Lower Jaw - Full View</h3>
+              <p className="text-sm text-gray-600 mb-6 text-center">Click on any tooth to add treatment and status information</p>
+              <div className="relative inline-block">
+                <img 
+                  src="/upper jaw.svg" 
+                  alt="Lower Jaw Dental Chart - Full View" 
+                  useMap="#lower-jaw-modal-map"
+                  className="block max-w-full h-auto transform rotate-180"
+                  style={{ width: '100%', maxWidth: '600px' }}
+                />
+                <map name="lower-jaw-modal-map">
+                  {Object.entries(lowerToothCoords).map(([toothNum, coords]) => {
+                    const toothNumber = parseInt(toothNum);
+                    const hasData = hasToothData(toothNumber);
+                    return (
+                      <area
+                        key={toothNumber}
+                        alt={`tooth${toothNumber}`}
+                        title={`Tooth ${toothNumber}${hasData ? ' (Has Data)' : ''} - Click to edit`}
+                        coords={coords as string}
+                        shape="poly"
+                        onClick={(e) => {
+                          handleAreaClick(e, toothNumber);
+                          setShowLowerModal(false);
+                        }}
+                        className="cursor-pointer"
+                        style={{
+                          fill: hasData ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.3)',
+                          stroke: hasData ? '#ef4444' : '#3b82f6',
+                          strokeWidth: '3'
+                        }}
+                      />
+                    );
+                  })}
+                </map>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 };
 

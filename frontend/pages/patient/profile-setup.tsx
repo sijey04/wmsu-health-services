@@ -830,6 +830,92 @@ export default function PatientProfileSetupPage() {
     }
   };
 
+  // Independent photo upload function - allows photo upload anytime
+  const handleIndependentPhotoUpload = async (file: File) => {
+    if (!profile?.id) {
+      // If no profile exists yet, just store the photo for later
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+      handleProfileChange('photo', file);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      
+      // Add required fields for the update
+      if (profile?.id) {
+        formData.append('id', profile.id.toString());
+      }
+      if (currentSchoolYear?.id) {
+        formData.append('school_year', currentSchoolYear.id.toString());
+      }
+      if (currentSemester) {
+        formData.append('semester', currentSemester);
+      }
+
+      // Update only the photo
+      await patientProfileAPI.update(formData);
+      
+      setFeedbackMessage('Profile photo updated successfully!');
+      setFeedbackOpen(true);
+      
+      // Refresh the profile data
+      await fetchProfile();
+      
+      // Clear the preview and file since it's now saved
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      
+    } catch (err: any) {
+      let msg = 'Failed to update profile photo.';
+      if (err.response && err.response.data) {
+        if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        } else if (typeof err.response.data === 'object') {
+          const errors = Object.values(err.response.data).flat();
+          msg = errors.length > 0 ? errors.join(', ') : msg;
+        }
+      }
+      setError(msg);
+      setFeedbackMessage(msg);
+      setFeedbackOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhotoChangeIndependent = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setFeedbackMessage('File size must be less than 5MB');
+        setFeedbackOpen(true);
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setFeedbackMessage('Please select a valid image file');
+        setFeedbackOpen(true);
+        return;
+      }
+
+      // Set preview immediately
+      const reader = new FileReader();
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+      
+      // Upload immediately if profile exists, otherwise store for later
+      handleIndependentPhotoUpload(file);
+    }
+  };
+
   const handleCheckboxArrayChange = (field: string, value: string, checked: boolean) => {
     setProfile((prev: any) => {
       const arr = Array.isArray(prev[field]) ? [...prev[field]] : [];
@@ -1048,44 +1134,36 @@ export default function PatientProfileSetupPage() {
               )}
             </div>
 
-            {/* Photo Upload - Enhanced mobile design */}
+            {/* Photo Upload - Enhanced mobile design - Always enabled */}
             <div className="flex flex-col items-center justify-center mb-8">
               <label className="block text-base sm:text-lg font-medium text-gray-700 mb-4 text-center">
                 Profile Photo {!profile?.photo && <span className="text-red-500">*</span>}
               </label>
-              <label htmlFor="photo-upload" className={`cursor-pointer group ${!isEditMode ? 'pointer-events-none' : ''}`}>
-                <div className={`w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed rounded-lg transition-all duration-200 ${
-                  !isEditMode 
-                    ? 'border-gray-300 bg-gray-100' 
-                    : 'border-gray-400 bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200'
-                }`}>
+              <label htmlFor="photo-upload" className="cursor-pointer group">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed rounded-lg transition-all duration-200 border-gray-400 bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200">
                   {photoPreview ? (
                     <div className="relative w-full h-full">
                       <img src={photoPreview} alt="Preview" className="object-cover w-full h-full rounded-md" />
-                      {isEditMode && (
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
-                          <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            Tap to change
-                          </span>
-                        </div>
-                      )}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
+                        <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          Tap to change
+                        </span>
+                      </div>
                     </div>
                   ) : (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0 && profile.photo !== 'null' && profile.photo !== 'undefined') ? (
                     <div className="relative w-full h-full">
                       <img src={profile.photo} alt="Current Photo" className="object-cover w-full h-full rounded-md" />
-                      {isEditMode && (
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
-                          <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            Tap to change
-                          </span>
-                        </div>
-                      )}
+                      <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
+                        <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                          Tap to change
+                        </span>
+                      </div>
                     </div>
                   ) : (
                     <div className="text-center">
-                      <span className={`text-2xl sm:text-3xl lg:text-4xl font-light block ${!isEditMode ? 'text-gray-300' : 'text-gray-400'}`}>+</span>
-                      <span className={`text-xs sm:text-sm mt-1 ${!isEditMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        {isEditMode ? 'Upload Photo' : 'No Photo'}
+                      <span className="text-2xl sm:text-3xl lg:text-4xl font-light block text-gray-400">+</span>
+                      <span className="text-xs sm:text-sm mt-1 text-gray-500">
+                        Upload Photo
                       </span>
                     </div>
                   )}
@@ -1095,8 +1173,7 @@ export default function PatientProfileSetupPage() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={handlePhotoChange}
-                  disabled={!isEditMode}
+                  onChange={isEditMode ? handlePhotoChange : handlePhotoChangeIndependent}
                 />
               </label>
               {fieldErrors.photo && (
@@ -1104,11 +1181,14 @@ export default function PatientProfileSetupPage() {
                   {fieldErrors.photo}
                 </div>
               )}
-              {isEditMode && (
-                <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
-                  Supported formats: JPG, PNG, GIF (max 5MB)
-                </p>
-              )}
+              <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
+                Supported formats: JPG, PNG, GIF (max 5MB)
+                {!isEditMode && (
+                  <span className="block text-blue-600 mt-1">
+                    📷 You can change your photo anytime!
+                  </span>
+                )}
+              </p>
             </div>
 
             {/* Personal Info Form - Mobile-first responsive */}
