@@ -92,34 +92,10 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
           setUserEmail(email);
           setStep(3); // Move to success step
         } else {
-          // Handle Django REST framework error format
-          let errorMessage = 'Signup failed.';
-          
-          if (data?.non_field_errors && Array.isArray(data.non_field_errors)) {
-            errorMessage = data.non_field_errors[0];
-          } else if (data?.detail) {
-            errorMessage = data.detail;
-          } else if (data?.error) {
-            errorMessage = data.error;
-          } else if (data?.message) {
-            errorMessage = data.message;
-          } else if (typeof data === 'object' && data !== null) {
-            // Handle field-specific errors or other object formats
-            const values = Object.values(data).flat();
-            if (values.length > 0) {
-              errorMessage = values.join(' ');
-            }
-          }
-          
-          setError(errorMessage);
+          setError(data?.detail || data?.error || Object.values(data).join(', ') || 'Signup failed.');
         }
-      } catch (err: any) {
-        console.error('Signup error:', err);
-        if (err.name === 'TypeError' && err.message.includes('fetch')) {
-          setError('Network error. Please check your connection and try again.');
-        } else {
-          setError('An unexpected error occurred. Please try again.');
-        }
+      } catch (err) {
+        setError('Network error. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -216,7 +192,7 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="grade-level">
-              Grade Level <span className="text-red-500">*</span>
+              User Type <span className="text-red-500">*</span>
             </label>
             <select
               id="grade-level"
@@ -225,10 +201,12 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
               onChange={e => setGradeLevel(e.target.value)}
               required
             >
-              <option value="">Select Grade Level</option>
-              <option value="College">College</option>
-              <option value="Employee">Employee</option>
-              <option value="Incoming Freshman">Incoming Freshman</option>
+              <option value="">Select User Type</option>
+                <option value="Kindergarten">Kindergarten</option>
+                <option value="Elementary">Elementary</option>
+                <option value="College">College</option>
+                <option value="Employee">Employee</option>
+                <option value="Incoming Freshman">Incoming Freshman</option>
             </select>
           </div>
           

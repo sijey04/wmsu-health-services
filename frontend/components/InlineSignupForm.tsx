@@ -228,7 +228,7 @@ export default function InlineSignupForm({ onSignup, showSwitchLink = false, onS
             
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2" htmlFor="grade-level">
-                Grade Level <span className="text-red-500">*</span>
+                User Type <span className="text-red-500">*</span>
               </label>
               <select
                 id="grade-level"
@@ -237,7 +237,7 @@ export default function InlineSignupForm({ onSignup, showSwitchLink = false, onS
                 onChange={e => setGradeLevel(e.target.value)}
                 required
               >
-                <option value="">Select Grade Level</option>
+                <option value="">Select User Type</option>
                 <option value="Kindergarten">Kindergarten</option>
                 <option value="Elementary">Elementary</option>
                 <option value="College">College</option>

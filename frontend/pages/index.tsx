@@ -143,163 +143,172 @@ export default function Home() {  // Authentication state
         <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick} isLoggedIn={isLoggedIn}>
           {/* Main Content Wrapper with white background */}
           <div className="w-full bg-white min-h-screen">
-            {/* Hero Section with soft subtle crimson background */}
-            <section className="relative py-12 sm:py-16 lg:py-20 xl:py-32 bg-gradient-to-br from-rose-50 via-pink-50 to-red-100">
-              <div className="absolute inset-0 bg-gradient-to-r from-rose-100/20 via-pink-100/15 to-red-200/25"></div>
-              <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center max-w-4xl mx-auto">
-                <div className="flex justify-center mb-8 sm:mb-10">
-                  <div className="flex items-center justify-center">
-                    <img 
-                      src="/logo.png" 
-                      alt="WMSU Logo" 
-                      className="h-24 w-24 sm:h-32 sm:w-32 lg:h-40 lg:w-40 xl:h-48 xl:w-48 object-contain"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
+            {/* Minimalistic Hero Section with campus background and red texture overlay */}
+            <section className="relative min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-no-repeat" style={{backgroundImage: 'url("/campus-bg.jpg")', backgroundSize: 'cover', backgroundPosition: 'center'}}>
+              {/* Red texture overlay with transparency */}
+              <div 
+                className="absolute inset-0 opacity-60 mix-blend-multiply" 
+                style={{
+                  backgroundImage: 'url("/texture.jpg")', 
+                  backgroundSize: 'auto', 
+                  backgroundRepeat: 'repeat',
+                  imageRendering: 'crisp-edges'
+                }}
+              ></div>
+              {/* Subtle overlay to enhance text readability */}
+              <div className="absolute inset-0 bg-gradient-to-br from-black/10 via-transparent to-black/5"></div>
+              
+              {/* Subtle decorative elements */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full"></div>
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full"></div>
+              </div>
+              
+              <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+                <div className="text-center">
+                  {/* Professional One-Time Animated Logo */}
+                  <div className="flex justify-center mb-12 sm:mb-16">
+                    <div className="relative group">
+                        <img 
+                          src="/logo.png" 
+                          alt="WMSU Logo" 
+                          className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 xl:w-56 xl:h-56 object-contain animate-logo-entrance drop-shadow-2xl transition-all duration-700 ease-in-out group-hover:scale-105"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                        {/* Professional glow effect */}
+                        <div className="absolute inset-0 rounded-full bg-white/10 blur-xl animate-glow-entrance"></div>
+                    </div>
                   </div>
-                </div>
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 tracking-tight leading-tight">
-                  Your Health, <span className="text-[#800000]">Our Priority</span>
-                </h1>
-                
-                <p className="text-base sm:text-lg lg:text-xl text-gray-600 mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed px-4 sm:px-0">
-                  Comprehensive healthcare services designed for the WMSU community with excellence and care.
-                </p>                {/* CTA Buttons */}
-                <div className="flex flex-row gap-2 sm:gap-3 justify-center mb-8 sm:mb-10 px-4 sm:px-0">
-                  <button
-                    onClick={handleBookAppointment}
-                    className="flex-1 sm:flex-none sm:w-auto bg-[#800000] hover:bg-[#a83232] text-white px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-xs sm:text-base transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-1 active:scale-95"
-                  >
-                    Book Appointment
-                  </button>
-                  <button 
-                    onClick={handleLoginClick}
-                    className="flex-1 sm:flex-none sm:w-auto bg-white border-2 border-gray-200 hover:border-[#800000] text-gray-700 hover:text-[#800000] px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold text-xs sm:text-base transition-all duration-300 active:scale-95"
-                  >
-                    Patient Portal
-                  </button>
-                </div>
-                
-                {/* Announcement Banner */}
-                <div className="bg-gradient-to-r from-[#800000] to-[#a83232] rounded-lg sm:rounded-xl p-3 sm:p-4 text-white shadow-lg mx-4 sm:mx-0">
-                  <div className="flex items-center justify-center space-x-1 sm:space-x-2 mb-1">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                    <span className="text-xs font-medium uppercase tracking-wider">Current Event</span>
+                  
+                  {/* Enhanced text visibility with depth and shadows */}
+                  <div className="mb-8 sm:mb-12">
+                    <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-light mb-6 tracking-tight leading-tight text-white drop-shadow-2xl" style={{textShadow: '0 4px 8px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.2), 0 16px 32px rgba(0,0,0,0.1)'}}>
+                      WMSU Health Services
+                    </h1>
+                    <p className="text-xl sm:text-2xl lg:text-3xl text-white/95 font-light drop-shadow-lg" style={{textShadow: '0 2px 4px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2)'}}>
+                      Your Health, Our Priority
+                    </p>
                   </div>
-                  <h3 className="text-base sm:text-lg font-bold mb-1">Free Medical Check-up Week</h3>
-                  <p className="text-pink-100 text-xs sm:text-sm">
-                    Available for all students and staff • June 10-14, 2025
-                  </p>
-                </div>
+                  
+                  {/* Enhanced description visibility */}
+                            {/* Enhanced CTA Buttons for background visibility */}
+                  <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center max-w-md mx-auto">
+                    <button
+                      onClick={handleBookAppointment}
+                      className="flex-1 bg-[#800000] hover:bg-[#a83232] text-white px-8 py-4 rounded-lg font-medium text-base transition-all duration-300 shadow-2xl hover:shadow-xl transform hover:-translate-y-1 border border-white/20"
+                    >
+                      Book Appointment
+                    </button>
+                  </div>
               </div>
             </div>
           </section>
           
-          {/* Services Section */}
-          <section className="py-12 sm:py-16 lg:py-20">
+          {/* Services Section - Compact */}
+          <section className="py-8 sm:py-10 lg:py-12">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center mb-10 sm:mb-12 lg:mb-16">
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">Our Services</h2>
+              <div className="text-center mb-6 sm:mb-8 lg:mb-10">
+                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-2 sm:mb-3">Our Services</h2>
                 <p className="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto px-4 sm:px-0">
                   Professional healthcare services tailored to meet your needs
                 </p>
               </div>
               
               {/* Mobile: 3 columns, larger screens: 2 and 3 columns */}
-              <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
+              <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
                 {/* Primary Care */}
-                <div className="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="group bg-white hover:bg-gray-50 p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                   </div>
                   <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Primary Care</h3>
                   {/* Show description only on larger screens */}
                   <div className="hidden sm:block">
-                    <p className="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                    <p className="text-gray-600 mb-2 lg:mb-3 leading-relaxed text-sm lg:text-base text-center mt-1 lg:mt-2">
                       Comprehensive health check-ups and preventive care services.
                     </p>
                   </div>
                 </div>
 
                 {/* Dental Care */}
-                <div className="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-green-100 to-green-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="group bg-white hover:bg-gray-50 p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-green-100 to-green-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 0 1 0 5H9m0-5v5m0-5H7.5M9 15H7.5m3-5h1.5a2.5 2.5 0 0 1 0 5H9" />
                     </svg>
                   </div>
                   <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Dental Care</h3>
                   {/* Show description only on larger screens */}
                   <div className="hidden sm:block">
-                    <p className="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                    <p className="text-gray-600 mb-2 lg:mb-3 leading-relaxed text-sm lg:text-base text-center mt-1 lg:mt-2">
                       Professional dental services including cleanings and treatments.
                     </p>
                   </div>
                 </div>
 
                 {/* Pharmacy */}
-                <div className="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-red-100 to-red-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="group bg-white hover:bg-gray-50 p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-red-100 to-red-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
                     </svg>
                   </div>
                   <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Pharmacy</h3>
                   {/* Show description only on larger screens */}
                   <div className="hidden sm:block">
-                    <p className="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                    <p className="text-gray-600 mb-2 lg:mb-3 leading-relaxed text-sm lg:text-base text-center mt-1 lg:mt-2">
                       Prescription medications with expert pharmacist consultation.
                     </p>
                   </div>
                 </div>
 
                 {/* Vaccinations */}
-                <div className="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="group bg-white hover:bg-gray-50 p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-purple-100 to-purple-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Vaccinations</h3>
                   {/* Show description only on larger screens */}
                   <div className="hidden sm:block">
-                    <p className="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                    <p className="text-gray-600 mb-2 lg:mb-3 leading-relaxed text-sm lg:text-base text-center mt-1 lg:mt-2">
                       Immunization services to protect against various diseases.
                     </p>
                   </div>
                 </div>
 
                 {/* Health Screenings */}
-                <div className="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="group bg-white hover:bg-gray-50 p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-orange-100 to-orange-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                     </svg>
                   </div>
                   <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Health Screenings</h3>
                   {/* Show description only on larger screens */}
                   <div className="hidden sm:block">
-                    <p className="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                    <p className="text-gray-600 mb-2 lg:mb-3 leading-relaxed text-sm lg:text-base text-center mt-1 lg:mt-2">
                       Regular health assessments and diagnostic screenings.
                     </p>
                   </div>
                 </div>
 
                 {/* Health Education */}
-                <div className="group bg-white hover:bg-gray-50 p-4 sm:p-6 lg:p-8 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
-                  <div className="w-8 h-8 sm:w-12 sm:h-12 lg:w-14 lg:h-14 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-4 lg:mb-6 group-hover:scale-110 transition-transform duration-300 mx-auto">
-                    <svg className="w-4 h-4 sm:w-6 sm:h-6 lg:w-7 lg:h-7 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="group bg-white hover:bg-gray-50 p-3 sm:p-4 lg:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl border border-gray-100 hover:border-gray-200 transition-all duration-300 hover:shadow-lg active:scale-95 sm:active:scale-100">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-lg sm:rounded-xl flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 group-hover:scale-110 transition-transform duration-300 mx-auto">
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
                   <h3 className="text-sm sm:text-lg lg:text-xl font-semibold text-gray-900 text-center">Health Education</h3>
                   {/* Show description only on larger screens */}
                   <div className="hidden sm:block">
-                    <p className="text-gray-600 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base text-center mt-2 lg:mt-3">
+                    <p className="text-gray-600 mb-2 lg:mb-3 leading-relaxed text-sm lg:text-base text-center mt-1 lg:mt-2">
                       Wellness programs and health awareness initiatives.
                     </p>
                   </div>
