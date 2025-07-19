@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import AdminLayout from '../../components/AdminLayout';
-import { djangoApiClient } from '../../utils/api';
+import { djangoApiClient, dentalMedicinesAPI } from '../../utils/api';
 import ConfirmationModal from '../../components/ConfirmationModal';
 
 interface ProfileRequirement {
@@ -90,6 +90,17 @@ interface FamilyMedicalHistoryItem {
   isNew?: boolean;
 }
 
+interface DentalMedicine {
+  id: string;
+  name: string;
+  type: 'medicine' | 'anesthetic' | 'antibiotic' | 'dental_supply' | 'equipment' | 'material';
+  type_display: string;
+  description: string;
+  unit: string;
+  is_active: boolean;
+  isNew?: boolean;
+}
+
 export default function AdminControls() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
@@ -105,6 +116,7 @@ export default function AdminControls() {
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
   const [pastMedicalHistories, setPastMedicalHistories] = useState<PastMedicalHistoryItem[]>([]);
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<FamilyMedicalHistoryItem[]>([]);
+  const [dentalMedicines, setDentalMedicines] = useState<DentalMedicine[]>([]);
 
   const [saving, setSaving] = useState(false);
   
@@ -274,6 +286,24 @@ export default function AdminControls() {
           name: history.name,
           enabled: history.is_enabled
         })));
+      }
+
+      // Load dental medicines if the endpoint is available
+      try {
+        const dentalResponse = await dentalMedicinesAPI.getAll();
+        if (dentalResponse.data) {
+          setDentalMedicines(dentalResponse.data.map((medicine: any) => ({
+            id: medicine.id.toString(),
+            name: medicine.name,
+            type: medicine.type,
+            type_display: medicine.type_display,
+            description: medicine.description,
+            unit: medicine.unit,
+            is_active: medicine.is_active
+          })));
+        }
+      } catch (error) {
+        console.warn('Dental Medicines API not available');
       }
 
     } catch (error) {
@@ -510,6 +540,20 @@ export default function AdminControls() {
         // In a real implementation, we might want to show a warning that school year data wasn't saved
       }
 
+      // Save dental medicines if any new ones were added
+      const newDentalMedicines = dentalMedicines.filter(medicine => medicine.isNew);
+      if (newDentalMedicines.length > 0) {
+        await Promise.all(newDentalMedicines.map(medicine => 
+          dentalMedicinesAPI.create({
+            name: medicine.name,
+            type: medicine.type,
+            description: medicine.description,
+            unit: medicine.unit,
+            is_active: medicine.is_active
+          })
+        ));
+      }
+
       showAlert('success', 'Settings saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -660,6 +704,12 @@ export default function AdminControls() {
         { id: 'pastmedical', name: 'Past Medical History', icon: '📋' },
         { id: 'familyhistory', name: 'Family Medical History', icon: '👪' }
       ]
+    },
+    {
+      name: 'Dental Medicine Management',
+      tabs: [
+        { id: 'dental', name: 'Dental Medicines', icon: '🦷' }
+      ]
     }
   ];
 
@@ -803,6 +853,64 @@ export default function AdminControls() {
       showAlert('success', 'Item removed successfully');
     } catch (error) {
       console.error('Error removing family medical history:', error);
+      showAlert('error', 'Failed to remove item');
+    }
+  };
+
+  // Helper functions for Dental Medicines
+  const addDentalMedicine = () => {
+    const newItem: DentalMedicine = {
+      id: Date.now().toString(),
+      name: '',
+      type: 'medicine',
+      type_display: 'Medicine',
+      description: '',
+      unit: 'mg',
+      is_active: true,
+      isNew: true
+    };
+    setDentalMedicines(prev => [...prev, newItem]);
+  };
+
+  const updateDentalMedicine = (id: string, field: keyof DentalMedicine, value: any) => {
+    setDentalMedicines(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const updatedItem = { ...item, [field]: value };
+          
+          // Auto-update type_display when type changes
+          if (field === 'type') {
+            const typeDisplayMap: { [key: string]: string } = {
+              'medicine': 'Medicine',
+              'anesthetic': 'Anesthetic',
+              'antibiotic': 'Antibiotic',
+              'dental_supply': 'Dental Supply',
+              'equipment': 'Equipment',
+              'material': 'Material'
+            };
+            updatedItem.type_display = typeDisplayMap[value] || value;
+          }
+          
+          return updatedItem;
+        }
+        return item;
+      })
+    );
+  };
+
+  const removeDentalMedicine = async (id: string) => {
+    try {
+      // If it's not a new item, delete it from the backend
+      const item = dentalMedicines.find(item => item.id === id);
+      if (item && !item.isNew) {
+        await djangoApiClient.delete('/admin-controls/delete_dental_medicine/', { 
+          data: { id: parseInt(id) } 
+        });
+      }
+      setDentalMedicines(prev => prev.filter(item => item.id !== id));
+      showAlert('success', 'Item removed successfully');
+    } catch (error) {
+      console.error('Error removing dental medicine:', error);
       showAlert('error', 'Failed to remove item');
     }
   };
@@ -1576,6 +1684,101 @@ export default function AdminControls() {
                 </div>
               </div>
             )}
+
+            {/* Dental Medicines Tab */}
+            {activeTab === 'dental' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-lg font-medium text-gray-900">Dental Medicines Management</h3>
+                  <button
+                    onClick={addDentalMedicine}
+                    className="bg-[#8B1538] text-white px-4 py-2 rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                  >
+                    Add Dental Medicine
+                  </button>
+                </div>
+                <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                  <ul className="divide-y divide-gray-200">
+                    {dentalMedicines.map((medicine) => (
+                      <li key={medicine.id} className={`px-4 py-4 ${medicine.isNew ? 'bg-green-50' : ''}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0 mr-4 space-y-3">
+                            <input
+                              type="text"
+                              value={medicine.name}
+                              onChange={(e) => updateDentalMedicine(medicine.id, 'name', e.target.value)}
+                              placeholder="Enter dental medicine name"
+                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                            />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                                <select
+                                  value={medicine.unit}
+                                  onChange={(e) => updateDentalMedicine(medicine.id, 'unit', e.target.value)}
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                >
+                                  <option value="mg">mg (milligrams)</option>
+                                  <option value="ml">ml (milliliters)</option>
+                                  <option value="g">g (grams)</option>
+                                  <option value="pcs">pcs (pieces)</option>
+                                  <option value="pack">pack</option>
+                                  <option value="cartridge">cartridge</option>
+                                  <option value="vial">vial</option>
+                                  <option value="bottle">bottle</option>
+                                  <option value="tube">tube</option>
+                                  <option value="box">box</option>
+                                  <option value="unit">unit</option>
+                                </select>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                                <select
+                                  value={medicine.type}
+                                  onChange={(e) => updateDentalMedicine(medicine.id, 'type', e.target.value)}
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                >
+                                  <option value="medicine">Medicine</option>
+                                  <option value="anesthetic">Anesthetic</option>
+                                  <option value="antibiotic">Antibiotic</option>
+                                  <option value="dental_supply">Dental Supply</option>
+                                  <option value="equipment">Equipment</option>
+                                  <option value="material">Material</option>
+                                </select>
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              value={medicine.description}
+                              onChange={(e) => updateDentalMedicine(medicine.id, 'description', e.target.value)}
+                              placeholder="Enter description (optional)"
+                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                            />
+                          </div>
+                          <div className="flex items-center space-x-3">
+                            <label className="flex items-center">
+                              <input
+                                type="checkbox"
+                                checked={medicine.is_active}
+                                onChange={(e) => updateDentalMedicine(medicine.id, 'is_active', e.target.checked)}
+                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                              />
+                              <span className="ml-2 text-sm text-gray-700">Active</span>
+                            </label>
+                            <button
+                              onClick={() => removeDentalMedicine(medicine.id)}
+                              className="text-red-600 hover:text-red-900 text-sm font-medium"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1641,20 +1844,16 @@ export default function AdminControls() {
                   <p className="mt-2 text-sm text-red-600">{pinError}</p>
                 )}
               </div>
-              <div className="items-center px-4 py-3">
+              <div className="items-center px-4 py-3 flex space-x-4">
                 <button
                   onClick={handlePinSubmit}
-                  className="px-4 py-2 bg-[#8B1538] text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-[#8B1538] mr-2"
+                  className="px-4 py-2 bg-[#8B1538] text-white text-base font-medium rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-[#8B1538]"
                 >
                   Submit
                 </button>
                 <button
-                  onClick={() => {
-                    setShowPinModal(false);
-                    setPinInput('');
-                    setPinError('');
-                  }}
-                  className="mt-2 px-4 py-2 bg-gray-300 text-gray-800 text-base font-medium rounded-md w-full shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  onClick={() => setShowPinModal(false)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 text-base font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 >
                   Cancel
                 </button>
@@ -1663,29 +1862,15 @@ export default function AdminControls() {
           </div>
         </div>
       )}
-      
-      {/* Alert Message */}
+
+      {/* Alert */}
       {alert && (
-        <div 
-          className={`fixed bottom-4 right-4 p-4 rounded-md shadow-lg z-50 ${
-            alert.type === 'success' ? 'bg-green-100 border border-green-500 text-green-700' : 'bg-red-100 border border-red-500 text-red-700'
-          }`}
-        >
-          <div className="flex items-center">
-            {alert.type === 'success' ? (
-              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-              </svg>
-            ) : (
-              <svg className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            )}
-            <span>{alert.message}</span>
-          </div>
+        <div className={`fixed top-4 right-4 p-4 rounded-md z-50 ${
+          alert.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+          {alert.message}
         </div>
       )}
     </AdminLayout>
   );
 }
-

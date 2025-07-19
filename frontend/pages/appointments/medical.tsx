@@ -150,29 +150,6 @@ export default function MedicalAppointmentPage() {
       };
     }
     
-    // Check for appointments in the current week
-    const startOfWeek = new Date(now);
-    const dayOfWeek = now.getDay();
-    const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Get Monday
-    startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
-    
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
-    
-    const thisWeekAppointments = appointments.filter(appt => {
-      const apptDate = new Date(appt.appointment_date);
-      return apptDate >= startOfWeek && apptDate <= endOfWeek && appt.status !== 'cancelled';
-    });
-    
-    if (thisWeekAppointments.length > 0) {
-      return {
-        blocked: true,
-        reason: 'You can only book one appointment per week. Please wait until next week to book another appointment.'
-      };
-    }
-    
     return { blocked: false, reason: '' };
   };
 

@@ -4,8 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import MedicalFormData, Appointment, Patient, AcademicSchoolYear, StaffDetails
-from .serializers import MedicalFormDataSerializer, PatientSerializer, PatientProfileUpdateSerializer
+from .models import MedicalFormData, Appointment, Patient, AcademicSchoolYear, StaffDetails, DentalInformationRecord
+from .serializers import MedicalFormDataSerializer, PatientSerializer, PatientProfileUpdateSerializer, DentalInformationRecordSerializer
 
 
 class MedicalFormDataViewSet(viewsets.ModelViewSet):
@@ -336,3 +336,234 @@ class PatientViewSet(viewsets.ModelViewSet):
         all_profiles = Patient.objects.filter(user=patient.user).select_related('school_year').order_by('-school_year__is_current', '-created_at')
         serializer = self.get_serializer(all_profiles, many=True)
         return Response(serializer.data)
+
+
+class DentalInformationRecordViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing dental patient information records"""
+    queryset = DentalInformationRecord.objects.all()
+    serializer_class = DentalInformationRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = DentalInformationRecord.objects.all()
+        
+        # If user is a patient, only show their own records
+        if not (user.is_staff or user.user_type in ['staff', 'admin']):
+            patient_profiles = user.patient_profiles.all()
+            queryset = queryset.filter(patient__in=patient_profiles)
+        
+        # Filter by school year if specified
+        school_year_param = self.request.query_params.get('school_year')
+        if school_year_param:
+            try:
+                queryset = queryset.filter(school_year_id=int(school_year_param))
+            except (ValueError, TypeError):
+                pass
+        
+        # Filter by semester if specified
+        semester_param = self.request.query_params.get('semester')
+        if semester_param:
+            queryset = queryset.filter(semester=semester_param)
+        
+        return queryset.select_related('patient', 'school_year').order_by('-created_at')
+
+    def perform_create(self, serializer):
+        """Set patient when creating dental information record"""
+        user = self.request.user
+        
+        # If user is staff, they can create records for any patient
+        if user.is_staff or user.user_type in ['staff', 'admin']:
+            serializer.save()
+            return
+        
+        # If user is a patient, they can only create records for themselves
+        patient = serializer.validated_data.get('patient')
+        if patient and patient.user == user:
+            serializer.save()
+        else:
+            # Get current patient profile if not specified
+            current_patient_profile = user.get_current_patient_profile()
+            if current_patient_profile:
+                serializer.save(patient=current_patient_profile)
+            else:
+                raise PermissionDenied("No patient profile found")
+
+    def perform_update(self, serializer):
+        """Update dental information record with proper permissions"""
+        user = self.request.user
+        instance = self.get_object()
+        
+        # Staff can update any record
+        if user.is_staff or user.user_type in ['staff', 'admin']:
+            serializer.save()
+            return
+        
+        # Patients can only update their own records
+        if instance.patient.user == user:
+            serializer.save()
+        else:
+            raise PermissionDenied("You can only update your own dental information records")
+
+    def perform_destroy(self, instance):
+        """Delete dental information record with proper permissions"""
+        user = self.request.user
+        
+        # Staff can delete any record
+        if user.is_staff or user.user_type in ['staff', 'admin']:
+            instance.delete()
+            return
+        
+        # Patients can only delete their own records
+        if instance.patient.user == user:
+            instance.delete()
+        else:
+            raise PermissionDenied("You can only delete your own dental information records")
+
+    @action(detail=False, methods=['get'])
+    def check_status(self, request):
+        """Check if user has completed dental information record for current semester"""
+        user = request.user
+        
+        try:
+            # Get current school year
+            current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+            current_semester = request.query_params.get('semester', '1st_semester')
+            
+            # Get current patient profile
+            current_patient_profile = user.get_current_patient_profile()
+            if not current_patient_profile:
+                return Response({
+                    'has_completed': False,
+                    'message': 'No patient profile found'
+                })
+            
+            # Check if dental information record exists for current school year and semester
+            dental_record = DentalInformationRecord.objects.filter(
+                patient=current_patient_profile,
+                school_year=current_school_year,
+                semester=current_semester
+            ).first()
+            
+            return Response({
+                'has_completed': dental_record is not None,
+                'record_id': dental_record.id if dental_record else None,
+                'school_year': current_school_year.academic_year,
+                'semester': current_semester
+            })
+            
+        except AcademicSchoolYear.DoesNotExist:
+            return Response({
+                'has_completed': False,
+                'message': 'No current school year found'
+            })
+        except Exception as e:
+            return Response({
+                'has_completed': False,
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def my_records(self, request):
+        """Get all dental information records for the current user"""
+        user = request.user
+        
+        patient_profiles = user.patient_profiles.all()
+        records = DentalInformationRecord.objects.filter(
+            patient__in=patient_profiles
+        ).select_related('patient', 'school_year').order_by('-created_at')
+        
+        serializer = self.get_serializer(records, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
+    def current_record(self, request):
+        """Get dental information record for current school year and semester"""
+        user = request.user
+        
+        try:
+            # Get current school year
+            current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+            current_semester = request.query_params.get('semester', '1st_semester')
+            
+            # Get current patient profile
+            current_patient_profile = user.get_current_patient_profile()
+            if not current_patient_profile:
+                return Response({
+                    'error': 'No patient profile found'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            # Get dental information record for current school year and semester
+            dental_record = DentalInformationRecord.objects.filter(
+                patient=current_patient_profile,
+                school_year=current_school_year,
+                semester=current_semester
+            ).first()
+            
+            if not dental_record:
+                return Response({
+                    'error': 'No dental information record found for current semester'
+                }, status=status.HTTP_404_NOT_FOUND)
+            
+            serializer = self.get_serializer(dental_record)
+            return Response(serializer.data)
+            
+        except AcademicSchoolYear.DoesNotExist:
+            return Response({
+                'error': 'No current school year found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'])
+    def create_current(self, request):
+        """Create dental information record for current school year and semester"""
+        user = request.user
+        
+        try:
+            # Get current school year
+            current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+            current_semester = request.data.get('semester', '1st_semester')
+            
+            # Get current patient profile
+            current_patient_profile = user.get_current_patient_profile()
+            if not current_patient_profile:
+                return Response({
+                    'error': 'No patient profile found. Please create your profile first.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Check if record already exists
+            existing_record = DentalInformationRecord.objects.filter(
+                patient=current_patient_profile,
+                school_year=current_school_year,
+                semester=current_semester
+            ).first()
+            
+            if existing_record:
+                return Response({
+                    'error': 'Dental information record already exists for this semester'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create new record
+            data = request.data.copy()
+            data['patient'] = current_patient_profile.id
+            data['school_year'] = current_school_year.id
+            data['semester'] = current_semester
+            
+            serializer = self.get_serializer(data=data)
+            if serializer.is_valid():
+                dental_record = serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+        except AcademicSchoolYear.DoesNotExist:
+            return Response({
+                'error': 'No current school year found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

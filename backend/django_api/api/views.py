@@ -779,7 +779,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 
                 # Personal Information
                 'first_name': source_profile.first_name or user.first_name or '',
-                'last_name': source_profile.last_name or user.last_name or '',
+                'patient_name': source_profile.name or f"{user.first_name} {user.last_name}".strip() or '',
                 'middle_name': source_profile.middle_name or user.middle_name or '',
                 'suffix': source_profile.suffix or '',
                 'date_of_birth': source_profile.date_of_birth.isoformat() if source_profile.date_of_birth else '',
@@ -3842,3 +3842,5 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
         appointment.cancelled_at = timezone.now()
         appointment.save()
         
+
+

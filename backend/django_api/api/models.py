@@ -533,18 +533,19 @@ class DentalWaiver(models.Model):
     patient_signature = models.TextField(help_text='Base64-encoded patient signature image')
     guardian_signature = models.TextField(blank=True, null=True, help_text='Base64-encoded parent/guardian signature image')
     date_signed = models.DateField()
-    school_year = models.ForeignKey('AcademicSchoolYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='dental_waivers')
+    # Temporarily disabled school_year foreign key due to constraint issues
+    # school_year = models.ForeignKey('AcademicSchoolYear', on_delete=models.SET_NULL, null=True, blank=True, related_name='dental_waivers')
     semester = models.CharField(max_length=20, choices=Patient.SEMESTER_CHOICES, blank=True, null=True, help_text='Semester period for this dental waiver')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [
-            models.UniqueConstraint(fields=['user', 'school_year', 'semester'], name='unique_dental_waiver_per_user_semester')
+            models.UniqueConstraint(fields=['user', 'semester'], name='unique_dental_waiver_per_user_semester')
         ]
 
     def __str__(self):
         semester_display = f" ({self.get_semester_display()})" if self.semester else ""
-        return f"Dental Waiver for {self.patient_name} - {self.school_year}{semester_display}"
+        return f"Dental Waiver for {self.patient_name}{semester_display}"
     
     def get_semester_display(self):
         """Get human-readable semester name"""
@@ -558,19 +559,19 @@ class DentalWaiver(models.Model):
             return 'Unassigned'
     
     def save(self, *args, **kwargs):
-        """Override save to auto-assign school year and semester"""
-        # Auto-assign current school year if not set
-        if not self.school_year:
-            try:
-                current_year = AcademicSchoolYear.get_current_school_year()
-                if current_year:
-                    self.school_year = current_year
-            except:
-                pass
+        """Override save to auto-assign semester"""
+        # Auto-assign current school year if not set - temporarily disabled
+        # if not self.school_year:
+        #     try:
+        #         current_year = AcademicSchoolYear.get_current_school_year()
+        #         if current_year:
+        #             self.school_year = current_year
+        #     except:
+        #         pass
         
-        # Auto-determine semester if not explicitly set
-        if not self.semester and self.school_year:
-            self.semester = self.school_year.get_current_semester()
+        # Auto-determine semester if not explicitly set - temporarily disabled
+        # if not self.semester and self.school_year:
+        #     self.semester = self.school_year.get_current_semester()
         
         # Auto-populate patient field from user's current patient profile
         if not self.patient and self.user:
@@ -761,6 +762,9 @@ class DentalFormData(models.Model):
     permanent_teeth_status = models.JSONField(blank=True, null=True, help_text='Status of permanent teeth')
     temporary_teeth_status = models.JSONField(blank=True, null=True, help_text='Status of temporary teeth')
     
+    # Medicine Usage (JSON field to store medicine usage data)
+    used_medicines = models.JSONField(blank=True, null=True, help_text='List of medicines used during the appointment')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -801,7 +805,11 @@ class DentalFormData(models.Model):
             
             # Auto-fill sex/gender
             if not self.sex and self.patient.gender:
-                self.sex = self.patient.gender
+                # Map patient gender to dental form sex field, handling 'Other' case
+                if self.patient.gender == 'Other':
+                    self.sex = 'Male'  # Default fallback
+                else:
+                    self.sex = self.patient.gender
         
         # Auto-set academic year if not provided
         if not self.academic_year:
@@ -939,7 +947,11 @@ class MedicalFormData(models.Model):
             
             # Auto-fill sex/gender
             if not self.sex and self.patient.gender:
-                self.sex = self.patient.gender
+                # Map patient gender to medical form sex field, handling 'Other' case
+                if self.patient.gender == 'Other':
+                    self.sex = 'Male'  # Default fallback
+                else:
+                    self.sex = self.patient.gender
         
         # Auto-set academic year if not provided
         if not self.academic_year:
@@ -1276,3 +1288,178 @@ class FamilyMedicalHistoryItem(models.Model):
     
     def __str__(self):
         return self.name
+
+
+class DentalInformationRecord(models.Model):
+    """Model to store dental patient information records"""
+    # Patient relation
+    patient = models.ForeignKey(
+        'Patient', 
+        on_delete=models.CASCADE, 
+        related_name='dental_information_records'
+    )
+    
+    # School year and semester tracking
+    school_year = models.ForeignKey(
+        'AcademicSchoolYear', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True
+    )
+    semester = models.CharField(
+        max_length=20,
+        choices=[
+            ('1st_semester', 'First Semester'),
+            ('2nd_semester', 'Second Semester'),
+            ('summer', 'Summer'),
+        ],
+        default='1st_semester'
+    )
+    
+    # Personal Information
+    patient_name = models.CharField(max_length=255)
+    age = models.IntegerField()
+    sex = models.CharField(max_length=20)  # Changed from gender to sex
+    
+    # Education Information
+    education_level = models.CharField(
+        max_length=50,
+        choices=[
+            ('preschool', 'Preschool'),
+            ('elementary', 'Elementary'),
+            ('high_school', 'High School'),
+            ('senior_high', 'Senior High School'),
+            ('college', 'College'),
+        ],
+        blank=True,
+        null=True
+    )
+    year_level = models.CharField(max_length=50, blank=True, null=True)
+    course = models.CharField(max_length=200, blank=True, null=True)
+    
+    # Legacy field for backwards compatibility
+    year_section = models.CharField(max_length=100, blank=True, null=True)
+    
+    date = models.DateField()
+    
+    # Dental History
+    name_of_previous_dentist = models.CharField(max_length=255, blank=True, null=True)
+    last_dental_visit = models.CharField(max_length=255, blank=True, null=True)
+    date_of_last_cleaning = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Medical History - Yes/No Questions
+    oral_hygiene_instructions = models.BooleanField(null=True, blank=True)
+    gums_bleed_brushing = models.BooleanField(null=True, blank=True)
+    teeth_sensitive_hot_cold = models.BooleanField(null=True, blank=True)
+    feel_pain_teeth = models.BooleanField(null=True, blank=True)
+    difficult_extractions_past = models.BooleanField(null=True, blank=True)
+    orthodontic_treatment = models.BooleanField(null=True, blank=True)
+    prolonged_bleeding_extractions = models.BooleanField(null=True, blank=True)
+    frequent_headaches = models.BooleanField(null=True, blank=True)
+    clench_grind_teeth = models.BooleanField(null=True, blank=True)
+    allergic_to_following = models.BooleanField(null=True, blank=True)
+    
+    # Specific allergic items
+    allergic_penicillin = models.BooleanField(default=False)
+    allergic_amoxicillin = models.BooleanField(default=False)
+    allergic_local_anesthetic = models.BooleanField(default=False)
+    allergic_sulfa_drugs = models.BooleanField(default=False)
+    allergic_latex = models.BooleanField(default=False)
+    allergic_others = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Women Only
+    is_woman = models.BooleanField(default=False)
+    menstruation_today = models.BooleanField(null=True, blank=True)
+    pregnant = models.BooleanField(null=True, blank=True)
+    taking_birth_control = models.BooleanField(null=True, blank=True)
+    
+    # Additional Medical Questions
+    smoke = models.BooleanField(null=True, blank=True)
+    under_medical_treatment = models.BooleanField(null=True, blank=True)
+    medical_treatment_condition = models.CharField(max_length=255, blank=True, null=True)
+    hospitalized = models.BooleanField(null=True, blank=True)
+    hospitalization_when_why = models.CharField(max_length=255, blank=True, null=True)
+    taking_prescription_medication = models.BooleanField(null=True, blank=True)
+    prescription_medication_details = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Medical Conditions Checkboxes
+    high_blood_pressure = models.BooleanField(default=False)
+    low_blood_pressure = models.BooleanField(default=False)
+    epilepsy_convulsions = models.BooleanField(default=False)
+    aids_hiv_positive = models.BooleanField(default=False)
+    sexually_transmitted_disease = models.BooleanField(default=False)
+    stomach_trouble_ulcers = models.BooleanField(default=False)
+    fainting_seizure = models.BooleanField(default=False)
+    rapid_weight_loss = models.BooleanField(default=False)
+    radiation_therapy = models.BooleanField(default=False)
+    joint_replacement_implant = models.BooleanField(default=False)
+    heart_surgery = models.BooleanField(default=False)
+    heart_attack = models.BooleanField(default=False)
+    thyroid_problem = models.BooleanField(default=False)
+    heart_disease = models.BooleanField(default=False)
+    heart_murmur = models.BooleanField(default=False)
+    hepatitis_liver_disease = models.BooleanField(default=False)
+    rheumatic_fever = models.BooleanField(default=False)
+    hay_fever_allergies = models.BooleanField(default=False)
+    respiratory_problems = models.BooleanField(default=False)
+    hepatitis_jaundice = models.BooleanField(default=False)
+    tuberculosis = models.BooleanField(default=False)
+    swollen_ankles = models.BooleanField(default=False)
+    kidney_disease = models.BooleanField(default=False)
+    diabetes = models.BooleanField(default=False)
+    chest_pain = models.BooleanField(default=False)
+    stroke = models.BooleanField(default=False)
+    cancer_tumors = models.BooleanField(default=False)
+    anemia = models.BooleanField(default=False)
+    angina = models.BooleanField(default=False)
+    asthma = models.BooleanField(default=False)
+    emphysema = models.BooleanField(default=False)
+    blood_diseases = models.BooleanField(default=False)
+    head_injuries = models.BooleanField(default=False)
+    arthritis_rheumatism = models.BooleanField(default=False)
+    other_conditions = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Signature fields
+    patient_signature = models.CharField(max_length=255, blank=True, null=True)
+    signature_date = models.DateField()
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['patient', 'school_year', 'semester']
+    
+    def __str__(self):
+        semester_display = dict(self._meta.get_field('semester').choices).get(self.semester, self.semester)
+        return f"{self.patient_name} - {self.school_year.academic_year if self.school_year else 'No Year'} {semester_display}"
+
+
+class DentalMedicineSupply(models.Model):
+    """Model for dental medicines and supplies that can be used in dental forms"""
+    
+    TYPE_CHOICES = [
+        ('medicine', 'Medicine'),
+        ('anesthetic', 'Anesthetic'),
+        ('antibiotic', 'Antibiotic'),
+        ('dental_supply', 'Dental Supply'),
+        ('equipment', 'Equipment'),
+        ('material', 'Material'),
+    ]
+    
+    name = models.CharField(max_length=100, help_text='Name of the medicine or supply')
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='medicine')
+    description = models.TextField(blank=True, null=True, help_text='Description or notes about the item')
+    unit = models.CharField(max_length=20, default='pcs', help_text='Unit of measurement (e.g., mg, ml, pcs)')
+    is_active = models.BooleanField(default=True, help_text='Whether this item is available for use')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['type', 'name']
+        verbose_name = 'Dental Medicine/Supply'
+        verbose_name_plural = 'Dental Medicines/Supplies'
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_type_display()})"

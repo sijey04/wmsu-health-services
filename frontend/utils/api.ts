@@ -28,6 +28,9 @@ const addAuthInterceptor = (client: any) => {
   client.interceptors.request.use(
     (config: any) => {
       const token = localStorage.getItem('access_token');
+      console.log('API request URL:', config.url);
+      console.log('API request baseURL:', config.baseURL);
+      console.log('Full URL:', `${config.baseURL}${config.url}`);
       console.log('API request token:', token ? `Token found: ${token.substring(0, 50)}...` : 'No token found');
       if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
@@ -45,6 +48,9 @@ const addErrorInterceptor = (client: any) => {
   client.interceptors.response.use(
     (response: any) => response,
     (error: any) => {
+      console.log('API Error:', error);
+      console.log('API Error Config:', error.config);
+      console.log('API Error Response:', error.response);
       // Handle 401 Unauthorized errors (expired token)
       if (error.response && error.response.status === 401) {
         localStorage.removeItem('access_token');
@@ -163,7 +169,7 @@ export const staffAPI = {
   delete: (id: string | number) => apiClient.delete(`/staff/${id}`),
 };
 
-// Inventory APIs
+// Inventory APIs (Express backend)
 export const inventoryAPI = {
   getAll: () => apiClient.get('/inventory'),
   getById: (id: string | number) => apiClient.get(`/inventory/${id}`),
@@ -172,19 +178,43 @@ export const inventoryAPI = {
   delete: (id: string | number) => apiClient.delete(`/inventory/${id}`),
 };
 
+// Django Inventory APIs
+export const djangoInventoryAPI = {
+  getAll: () => djangoApiClient.get('/inventory/'),
+  getById: (id: string | number) => djangoApiClient.get(`/inventory/${id}/`),
+  create: (itemData: any) => djangoApiClient.post('/inventory/', itemData),
+  update: (id: string | number, itemData: any) => djangoApiClient.put(`/inventory/${id}/`, itemData),
+  delete: (id: string | number) => djangoApiClient.delete(`/inventory/${id}/`),
+  updateQuantity: (id: string | number, quantityChange: number) => 
+    djangoApiClient.patch(`/inventory/${id}/`, { 
+      quantity_change: quantityChange 
+    }),
+};
+
 // Waiver APIs (Django backend)
 export const waiversAPI = {
   create: (waiverData: any) => djangoApiClient.post('/waivers/', waiverData),
   getAll: () => djangoApiClient.get('/waivers/'),
   getById: (id: string | number) => djangoApiClient.get(`/waivers/${id}/`),
   getByPatient: (patientId: string | number) => djangoApiClient.get(`/waivers/?patient=${patientId}`),
-  checkStatus: (userId: string | number) => {
-    // Check if user has a waiver by looking at all waivers and filtering by user
-    return djangoApiClient.get('/waivers/').then(response => {
-      const waivers = Array.isArray(response.data) ? response.data : [];
-      const hasWaiver = waivers.some(w => String(w.user) === String(userId));
-      return { data: { hasWaiver } };
-    });
+  checkStatus: () => {
+    // Try the check_status endpoint first, fallback to checking user's waivers
+    return djangoApiClient.get('/waivers/check_status/')
+      .catch(error => {
+        console.log('check_status endpoint failed, trying alternative approach:', error);
+        // Fallback: get all waivers for current user and check if any exist
+        return djangoApiClient.get('/waivers/')
+          .then(response => {
+            const waivers = response.data.results || response.data;
+            const hasWaiver = Array.isArray(waivers) && waivers.length > 0;
+            return {
+              data: {
+                exists: hasWaiver,
+                waiver: hasWaiver ? waivers[0] : null
+              }
+            };
+          });
+      });
   },
 };
 
@@ -194,11 +224,29 @@ export const dentalWaiversAPI = {
   getAll: () => djangoApiClient.get('/dental-waivers/'),
   getById: (id: string | number) => djangoApiClient.get(`/dental-waivers/${id}/`),
   getByPatient: (patientId: string | number) => djangoApiClient.get(`/dental-waivers/?patient=${patientId}`),
-  checkStatus: () => {
-    // Use the check_status endpoint to see if current user has signed dental waiver
-    return djangoApiClient.get('/dental-waivers/check_status/', {
-      headers: { ...getAuthHeaders() },
-    });
+  checkStatus: (semester?: string) => {
+    // Default to 1st_semester if no semester provided
+    const semesterParam = semester || '1st_semester';
+    
+    // Try the check_status endpoint first, fallback to checking user's dental waivers
+    return djangoApiClient.get(`/dental-waivers/check_status/?semester=${semesterParam}`)
+      .catch(error => {
+        console.log('dental check_status endpoint failed, trying alternative approach:', error);
+        // Fallback: get all dental waivers for current user and check if any exist for the semester
+        return djangoApiClient.get('/dental-waivers/')
+          .then(response => {
+            const waivers = response.data.results || response.data;
+            const semesterWaivers = Array.isArray(waivers) ? waivers.filter((w: any) => w.semester === semesterParam) : [];
+            const hasWaiver = semesterWaivers.length > 0;
+            return {
+              data: {
+                has_signed: hasWaiver,
+                semester: semesterParam,
+                waiver: hasWaiver ? semesterWaivers[0] : null
+              }
+            };
+          });
+      });
   },
 };
 
@@ -376,6 +424,136 @@ export const academicSchoolYearsAPI = {
     djangoApiClient.post(`/academic-school-years/${id}/set_current/`, {}, {
       headers: { ...getAuthHeaders() },
     }),
+};
+
+// Academic Semesters API
+export const academicSemestersAPI = {
+  getAll: (params?: { 
+    status?: string; 
+    academic_year?: string;
+    ordering?: string;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return djangoApiClient.get(`/semesters/?${queryParams.toString()}`, {
+      headers: { ...getAuthHeaders() },
+    });
+  },
+  
+  getById: (id: string | number) =>
+    djangoApiClient.get(`/semesters/${id}/`, {
+      headers: { ...getAuthHeaders() },
+    }),
+  
+  getCurrent: () =>
+    djangoApiClient.get('/current-semester/', {
+      headers: { ...getAuthHeaders() },
+    }),
+  
+  create: (semesterData: any) =>
+    djangoApiClient.post('/semesters/', semesterData, {
+      headers: { ...getAuthHeaders() },
+    }),
+  
+  update: (id: string | number, semesterData: any) =>
+    djangoApiClient.put(`/semesters/${id}/`, semesterData, {
+      headers: { ...getAuthHeaders() },
+    }),
+  
+  delete: (id: string | number) =>
+    djangoApiClient.delete(`/semesters/${id}/`, {
+      headers: { ...getAuthHeaders() },
+    }),
+  
+  setCurrent: (id: number) =>
+    djangoApiClient.post(`/semesters/${id}/set_current/`, {}, {
+      headers: { ...getAuthHeaders() },
+    }),
+  
+  getPatientsBySemester: (semesterId: string | number, params?: any) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return djangoApiClient.get(`/semesters/${semesterId}/patients/?${queryParams.toString()}`, {
+      headers: { ...getAuthHeaders() },
+    });
+  },
+};
+
+// Django Dental Medicines/Supplies API
+export const dentalMedicinesAPI = {
+  getAll: () => djangoApiClient.get('/dental-medicines/'),
+  getById: (id: string | number) => djangoApiClient.get(`/dental-medicines/${id}/`),
+  create: (itemData: any) => djangoApiClient.post('/dental-medicines/', itemData),
+  update: (id: string | number, itemData: any) => djangoApiClient.put(`/dental-medicines/${id}/`, itemData),
+  delete: (id: string | number) => djangoApiClient.delete(`/dental-medicines/${id}/`),
+  getByType: (type?: string) => {
+    const params = type ? `?type=${type}` : '';
+    return djangoApiClient.get(`/dental-medicines/by_type/${params}`);
+  },
+  bulkCreate: (items: any[]) => djangoApiClient.post('/dental-medicines/bulk_create/', { items }),
+  populateSamples: () => djangoApiClient.post('/dental-medicines/populate_samples/'),
+  
+  // Usage tracking methods
+  getUsageData: (params?: {
+    start_date?: string;
+    end_date?: string;
+    period?: 'week' | 'month' | 'year';
+    medicine_id?: number;
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return djangoApiClient.get(`/dental-medicines/usage-data/?${queryParams.toString()}`);
+  },
+  
+  getUsageReports: (params?: {
+    period?: 'week' | 'month' | 'year';
+    group_by?: 'medicine' | 'date' | 'patient';
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return djangoApiClient.get(`/dental-medicines/usage-reports/?${queryParams.toString()}`);
+  },
+  
+  exportUsageReport: (params?: {
+    period?: 'week' | 'month' | 'year';
+    format?: 'csv' | 'excel';
+  }) => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined) {
+          queryParams.append(key, value.toString());
+        }
+      });
+    }
+    return djangoApiClient.get(`/dental-medicines/export-usage/?${queryParams.toString()}`, {
+      responseType: 'blob'
+    });
+  }
 };
 
 export default apiClient;

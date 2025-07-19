@@ -275,7 +275,7 @@ export default function PatientProfileSetupPage() {
         if (field === 'contact_number' && value) {
           const phoneRegex = /^09\d{9}$/;
           if (!phoneRegex.test(value)) {
-            errors[field] = 'Contact number must be 11 digits and start with 09.';
+            errors[field] = 'Phone number must be 11 digits and start with 09.';
             if (process.env.NODE_ENV === 'development') {
               console.log(`Field '${field}' has invalid format`);
             }
@@ -1011,7 +1011,7 @@ export default function PatientProfileSetupPage() {
                     {fieldErrors.email && <div className="text-red-500 text-xs mt-1">{fieldErrors.email}</div>}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
                     <input
                       type="text"
                       maxLength={11}
@@ -1112,7 +1112,7 @@ export default function PatientProfileSetupPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Contact Number *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
                     <input
                       type="text"
                       maxLength={11}
@@ -1822,7 +1822,7 @@ export default function PatientProfileSetupPage() {
                   <p className="text-gray-900 font-semibold">{profile?.blood_type || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs">Contact Number</p>
+                  <p className="font-medium text-gray-600 text-xs">Phone Number</p>
                   <p className="text-gray-900 font-semibold">{profile?.contact_number || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 sm:col-span-2">
@@ -1849,7 +1849,7 @@ export default function PatientProfileSetupPage() {
                   <p className="text-gray-900 font-semibold">{profile?.emergency_contact_surname} {profile?.emergency_contact_first_name} {profile?.emergency_contact_middle_name}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs">Contact Number</p>
+                  <p className="font-medium text-gray-600 text-xs">Phone Number</p>
                   <p className="text-gray-900 font-semibold">{profile?.emergency_contact_number || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
@@ -2055,7 +2055,10 @@ export default function PatientProfileSetupPage() {
         if (option === 'Request Medical Certificate') {
           router.push('/patient/upload-documents');
         } else if (option === 'Book Dental Consultation') {
-          router.push('/appointments/dental');
+          router.push({
+            pathname: '/patient/dental-information-record',
+            query: { ...router.query, option: 'Book Dental Consultation' }
+          });
         } else if (option === 'Book Medical Consultation') {
           router.push('/appointments/medical');
         } else {

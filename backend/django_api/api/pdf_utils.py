@@ -4,6 +4,7 @@ PDF generation utilities for medical certificates
 
 import io
 import os
+import json
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
@@ -145,7 +146,7 @@ def generate_dental_form_pdf(dental_form_data):
     story.append(combined_table)
     story.append(Spacer(1, 8))
     
-    # Dental Findings Section - Compact layout
+    # Dental Findings Section - Comprehensive layout
     story.append(Paragraph("<b>DENTAL FINDINGS</b>", section_style))
     
     findings_data = [
@@ -169,6 +170,158 @@ def generate_dental_form_pdf(dental_form_data):
     
     story.append(findings_table)
     story.append(Spacer(1, 8))
+    
+    # Teeth Status Section - User-friendly display
+    if dental_form_data.permanent_teeth_status or dental_form_data.temporary_teeth_status:
+        story.append(Paragraph("<b>TEETH STATUS</b>", section_style))
+        
+        # Process permanent teeth status
+        if dental_form_data.permanent_teeth_status:
+            permanent_data = []
+            permanent_data.append([Paragraph('<b>Permanent Teeth:</b>', body_style), '', '', ''])
+            
+            # Convert JSON data to readable format
+            try:
+                import json
+                if isinstance(dental_form_data.permanent_teeth_status, str):
+                    permanent_teeth = json.loads(dental_form_data.permanent_teeth_status)
+                else:
+                    permanent_teeth = dental_form_data.permanent_teeth_status
+                
+                # Create rows for each tooth with data
+                for tooth_num, tooth_data in permanent_teeth.items():
+                    if tooth_data and (tooth_data.get('treatment') or tooth_data.get('status')):
+                        treatment = tooth_data.get('treatment', 'N/A')
+                        status = tooth_data.get('status', 'N/A')
+                        permanent_data.append([
+                            f'Tooth {tooth_num}:',
+                            f'Treatment: {treatment}',
+                            f'Status: {status}',
+                            ''
+                        ])
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                permanent_data.append(['Invalid teeth status data', '', '', ''])
+            
+            if len(permanent_data) > 1:  # More than just the header
+                permanent_table = Table(permanent_data, colWidths=[1.5*inch, 2.5*inch, 2*inch, 1*inch])
+                permanent_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (3, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (3, -1), 'TOP'),
+                    ('FONTSIZE', (0, 0), (3, -1), 8),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+                    ('BOTTOMPADDING', (0, 0), (3, -1), 2),
+                    ('TOPPADDING', (0, 0), (3, -1), 2),
+                    ('GRID', (0, 0), (3, -1), 0.5, black),
+                ]))
+                story.append(permanent_table)
+        
+        # Process temporary teeth status
+        if dental_form_data.temporary_teeth_status:
+            temporary_data = []
+            temporary_data.append([Paragraph('<b>Temporary Teeth:</b>', body_style), '', '', ''])
+            
+            # Convert JSON data to readable format
+            try:
+                import json
+                if isinstance(dental_form_data.temporary_teeth_status, str):
+                    temporary_teeth = json.loads(dental_form_data.temporary_teeth_status)
+                else:
+                    temporary_teeth = dental_form_data.temporary_teeth_status
+                
+                # Create rows for each tooth with data
+                for tooth_num, tooth_data in temporary_teeth.items():
+                    if tooth_data and (tooth_data.get('treatment') or tooth_data.get('status')):
+                        treatment = tooth_data.get('treatment', 'N/A')
+                        status = tooth_data.get('status', 'N/A')
+                        temporary_data.append([
+                            f'Tooth {tooth_num}:',
+                            f'Treatment: {treatment}',
+                            f'Status: {status}',
+                            ''
+                        ])
+            except (json.JSONDecodeError, TypeError, AttributeError):
+                temporary_data.append(['Invalid teeth status data', '', '', ''])
+            
+            if len(temporary_data) > 1:  # More than just the header
+                temporary_table = Table(temporary_data, colWidths=[1.5*inch, 2.5*inch, 2*inch, 1*inch])
+                temporary_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (3, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (3, -1), 'TOP'),
+                    ('FONTSIZE', (0, 0), (3, -1), 8),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTNAME', (0, 1), (0, -1), 'Helvetica-Bold'),
+                    ('BOTTOMPADDING', (0, 0), (3, -1), 2),
+                    ('TOPPADDING', (0, 0), (3, -1), 2),
+                    ('GRID', (0, 0), (3, -1), 0.5, black),
+                ]))
+                story.append(temporary_table)
+        
+        story.append(Spacer(1, 8))
+    
+    # Medicine Used Section - User-friendly display
+    if hasattr(dental_form_data, 'used_medicines') and dental_form_data.used_medicines:
+        story.append(Paragraph("<b>MEDICINE USED</b>", section_style))
+        
+        # Handle JSON field for medicine usage
+        try:
+            import json
+            if isinstance(dental_form_data.used_medicines, str):
+                medicines_data = json.loads(dental_form_data.used_medicines)
+            else:
+                medicines_data = dental_form_data.used_medicines
+            
+            if isinstance(medicines_data, list) and len(medicines_data) > 0:
+                medicine_table_data = []
+                medicine_table_data.append(['Medicine Name', 'Quantity', 'Unit', 'Notes'])
+                
+                for medicine in medicines_data:
+                    if isinstance(medicine, dict):
+                        name = medicine.get('name', 'N/A')
+                        quantity = str(medicine.get('quantity', medicine.get('quantity_used', 'N/A')))
+                        unit = medicine.get('unit', 'N/A')
+                        notes = medicine.get('notes', 'N/A')
+                        medicine_table_data.append([name, quantity, unit, notes])
+                
+                medicine_table = Table(medicine_table_data, colWidths=[2.5*inch, 1*inch, 1*inch, 2.5*inch])
+                medicine_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (3, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (3, -1), 'TOP'),
+                    ('FONTSIZE', (0, 0), (3, -1), 9),
+                    ('FONTNAME', (0, 0), (3, 0), 'Helvetica-Bold'),  # Header row
+                    ('BACKGROUND', (0, 0), (3, 0), '#f0f0f0'),
+                    ('BOTTOMPADDING', (0, 0), (3, -1), 3),
+                    ('TOPPADDING', (0, 0), (3, -1), 3),
+                    ('GRID', (0, 0), (3, -1), 0.5, black),
+                ]))
+                story.append(medicine_table)
+            else:
+                # No medicines or invalid format
+                no_medicine_table = Table([['No medicines used during this appointment']], colWidths=[7*inch])
+                no_medicine_table.setStyle(TableStyle([
+                    ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                    ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+                    ('FONTSIZE', (0, 0), (0, 0), 9),
+                    ('BOTTOMPADDING', (0, 0), (0, 0), 3),
+                    ('TOPPADDING', (0, 0), (0, 0), 3),
+                    ('GRID', (0, 0), (0, 0), 0.5, black),
+                ]))
+                story.append(no_medicine_table)
+                
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            # Handle invalid JSON data
+            error_table = Table([['Invalid medicine usage data']], colWidths=[7*inch])
+            error_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+                ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+                ('FONTSIZE', (0, 0), (0, 0), 9),
+                ('BOTTOMPADDING', (0, 0), (0, 0), 3),
+                ('TOPPADDING', (0, 0), (0, 0), 3),
+                ('GRID', (0, 0), (0, 0), 0.5, black),
+            ]))
+            story.append(error_table)
+        
+        story.append(Spacer(1, 8))
     
     # Treatment and Recommendations Section - Compact
     story.append(Paragraph("<b>TREATMENT AND RECOMMENDATIONS</b>", section_style))
@@ -211,14 +364,28 @@ def generate_dental_form_pdf(dental_form_data):
         story.append(remarks_table)
         story.append(Spacer(1, 6))
     
-    # Examiner Information Section - Footer style
+    # Examiner Information Section - Comprehensive Footer style
     story.append(Spacer(1, 8))
     story.append(HRFlowable(width="100%", thickness=1, lineCap='round', color=black))
     
+    # Create comprehensive examiner information table
     examiner_data = [
         ['Examined By:', dental_form_data.examined_by or 'N/A',
          'Date:', dental_form_data.date.strftime('%B %d, %Y') if dental_form_data.date else 'N/A'],
     ]
+    
+    # Add additional examiner details if available
+    if dental_form_data.examiner_position:
+        examiner_data.append(['Position:', dental_form_data.examiner_position, '', ''])
+    
+    if dental_form_data.examiner_license:
+        examiner_data.append(['License No.:', dental_form_data.examiner_license, '', ''])
+    
+    if dental_form_data.examiner_ptr:
+        examiner_data.append(['PTR No.:', dental_form_data.examiner_ptr, '', ''])
+    
+    if dental_form_data.examiner_phone:
+        examiner_data.append(['Contact:', dental_form_data.examiner_phone, '', ''])
     
     examiner_table = Table(examiner_data, colWidths=[1.2*inch, 2.8*inch, 1*inch, 2*inch])
     examiner_table.setStyle(TableStyle([

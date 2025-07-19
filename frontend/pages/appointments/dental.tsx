@@ -1,98 +1,216 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
-import { appointmentsAPI, djangoApiClient, dentalWaiversAPI } from '../../utils/api';
+import { appointmentsAPI, djangoApiClient, dentalWaiversAPI, waiversAPI } from '../../utils/api';
 
-function addDays(date, days) {
+/**
+ * DENTAL APPOINTMENT FLOW:
+ * 
+ * The correct sequential flow for dental appointments is:
+ * 1. General Health Waiver (/patient/waiver)
+ * 2. Dental Informed Consent (/patient/dental-waiver) 
+ * 3. Patient Profile Setup (/patient/profile-setup)
+ * 4. Dental Information Record (/patient/dental-information-record)
+ * 5. Dental Appointment Booking (/appointments/dental)
+ * 
+ * Each step redirects to the next step in the sequence when completed,
+ * passing the query parameter 'option=Book Dental Consultation' to
+ * maintain the flow context throughout the process.
+ * 
+ * If a user tries to book a dental appointment without completing
+ * the prerequisites, they will be redirected to the next required step.
+ */
+
+// Type definitions
+interface DentistSchedule {
+  dentist_name: string;
+  campus: string;
+  available_days: string[];
+  time_slots: string[];
+  is_active: boolean;
+}
+
+interface Requirements {
+  hasAuth: boolean;
+  hasWaiver: boolean;
+  hasDentalWaiver: boolean;
+  hasProfile: boolean;
+  hasDentalRecord: boolean;
+  patientId: number | null;
+  schoolYear: any;
+  semester: string | null;
+  nextStep: string | null;
+  isComplete: boolean;
+}
+
+function addDays(date: Date, days: number): Date {
   const d = new Date(date);
   d.setDate(d.getDate() + days);
   return d;
 }
 
-function formatTimeRange(open, close) {
+function formatTimeRange(open: string, close: string): string {
   return `Open: ${open} - ${close}`;
 }
 
-function getCampusHours(campus, day) {
+function getCampusHours(campus: string, day: number): string[] | null {
   // Only Campus A has dental services
   if (campus !== 'A') return null;
   if (day === 0) return null; // Sunday closed
-  // Check against dentist schedule loaded from backend
-  return ['08:00', '17:00']; // Default hours, will be updated by dentist schedule
+  return ['08:00', '17:00']; // Default hours
 }
 
-// Helper function to get patient ID from localStorage
-async function getPatientId() {
-  const userStr = localStorage.getItem('user');
-  if (!userStr) {
-    console.error('No user data found in localStorage');
-    return null;
-  }
-  
-  try {
-    const user = JSON.parse(userStr);
-    console.log('User data from localStorage:', user);
-    
-    // Try multiple ways to get patient ID based on backend structure
-    if (user.patient_profile) {
-      console.log('Using patient_profile:', user.patient_profile);
-      return user.patient_profile;
-    }
-    
-    if (user.patient?.id) {
-      console.log('Using patient.id:', user.patient.id);
-      return user.patient.id;
-    }
-    
-    // If no patient_profile field exists, try to get current patient profile from backend
-    if (user.id) {
-      console.log('No patient_profile found, trying to fetch from backend...');
-      try {
-        // Try the patient profile endpoint
-        const response = await djangoApiClient.get('/patients/my_profile/');
-        console.log('Backend response:', response.data);
-        
-        if (response.data?.id) {
-          console.log('Got patient ID from backend:', response.data.id);
-          return response.data.id;
-        }
-        
-        // If no ID in response, try the patients list endpoint
-        const listResponse = await djangoApiClient.get(`/patients/?user=${user.id}`);
-        console.log('Patient list response:', listResponse.data);
-        
-        if (listResponse.data?.results && listResponse.data.results.length > 0) {
-          const userProfile = listResponse.data.results[0];
-          console.log('Got patient ID from list:', userProfile.id);
-          return userProfile.id;
-        }
-        
-        if (Array.isArray(listResponse.data) && listResponse.data.length > 0) {
-          const userProfile = listResponse.data[0];
-          console.log('Got patient ID from array:', userProfile.id);
-          return userProfile.id;
-        }
-        
-      } catch (error) {
-        console.error('Failed to fetch patient profile:', error);
-        
-        // If profile doesn't exist, the user needs to create one first
-        if (error.response?.status === 404) {
-          console.error('Patient profile not found - user needs to create profile first');
-          throw new Error('No patient profile found. Please create your profile first by going to the profile setup page.');
-        }
-        
-        // For other errors, just log and continue
-        console.error('Error fetching patient profile:', error);
-        throw error;
+// Sequential Requirements Checker
+class RequirementsChecker {
+  static async checkAllRequirements(): Promise<Requirements> {
+    const requirements: Requirements = {
+      hasAuth: false,
+      hasWaiver: false,
+      hasDentalWaiver: false,
+      hasProfile: false,
+      hasDentalRecord: false,
+      patientId: null,
+      schoolYear: null,
+      semester: null,
+      nextStep: null,
+      isComplete: false
+    };
+
+    try {
+      // Step 1: Check authentication
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      console.log('Auth token check:', token ? 'Token found' : 'No token found');
+      
+      if (!token) {
+        console.log('No authentication token found');
+        requirements.nextStep = 'login';
+        return requirements;
       }
+      requirements.hasAuth = true;
+
+      // Step 2: Check general waiver
+      try {
+        console.log('Checking general waiver status...');
+        const waiverResponse = await waiversAPI.checkStatus();
+        console.log('Waiver response:', waiverResponse.data);
+        requirements.hasWaiver = waiverResponse.data.exists || false;
+      } catch (error: any) {
+        console.log('Waiver check failed - assuming not signed:', error);
+        
+        // If it's a 404, it might mean the endpoint doesn't exist or user has no waiver
+        if (error.response?.status === 404) {
+          console.log('Waiver endpoint returned 404 - assuming no waiver exists');
+          requirements.hasWaiver = false;
+        } else if (error.response?.status === 401) {
+          console.log('Authentication error - redirecting to login');
+          requirements.nextStep = 'login';
+          return requirements;
+        } else {
+          console.log('Other waiver check error:', error.message);
+          requirements.hasWaiver = false;
+        }
+      }
+
+      if (!requirements.hasWaiver) {
+        requirements.nextStep = 'waiver';
+        return requirements;
+      }
+
+      // Step 3: Check dental waiver
+      try {
+        console.log('Checking dental waiver status...');
+        const dentalWaiverResponse = await dentalWaiversAPI.checkStatus();
+        console.log('Dental waiver response:', dentalWaiverResponse.data);
+        requirements.hasDentalWaiver = dentalWaiverResponse.data.has_signed || false;
+        console.log('Dental waiver has_signed:', requirements.hasDentalWaiver);
+      } catch (error: any) {
+        console.log('Dental waiver check failed - assuming not signed:', error);
+        console.log('Error response:', error.response);
+        
+        // If it's a 404, it might mean the endpoint doesn't exist or user has no dental waiver
+        if (error.response?.status === 404) {
+          console.log('Dental waiver endpoint returned 404 - assuming no dental waiver exists');
+          requirements.hasDentalWaiver = false;
+        } else if (error.response?.status === 401) {
+          console.log('Authentication error - redirecting to login');
+          requirements.nextStep = 'login';
+          return requirements;
+        } else {
+          console.log('Other dental waiver check error:', error.message);
+          requirements.hasDentalWaiver = false;
+        }
+      }
+
+      if (!requirements.hasDentalWaiver) {
+        requirements.nextStep = 'dental-waiver';
+        return requirements;
+      }
+
+      // Step 4: Check patient profile and get patient ID
+      try {
+        const profileResponse = await djangoApiClient.get('/patients/my_profile/');
+        if (profileResponse.data?.id) {
+          requirements.hasProfile = true;
+          requirements.patientId = profileResponse.data.id;
+        }
+      } catch (error) {
+        if (error.response?.status === 404) {
+          requirements.hasProfile = false;
+        } else {
+          console.log('Profile check failed:', error);
+          requirements.hasProfile = false;
+        }
+      }
+
+      if (!requirements.hasProfile) {
+        requirements.nextStep = 'profile-setup';
+        return requirements;
+      }
+
+      // Step 5: Get current school year and semester
+      try {
+        const schoolYearResponse = await djangoApiClient.get('/academic-school-years/current/');
+        if (schoolYearResponse.data) {
+          requirements.schoolYear = schoolYearResponse.data;
+          requirements.semester = '1st_semester'; // Default
+        }
+      } catch (error) {
+        console.log('School year check failed:', error);
+        requirements.semester = '1st_semester'; // Default
+      }
+
+      // Step 6: Check dental information record
+      try {
+        const params: any = {};
+        if (requirements.schoolYear?.id) {
+          params.school_year = requirements.schoolYear.id;
+        }
+        if (requirements.semester) {
+          params.semester = requirements.semester;
+        }
+
+        const dentalRecordResponse = await djangoApiClient.get('/dental-information-records/check_status/', { params });
+        requirements.hasDentalRecord = dentalRecordResponse.data.has_completed || false;
+      } catch (error) {
+        console.log('Dental record check failed - assuming not completed:', error);
+        requirements.hasDentalRecord = false;
+      }
+
+      if (!requirements.hasDentalRecord) {
+        requirements.nextStep = 'dental-information-record';
+        return requirements;
+      }
+
+      // All requirements met
+      requirements.isComplete = true;
+      requirements.nextStep = 'appointment';
+      return requirements;
+
+    } catch (error) {
+      console.error('Requirements check failed:', error);
+      requirements.nextStep = 'login';
+      return requirements;
     }
-    
-    console.error('No valid patient ID found');
-    return null;
-  } catch (error) {
-    console.error('Error getting patient ID:', error);
-    throw error;
   }
 }
 
@@ -105,44 +223,53 @@ export default function DentalAppointmentPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [existingAppointments, setExistingAppointments] = useState([]);
-  const [bookingBlocked, setBookingBlocked] = useState(false);
-  const [blockingReason, setBlockingReason] = useState('');
-  const [dentistSchedule, setDentistSchedule] = useState(null);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState([]);
-  const [currentSchoolYear, setCurrentSchoolYear] = useState(null);
-  const [needsProfile, setNeedsProfile] = useState(false);
-  const [dentalWaiverSigned, setDentalWaiverSigned] = useState(false);
-  const [checkingWaiver, setCheckingWaiver] = useState(true);
+  const [dentistSchedule, setDentistSchedule] = useState<DentistSchedule | null>(null);
+  const [currentSchoolYear, setCurrentSchoolYear] = useState<any>(null);
+  const [currentSemester, setCurrentSemester] = useState<string>('');
+  const [patientId, setPatientId] = useState<number | null>(null);
 
-  // Load dentist schedule and current school year from admin controls
+  // Load initial data
   useEffect(() => {
     loadDentistSchedule();
     loadCurrentSchoolYear();
-    checkDentalWaiverStatus();
+    loadPatientProfile();
   }, []);
 
-  const checkDentalWaiverStatus = async () => {
-    setCheckingWaiver(true);
+  const checkRequirements = async () => {
+    // Removed - this is the final step, no requirements checking needed
+  };
+
+  const loadCurrentSchoolYear = async () => {
     try {
-      const response = await dentalWaiversAPI.checkStatus();
-      setDentalWaiverSigned(response.data.has_signed);
+      const response = await djangoApiClient.get('/academic-school-years/current/');
+      if (response.data) {
+        setCurrentSchoolYear(response.data);
+        setCurrentSemester('1st_semester'); // Default semester
+      }
     } catch (error) {
-      console.error('Error checking dental waiver status:', error);
-      // Assume not signed on error to be safe
-      setDentalWaiverSigned(false);
-    } finally {
-      setCheckingWaiver(false);
+      console.error('Error loading current school year:', error);
+      setCurrentSemester('1st_semester'); // Default semester
     }
   };
 
-  const loadDentistSchedule = async () => {
+  const loadPatientProfile = async () => {
+    try {
+      const profileResponse = await djangoApiClient.get('/patients/my_profile/');
+      if (profileResponse.data?.id) {
+        setPatientId(profileResponse.data.id);
+      }
+    } catch (error) {
+      console.error('Error loading patient profile:', error);
+    }
+  };
+
+  const loadDentistSchedule = async (): Promise<void> => {
     try {
       const response = await djangoApiClient.get('/admin-controls/dentist_schedules/');
       const schedules = response.data || [];
       
       // Find the dentist schedule for Campus A
-      const campusADentist = schedules.find(schedule => 
+      const campusADentist = schedules.find((schedule: any) => 
         schedule.campus === 'a' && schedule.is_active
       );
       
@@ -152,30 +279,19 @@ export default function DentalAppointmentPage() {
     } catch (error) {
       console.error('Error loading dentist schedule:', error);
       // Set default schedule if API fails
-      setDentistSchedule({
+      const defaultSchedule: DentistSchedule = {
         dentist_name: 'Dr. Maria Santos',
         campus: 'a',
         available_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
         time_slots: ['08:00-09:00', '09:00-10:00', '10:00-11:00', '13:00-14:00', '14:00-15:00', '15:00-16:00'],
         is_active: true
-      });
-    }
-  };
-
-  const loadCurrentSchoolYear = async () => {
-    try {
-      const response = await djangoApiClient.get('/academic-school-years/current/');
-      if (response.data) {
-        setCurrentSchoolYear(response.data);
-      }
-    } catch (error) {
-      console.error('Error loading current school year:', error);
-      // Continue without school year if API fails
+      };
+      setDentistSchedule(defaultSchedule);
     }
   };
 
   // Check if dentist is available on selected date
-  function isDentistAvailable(dateStr) {
+  function isDentistAvailable(dateStr: string): boolean {
     if (!dentistSchedule || !dateStr) return false;
     
     const selectedDate = new Date(dateStr);
@@ -185,7 +301,7 @@ export default function DentalAppointmentPage() {
   }
 
   // Get available time slots for selected date
-  function getAvailableTimeSlots(dateStr) {
+  function getAvailableTimeSlots(dateStr: string): string[] {
     if (!isDentistAvailable(dateStr) || !dentistSchedule) return [];
     
     const today = new Date();
@@ -205,12 +321,12 @@ export default function DentalAppointmentPage() {
     });
   }
 
-  function getDayOfWeek(dateStr) {
+  function getDayOfWeek(dateStr: string): number | null {
     if (!dateStr) return null;
     return new Date(dateStr).getDay();
   }
 
-  function isCampusOpen(campus, dateStr) {
+  function isCampusOpen(campus: string, dateStr: string): boolean {
     // Only Campus A has dental services
     if (campus !== 'A') return false;
     
@@ -218,7 +334,7 @@ export default function DentalAppointmentPage() {
     return isDentistAvailable(dateStr);
   }
 
-  function isTimeValid(time, dateStr) {
+  function isTimeValid(time: string, dateStr: string): boolean {
     if (!time || !dentistSchedule) return false;
     
     // Check if the selected time is within available time slots
@@ -239,7 +355,7 @@ export default function DentalAppointmentPage() {
     return true;
   }
 
-  function isDateDisabled(dateStr) {
+  function isDateDisabled(dateStr: string): boolean {
     const today = new Date();
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const d = new Date(dateStr);
@@ -254,8 +370,8 @@ export default function DentalAppointmentPage() {
     return false;
   }
 
-  function isTimeInputDisabled() {
-    if (!campusOpen || !date || isDateDisabled(date)) return true;
+  function isTimeInputDisabled(): boolean {
+    if (!isCampusOpen(campus, date) || !date || isDateDisabled(date)) return true;
     
     // Check if there are available time slots
     const slots = getAvailableTimeSlots(date);
@@ -268,16 +384,7 @@ export default function DentalAppointmentPage() {
     e.preventDefault();
     setError('');
     
-    // Check if dental waiver is signed
-    if (!dentalWaiverSigned) {
-      // Redirect to dental waiver page with current query params
-      router.push({
-        pathname: '/patient/dental-waiver',
-        query: router.query,
-      });
-      return;
-    }
-    
+    // Validate appointment data
     if (!isCampusOpen(campus, date)) {
       setError('Dental services are not available on the selected day.');
       return;
@@ -286,26 +393,12 @@ export default function DentalAppointmentPage() {
       setError('Please select a valid time slot from the dentist\'s available schedule.');
       return;
     }
-    // Get patient ID from localStorage
-    let patientId;
-    try {
-      patientId = await getPatientId();
-    } catch (error) {
-      console.error('Error in getPatientId:', error);
-      if (error.message && error.message.includes('Please create your profile first')) {
-        setNeedsProfile(true);
-        setError('You need to create your patient profile before booking appointments.');
-      } else {
-        setError('Could not determine your patient ID. Please try logging in again or contact support.');
-      }
+
+    if (!patientId) {
+      setError('Patient profile not found. Please ensure you have completed your profile setup.');
       return;
     }
     
-    if (!patientId) {
-      // Don't assume they need to create profile, could be other issues
-      setError('Could not determine your patient ID. Please try logging in again or contact support if the issue persists.');
-      return;
-    }
     try {
       setLoading(true);
       const appointmentData: any = {
@@ -333,6 +426,15 @@ export default function DentalAppointmentPage() {
     }
   };
 
+  const redirectToNextStep = (step: string) => {
+    // Removed - no longer needed as this is the final step
+  };
+
+  const renderRequirementsStatus = () => {
+    // Removed - no longer showing requirements since this is the final step
+    return null;
+  };
+
   // Dummy handlers for Layout
   const handleLoginClick = () => {};
   const handleSignupClick = () => {};
@@ -347,196 +449,154 @@ export default function DentalAppointmentPage() {
 
   return (
     <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick}>
-      {checkingWaiver ? (
-        <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md text-center">
-            <svg className="animate-spin h-12 w-12 text-[#800000] mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
-            </svg>
-            <p className="text-gray-600">Checking dental waiver status...</p>
-          </div>
-        </div>
-      ) : needsProfile ? (
-        <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md text-center">
-            <svg className="w-16 h-16 mx-auto mb-4 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
-            <h3 className="text-xl font-bold text-yellow-600 mb-4">Profile Setup Required</h3>
-            <p className="text-gray-600 mb-6">You need to create your patient profile before booking appointments.</p>
-            <button
-              onClick={() => router.push('/patient/profile-setup')}
-              className="px-6 py-2 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#600000] transition-all duration-200"
-            >
-              Set Up Profile
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-md">
+      <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-2xl">
             {submitted ? (
-            <div className="text-center py-8">
-              <svg className="w-16 h-16 mx-auto mb-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              <h3 className="text-xl font-bold text-green-600">Appointment Submitted!</h3>
-              <p className="mt-2 text-sm text-gray-600 text-center">Your dental appointment has been submitted successfully.<br />We will process your request soon.</p>
-            </div>
-          ) : (
-            <>
-              <h1 className="text-2xl font-bold text-[#800000] mb-6 text-center">Book Dental Consultation</h1>
-              {currentSchoolYear && (
-                <div className="mb-4 p-3 bg-green-50 rounded-lg">
-                  <div className="text-sm text-green-800">
-                    <strong>School Year:</strong> {currentSchoolYear.academic_year}
-                  </div>
-                  <div className="text-xs text-green-600">
-                    Your appointment will be recorded for this school year
-                  </div>
-                </div>
-              )}
-              {dentistSchedule && (
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                  <div className="text-sm text-blue-800">
-                    <strong>Dentist:</strong> {dentistSchedule.dentist_name}
-                  </div>
-                  <div className="text-sm text-blue-600">
-                    Available: {dentistSchedule.available_days.join(', ')}
-                  </div>
-                </div>
-              )}
-              {!dentalWaiverSigned && (
-                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <div className="text-sm text-orange-800">
-                    <strong>Notice:</strong> You will need to sign a dental waiver before your appointment can be processed.
-                  </div>
-                  <div className="text-xs text-orange-600">
-                    The waiver will be presented when you submit your appointment request.
-                  </div>
-                </div>
-              )}
-              {dentalWaiverSigned && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <div className="text-sm text-green-800">
-                    ✓ Dental waiver signed
-                  </div>
-                  <div className="text-xs text-green-600">
-                    You can proceed with booking your appointment.
-                  </div>
-                </div>
-              )}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
-                  <select 
-                    value={campus} 
-                    onChange={e => setCampus(e.target.value)} 
-                    className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000] bg-gray-100"
-                    disabled
-                  >
-                    <option value="A">Campus A (Dental Services Only)</option>
-                  </select>
-                  <div className="mt-1 text-xs text-gray-500">
-                    Dental services are only available at Campus A
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input 
-                    type="date" 
-                    value={date} 
-                    onChange={e => setDate(e.target.value)} 
-                    required 
-                    min={todayStr} 
-                    max={maxDate} 
-                    className={`block w-full border-gray-300 rounded-lg py-2 px-3 ${isDateDisabled(date) ? 'bg-gray-200 text-gray-400' : ''}`} 
-                  />
-                  {date && !isDentistAvailable(date) && (
-                    <div className="mt-1 text-xs text-red-600">
-                      Dentist is not available on this day
+              <div className="text-center py-8">
+                <svg className="w-16 h-16 mx-auto mb-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 className="text-xl font-bold text-green-600">Appointment Submitted!</h3>
+                <p className="mt-2 text-sm text-gray-600 text-center">
+                  Your dental appointment has been submitted successfully.<br />
+                  We will process your request soon.
+                </p>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-[#800000] mb-6 text-center">Book Dental Consultation</h1>
+                
+                {currentSchoolYear && (
+                  <div className="mb-4 p-3 bg-green-50 rounded-lg">
+                    <div className="text-sm text-green-800">
+                      <strong>School Year:</strong> {currentSchoolYear.academic_year}
                     </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Time Slot</label>
-                  {date && currentTimeSlots.length > 0 ? (
-                    <select
-                      value={time}
-                      onChange={e => setTime(e.target.value)}
-                      required
-                      className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
-                    >
-                      <option value="">Select a time slot</option>
-                      {currentTimeSlots.map(slot => (
-                        <option key={slot} value={slot.split('-')[0]}>
-                          {slot}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input 
-                      type="time" 
-                      value={time} 
-                      onChange={e => setTime(e.target.value)} 
-                      required 
-                      className="block w-full border-gray-300 rounded-lg py-2 px-3 bg-gray-200 text-gray-400 cursor-not-allowed" 
-                      disabled 
-                    />
-                  )}
-                  <div className="mt-1 text-center text-xs text-gray-500">
-                    {date && currentTimeSlots.length > 0 
-                      ? `${currentTimeSlots.length} slots available` 
-                      : date 
-                        ? 'No slots available' 
-                        : 'Select a date first'
-                    }
-                  </div>
-                </div>
-                {!campusOpen && date && (
-                  <div className="text-red-600 text-sm font-semibold text-center py-2 bg-red-50 rounded-lg">
-                    Dental services are not available on the selected day.
+                    <div className="text-xs text-green-600">
+                      Your appointment will be recorded for this school year
+                    </div>
                   </div>
                 )}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Dental Concern</label>
-                  <textarea 
-                    value={concern} 
-                    onChange={e => setConcern(e.target.value)} 
-                    required 
-                    rows={3} 
-                    className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]" 
-                    disabled={!campusOpen || isDateDisabled(date)} 
-                  />
-                </div>
-                {error && (
-                  <div className="text-red-600 text-sm font-semibold text-center">
-                    {error}
-                    {needsProfile && (
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          onClick={() => router.push('/patient/profile-setup')}
-                          className="text-blue-600 hover:text-blue-800 underline text-sm"
+                
+                {dentistSchedule && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="text-sm text-blue-800">
+                      <strong>Dentist:</strong> {dentistSchedule.dentist_name}
+                    </div>
+                    <div className="text-sm text-blue-600">
+                      Available: {dentistSchedule.available_days.join(', ')}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Requirements Status */}
+                {renderRequirementsStatus()}
+                
+                {/* Appointment Form */}
+                <form onSubmit={handleSubmit}>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Campus
+                      </label>
+                      <select
+                        value={campus}
+                        onChange={(e) => setCampus(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100"
+                        disabled={true}
+                      >
+                        <option value="A">Campus A (Main Campus - Dental Services Available)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Date *
+                      </label>
+                      <input
+                        type="date"
+                        value={date}
+                        onChange={(e) => setDate(e.target.value)}
+                        min={todayStr}
+                        max={maxDate}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                        required
+                      />
+                      {date && !isCampusOpen(campus, date) && (
+                        <p className="text-red-500 text-sm mt-1">
+                          Dental services are not available on this day. Please select a weekday.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Time *
+                      </label>
+                      {currentTimeSlots.length > 0 ? (
+                        <select
+                          value={time}
+                          onChange={(e) => setTime(e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                          disabled={isTimeInputDisabled()}
+                          required
                         >
-                          Create Profile Now
-                        </button>
+                          <option value="">Select a time slot</option>
+                          {currentTimeSlots.map(slot => (
+                            <option key={slot} value={slot.split('-')[0]}>
+                              {slot}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="time"
+                          value={time}
+                          onChange={(e) => setTime(e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                          disabled={isTimeInputDisabled()}
+                          required
+                        />
+                      )}
+                      {isTimeInputDisabled() && (
+                        <p className="text-gray-500 text-sm mt-1">
+                          Please select a valid date first to see available time slots.
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Concern/Purpose *
+                      </label>
+                      <textarea
+                        value={concern}
+                        onChange={(e) => setConcern(e.target.value)}
+                        placeholder="Please describe your dental concern or the purpose of your visit"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                        rows={4}
+                        required
+                      />
+                    </div>
+
+                    {error && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-600 text-sm">{error}</p>
                       </div>
                     )}
+
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-[#800000] text-white py-3 px-4 rounded-lg font-semibold hover:bg-[#600000] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    >
+                      {loading ? 'Submitting...' : 'Submit Appointment Request'}
+                    </button>
                   </div>
-                )}
-                <button 
-                  type="submit" 
-                  className="w-full py-2.5 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] transition-all duration-200 shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed" 
-                  disabled={loading || !campusOpen || isDateDisabled(date) || !isTimeValid(time, date)}
-                >
-                  {loading ? 'Submitting...' : 'Submit Request'}
-                </button>
-              </form>
-            </>
-          )}
+                </form>
+              </>
+            )}
+          </div>
         </div>
-      </div>
-      )}
     </Layout>
   );
 }

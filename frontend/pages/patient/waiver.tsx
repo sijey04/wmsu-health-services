@@ -50,10 +50,19 @@ export default function WaiverPage() {
   useEffect(() => {
     if (submitted) {
       const timer = setTimeout(() => {
-        router.push({
-          pathname: '/patient/profile-setup',
-          query: router.query,
-        });
+        // Check if coming from dental appointment flow
+        const { option } = router.query;
+        if (option === 'Book Dental Consultation') {
+          router.push({
+            pathname: '/patient/dental-waiver',
+            query: router.query,
+          });
+        } else {
+          router.push({
+            pathname: '/patient/profile-setup',
+            query: router.query,
+          });
+        }
       }, 5000);
       return () => clearTimeout(timer);
     }
@@ -82,7 +91,13 @@ export default function WaiverPage() {
         const hasWaiver = waivers.some(w => String(w.user) === String(userId));
         if (hasWaiver) {
           setRedirecting(true);
-          router.replace({ pathname: '/patient/profile-setup', query: router.query });
+          // Check if coming from dental appointment flow
+          const { option } = router.query;
+          if (option === 'Book Dental Consultation') {
+            router.replace({ pathname: '/patient/dental-waiver', query: router.query });
+          } else {
+            router.replace({ pathname: '/patient/profile-setup', query: router.query });
+          }
           return;
         }
       } catch {}
@@ -157,11 +172,11 @@ export default function WaiverPage() {
           </svg>
         </div>
       ) : (
-      <div className="bg-white text-black min-h-screen py-12 px-4 sm:px-6 lg:px-8 printable-area">
+      <div className="bg-white text-black min-h-screen py-12 px-4 sm:px-6 lg:px-8  printable-area">
         <div className="max-w-4xl mx-auto">
 
           {/* Header */}
-          <div className="flex justify-between items-center border-b-2 border-black pb-4 mb-6">
+          <div className="flex justify-between items-center border-b-2 border-black pb-4 mt-6 mb-6">
             <div className="flex items-center space-x-2">
               {/* Placeholders for logos */}
               <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center text-xs">Logo 1</div>
@@ -327,10 +342,15 @@ export default function WaiverPage() {
       )}
       <FeedbackModal
         open={showFeedback}
-        message="Waiver submitted! Proceeding to profile setup..."
+        message={router.query.option === 'Book Dental Consultation' ? "Waiver submitted! Proceeding to dental waiver..." : "Waiver submitted! Proceeding to profile setup..."}
         onClose={() => {
           setShowFeedback(false);
-          router.push({ pathname: '/patient/profile-setup', query: router.query });
+          const { option } = router.query;
+          if (option === 'Book Dental Consultation') {
+            router.push({ pathname: '/patient/dental-waiver', query: router.query });
+          } else {
+            router.push({ pathname: '/patient/profile-setup', query: router.query });
+          }
         }}
       />
       <style jsx global>{`

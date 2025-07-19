@@ -55,6 +55,29 @@ interface FormData {
   dentist_name?: string;
   dentist_license?: string;
   
+  // Comprehensive dental fields from DentalFormData model
+  has_toothbrush?: string;
+  dentition?: string;
+  periodontal?: string;
+  malocclusion_severity?: string;
+  decayed_teeth?: string;
+  missing_teeth?: string;
+  filled_teeth?: string;
+  oral_hygiene?: string;
+  recommended_treatments?: string;
+  prevention_advice?: string;
+  next_appointment?: string;
+  treatment_priority?: string;
+  remarks?: string;
+  examined_by?: string;
+  examiner_position?: string;
+  examiner_license?: string;
+  examiner_ptr?: string;
+  examiner_phone?: string;
+  permanent_teeth_status?: any;
+  temporary_teeth_status?: any;
+  used_medicines?: any;
+  
   created_at?: string;
   updated_at?: string;
 }
@@ -272,8 +295,148 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
               <label className="block text-sm font-medium text-gray-700">Age/Sex</label>
               <p className="text-sm text-gray-900">{formData.age || 'N/A'} / {formData.sex || 'N/A'}</p>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Has Toothbrush</label>
+              <p className="text-sm text-gray-900">{formData.has_toothbrush || 'N/A'}</p>
+            </div>
           </div>
         </div>
+
+        {/* Dental Assessment */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Dental Assessment</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Dentition</label>
+              <p className="text-sm text-gray-900">{formData.dentition || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Periodontal</label>
+              <p className="text-sm text-gray-900">{formData.periodontal || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Occlusion</label>
+              <p className="text-sm text-gray-900">{formData.occlusion || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Malocclusion Severity</label>
+              <p className="text-sm text-gray-900">{formData.malocclusion_severity || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dental Findings */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Dental Findings</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Decayed Teeth</label>
+              <p className="text-sm text-gray-900">{formData.decayed_teeth || 'None'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Missing Teeth</label>
+              <p className="text-sm text-gray-900">{formData.missing_teeth || 'None'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Filled Teeth</label>
+              <p className="text-sm text-gray-900">{formData.filled_teeth || 'None'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Oral Hygiene</label>
+              <p className="text-sm text-gray-900">{formData.oral_hygiene || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Teeth Status - User-Friendly Display */}
+        {(formData.permanent_teeth_status || formData.temporary_teeth_status) && (
+          <div className="bg-gray-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Teeth Status</h3>
+            <div className="space-y-4">
+              {formData.permanent_teeth_status && Object.keys(formData.permanent_teeth_status).length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Permanent Teeth</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {Object.entries(formData.permanent_teeth_status).map(([toothNum, data]: [string, any]) => (
+                      <div key={toothNum} className="bg-white p-3 border border-gray-300 rounded-md">
+                        <div className="font-semibold text-sm text-gray-900">Tooth {toothNum}</div>
+                        {data.treatment && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            <span className="font-medium">Treatment:</span> {data.treatment}
+                          </div>
+                        )}
+                        {data.status && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            <span className="font-medium">Status:</span> {data.status}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {formData.temporary_teeth_status && Object.keys(formData.temporary_teeth_status).length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Temporary Teeth</label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {Object.entries(formData.temporary_teeth_status).map(([toothNum, data]: [string, any]) => (
+                      <div key={toothNum} className="bg-white p-3 border border-gray-300 rounded-md">
+                        <div className="font-semibold text-sm text-gray-900">Tooth {toothNum}</div>
+                        {data.treatment && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            <span className="font-medium">Treatment:</span> {data.treatment}
+                          </div>
+                        )}
+                        {data.status && (
+                          <div className="text-xs text-gray-600 mt-1">
+                            <span className="font-medium">Status:</span> {data.status}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Medicine Used Section */}
+        {formData.used_medicines && (
+          <div className="bg-yellow-50 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">Medicine Used</h3>
+            <div className="space-y-3">
+              {Array.isArray(formData.used_medicines) && formData.used_medicines.length > 0 ? (
+                formData.used_medicines.map((medicine: any, index: number) => (
+                  <div key={index} className="bg-white p-3 border border-gray-300 rounded-md">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                      <div>
+                        <span className="font-medium text-sm text-gray-700">Medicine:</span>
+                        <p className="text-sm text-gray-900">{medicine.name || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-sm text-gray-700">Quantity:</span>
+                        <p className="text-sm text-gray-900">{medicine.quantity || medicine.quantity_used || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-sm text-gray-700">Unit:</span>
+                        <p className="text-sm text-gray-900">{medicine.unit || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-sm text-gray-700">Notes:</span>
+                        <p className="text-sm text-gray-900">{medicine.notes || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="bg-white p-3 border border-gray-300 rounded-md">
+                  <p className="text-sm text-gray-600">No medicines recorded</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Chief Concern & History */}
         <div className="space-y-4">
@@ -324,12 +487,6 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Occlusion</label>
-            <div className="bg-white p-3 border border-gray-300 rounded-md">
-              <p className="text-sm text-gray-900">{formData.occlusion || 'N/A'}</p>
-            </div>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Periodontal Screening</label>
             <div className="bg-white p-3 border border-gray-300 rounded-md">
               <p className="text-sm text-gray-900">{formData.periodontal_screening || 'N/A'}</p>
@@ -343,7 +500,7 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
           </div>
         </div>
 
-        {/* Diagnosis & Treatment */}
+        {/* Treatment and Recommendations */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
@@ -357,20 +514,78 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
               <p className="text-sm text-gray-900">{formData.treatment_plan_dental || 'N/A'}</p>
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Recommended Treatments</label>
+            <div className="bg-white p-3 border border-gray-300 rounded-md">
+              <p className="text-sm text-gray-900">{formData.recommended_treatments || 'N/A'}</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Prevention Advice</label>
+            <div className="bg-white p-3 border border-gray-300 rounded-md">
+              <p className="text-sm text-gray-900">{formData.prevention_advice || 'N/A'}</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Treatment Priority</label>
+            <div className="bg-white p-3 border border-gray-300 rounded-md">
+              <p className="text-sm text-gray-900">{formData.treatment_priority || 'N/A'}</p>
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Next Appointment</label>
+            <div className="bg-white p-3 border border-gray-300 rounded-md">
+              <p className="text-sm text-gray-900">{formData.next_appointment || 'N/A'}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Dentist Information */}
+        {/* Additional Remarks */}
+        {formData.remarks && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Additional Remarks</label>
+            <div className="bg-white p-3 border border-gray-300 rounded-md">
+              <p className="text-sm text-gray-900">{formData.remarks}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Comprehensive Examiner Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Dentist Information</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Examiner Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">Dentist Name</label>
-              <p className="text-sm text-gray-900">{formData.dentist_name || 'N/A'}</p>
+              <label className="block text-sm font-medium text-gray-700">Examined By</label>
+              <p className="text-sm text-gray-900">{formData.examined_by || formData.dentist_name || 'N/A'}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">License Number</label>
-              <p className="text-sm text-gray-900">{formData.dentist_license || 'N/A'}</p>
+              <label className="block text-sm font-medium text-gray-700">Date of Examination</label>
+              <p className="text-sm text-gray-900">
+                {formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'}
+              </p>
             </div>
+            {formData.examiner_position && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Position</label>
+                <p className="text-sm text-gray-900">{formData.examiner_position}</p>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">License Number</label>
+              <p className="text-sm text-gray-900">{formData.examiner_license || formData.dentist_license || 'N/A'}</p>
+            </div>
+            {formData.examiner_ptr && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">PTR Number</label>
+                <p className="text-sm text-gray-900">{formData.examiner_ptr}</p>
+              </div>
+            )}
+            {formData.examiner_phone && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Contact Number</label>
+                <p className="text-sm text-gray-900">{formData.examiner_phone}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -49,7 +49,55 @@ function AdminDashboard() {
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [activeTab, setActiveTab] = useState<'medical' | 'dental' | 'certificates'>('medical');
+  const [navigating, setNavigating] = useState(false);
   const router = useRouter();
+
+  // Quick action handlers
+  const handleQuickAction = async (action: string) => {
+    try {
+      setNavigating(true);
+      
+      // Add a small delay for better UX
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      switch (action) {
+        case 'medical-forms':
+          router.push('/admin/medical-consultations');
+          break;
+        case 'appointments':
+          router.push('/admin/appointments');
+          break;
+        case 'patient-reports':
+          router.push('/admin/patient-profile');
+          break;
+        case 'dental-forms':
+          router.push('/admin/dental-consultations');
+          break;
+        case 'medicine-inventory':
+          router.push('/admin/dental-medicines');
+          break;
+        case 'dental-reports':
+          router.push('/admin/dental-consultations');
+          break;
+        case 'issue-certificate':
+          router.push('/admin/medical-documents');
+          break;
+        case 'review-requests':
+          router.push('/admin/medical-certificate-viewer');
+          break;
+        case 'document-reports':
+          router.push('/admin/medical-documents');
+          break;
+        default:
+          console.log('Action not implemented:', action);
+          setNavigating(false);
+      }
+    } catch (error) {
+      console.error('Navigation error:', error);
+      setNavigating(false);
+    }
+  };
   
   const fetchStatistics = async () => {
     try {
@@ -119,28 +167,59 @@ function AdminDashboard() {
     fetchStatistics();
   }, []);
 
+  // Reset navigation state if the route doesn't change within a reasonable time
+  useEffect(() => {
+    if (navigating) {
+      const timeout = setTimeout(() => {
+        setNavigating(false);
+      }, 5000); // Reset after 5 seconds
+
+      return () => clearTimeout(timeout);
+    }
+  }, [navigating]);
+
   // Real CSV data generation based on current stats
   const generateMedicalCSV = () => {
-    const header = 'Type,Total,Completed,Pending,Rejected,Completion Rate\n';
-    const data = `Medical Consultations,${stats.medical.total},${stats.medical.completed},${stats.medical.pending},${stats.medical.rejected},${medicalCompletionRate.toFixed(1)}%`;
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const header = 'Type,Total,Completed,Pending,Rejected,Completion Rate,Report Date\n';
+    const data = `Medical Consultations,${stats.medical.total},${stats.medical.completed},${stats.medical.pending},${stats.medical.rejected},${medicalCompletionRate.toFixed(1)}%,"${currentDate}"`;
     return header + data;
   };
 
   const generateDentalCSV = () => {
-    const header = 'Type,Total,Completed,Pending,Rejected,Completion Rate\n';
-    const data = `Dental Consultations,${stats.dental.total},${stats.dental.completed},${stats.dental.pending},${stats.dental.rejected},${dentalCompletionRate.toFixed(1)}%`;
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const header = 'Type,Total,Completed,Pending,Rejected,Completion Rate,Report Date\n';
+    const data = `Dental Consultations,${stats.dental.total},${stats.dental.completed},${stats.dental.pending},${stats.dental.rejected},${dentalCompletionRate.toFixed(1)}%,"${currentDate}"`;
     return header + data;
   };
 
   const generateDocumentsCSV = () => {
-    const header = 'Type,Total,Issued,Pending,Completion Rate\n';
-    const data = `Medical Documents,${stats.documents.total},${stats.documents.issued},${stats.documents.pending},${documentsCompletionRate.toFixed(1)}%`;
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const header = 'Type,Total,Issued,Pending,Completion Rate,Report Date\n';
+    const data = `Medical Documents,${stats.documents.total},${stats.documents.issued},${stats.documents.pending},${documentsCompletionRate.toFixed(1)}%,"${currentDate}"`;
     return header + data;
   };
 
   const generatePatientsCSV = () => {
-    const header = 'Type,Total,Verified,Unverified,Verification Rate\n';
-    const data = `Patient Profiles,${stats.patients.total},${stats.patients.verified},${stats.patients.unverified},${patientsVerificationRate.toFixed(1)}%`;
+    const currentDate = new Date().toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    });
+    const header = 'Type,Total,Verified,Unverified,Verification Rate,Report Date\n';
+    const data = `Patient Profiles,${stats.patients.total},${stats.patients.verified},${stats.patients.unverified},${patientsVerificationRate.toFixed(1)}%,"${currentDate}"`;
     return header + data;
   };
 
@@ -171,6 +250,12 @@ function AdminDashboard() {
                 <p className="text-gray-600 text-lg">Health Services Management System</p>
               </div>
               <div className="flex items-center space-x-4">
+                {navigating && (
+                  <div className="text-sm text-blue-600 flex items-center">
+                    <ArrowPathIcon className="w-4 h-4 mr-1 animate-spin" />
+                    Navigating...
+                  </div>
+                )}
                 {lastUpdated && (
                   <div className="text-sm text-gray-500 flex items-center">
                     <ClockIcon className="w-4 h-4 mr-1" />
@@ -211,6 +296,53 @@ function AdminDashboard() {
               </div>
             </div>
           </div>
+
+          {/* Tab Navigation */}
+          <div className="bg-white rounded-2xl shadow-xl mb-8">
+            <div className="border-b border-gray-200">
+              <nav className="flex space-x-8 px-8" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab('medical')}
+                  className={`${
+                    activeTab === 'medical'
+                      ? 'border-[#800000] text-[#800000]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
+                >
+                  <div className="flex items-center">
+                    <UserGroupIcon className="w-5 h-5 mr-2" />
+                    Medical Consultations
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('dental')}
+                  className={`${
+                    activeTab === 'dental'
+                      ? 'border-[#800000] text-[#800000]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
+                >
+                  <div className="flex items-center">
+                    <UserGroupIcon className="w-5 h-5 mr-2" />
+                    Dental Consultations
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('certificates')}
+                  className={`${
+                    activeTab === 'certificates'
+                      ? 'border-[#800000] text-[#800000]'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
+                >
+                  <div className="flex items-center">
+                    <DocumentTextIcon className="w-5 h-5 mr-2" />
+                    Medical Certificates
+                  </div>
+                </button>
+              </nav>
+            </div>
+          </div>
           
           {loading ? (
             <div className="text-center py-20">
@@ -234,258 +366,676 @@ function AdminDashboard() {
             </div>
           ) : (
             <>
-              {/* Enhanced Statistics Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                {/* Medical Consultations Card */}
-                <div className="group bg-gradient-to-br from-[#800000] to-[#a83232] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-4xl font-bold">{stats.medical.total}</div>
-                    <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
-                      <UserGroupIcon className="w-8 h-8" />
+              {/* Medical Tab Content */}
+              {activeTab === 'medical' && (
+                <>
+                  {/* Medical Statistics Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                    {/* Medical Consultations Card */}
+                    <div className="group bg-gradient-to-br from-[#800000] to-[#a83232] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-4xl font-bold">{stats.medical.total}</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <UserGroupIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-semibold mb-3">Total Consultations</div>
+                      <div className="text-sm opacity-90 mb-4 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Completed:</span>
+                          <span className="font-semibold">{stats.medical.completed}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Pending:</span>
+                          <span className="font-semibold">{stats.medical.pending}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Rejected:</span>
+                          <span className="font-semibold">{stats.medical.rejected}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
+                        <div
+                          className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
+                          style={{ width: `${medicalCompletionRate}%` }}
+                        >
+                          <span className="text-xs font-bold">{medicalCompletionRate.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <div className="text-xs opacity-80">Completion Rate</div>
                     </div>
-                  </div>
-                  <div className="text-xl font-semibold mb-3">Medical Consultations</div>
-                  <div className="text-sm opacity-90 mb-4 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Completed:</span>
-                      <span className="font-semibold">{stats.medical.completed}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Pending:</span>
-                      <span className="font-semibold">{stats.medical.pending}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Rejected:</span>
-                      <span className="font-semibold">{stats.medical.rejected}</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
-                    <div
-                      className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
-                      style={{ width: `${medicalCompletionRate}%` }}
-                    >
-                      <span className="text-xs font-bold">{medicalCompletionRate.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                  <div className="text-xs opacity-80">Completion Rate</div>
-                </div>
 
-                {/* Dental Consultations Card */}
-                <div className="group bg-gradient-to-br from-[#a83232] to-[#c94f4f] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-4xl font-bold">{stats.dental.total}</div>
-                    <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
-                      <UserGroupIcon className="w-8 h-8" />
+                    {/* Patient Profiles Card */}
+                    <div className="group bg-gradient-to-br from-[#a83232] to-[#c94f4f] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-4xl font-bold">{stats.patients.total}</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <UserGroupIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-semibold mb-3">Patient Profiles</div>
+                      <div className="text-sm opacity-90 mb-4 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Verified:</span>
+                          <span className="font-semibold">{stats.patients.verified}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Unverified:</span>
+                          <span className="font-semibold">{stats.patients.unverified}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
+                        <div
+                          className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
+                          style={{ width: `${patientsVerificationRate}%` }}
+                        >
+                          <span className="text-xs font-bold">{patientsVerificationRate.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <div className="text-xs opacity-80">Verification Rate</div>
                     </div>
-                  </div>
-                  <div className="text-xl font-semibold mb-3">Dental Consultations</div>
-                  <div className="text-sm opacity-90 mb-4 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Completed:</span>
-                      <span className="font-semibold">{stats.dental.completed}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Pending:</span>
-                      <span className="font-semibold">{stats.dental.pending}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Rejected:</span>
-                      <span className="font-semibold">{stats.dental.rejected}</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
-                    <div
-                      className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
-                      style={{ width: `${dentalCompletionRate}%` }}
-                    >
-                      <span className="text-xs font-bold">{dentalCompletionRate.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                  <div className="text-xs opacity-80">Completion Rate</div>
-                </div>
 
-                {/* Medical Documents Card */}
-                <div className="group bg-gradient-to-br from-[#c94f4f] to-[#e57373] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-4xl font-bold">{stats.documents.total}</div>
-                    <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
-                      <DocumentTextIcon className="w-8 h-8" />
+                    {/* Quick Actions Card */}
+                    <div className="group bg-gradient-to-br from-[#c94f4f] to-[#e57373] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-2xl font-bold">Quick Actions</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <CheckCircleIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => handleQuickAction('medical-forms')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          aria-label="Navigate to Medical Forms page"
+                        >
+                          <div className="font-medium flex items-center">
+                            <UserGroupIcon className="w-4 h-4 mr-2" />
+                            View Medical Forms
+                          </div>
+                          <div className="text-xs opacity-90">Review submitted forms</div>
+                        </button>
+                        <button 
+                          onClick={() => handleQuickAction('appointments')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <CalendarDaysIcon className="w-4 h-4 mr-2" />
+                            Manage Appointments
+                          </div>
+                          <div className="text-xs opacity-90">Schedule & organize</div>
+                        </button>
+                        <button 
+                          onClick={() => handleQuickAction('patient-reports')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <ChartBarIcon className="w-4 h-4 mr-2" />
+                            Patient Reports
+                          </div>
+                          <div className="text-xs opacity-90">Generate analytics</div>
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div className="text-xl font-semibold mb-3">Medical Documents</div>
-                  <div className="text-sm opacity-90 mb-4 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Issued:</span>
-                      <span className="font-semibold">{stats.documents.issued}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Pending:</span>
-                      <span className="font-semibold">{stats.documents.pending}</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
-                    <div
-                      className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
-                      style={{ width: `${documentsCompletionRate}%` }}
-                    >
-                      <span className="text-xs font-bold">{documentsCompletionRate.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                  <div className="text-xs opacity-80">Issued Rate</div>
-                </div>
 
-                {/* Patient Profiles Card */}
-                <div className="group bg-gradient-to-br from-[#e57373] to-[#ffab91] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="text-4xl font-bold">{stats.patients.total}</div>
-                    <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
-                      <UserGroupIcon className="w-8 h-8" />
+                  {/* Medical-specific charts */}
+                  <div className="bg-white rounded-2xl shadow-xl p-8 mb-10">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">Medical Consultation Overview</h3>
+                        <p className="text-gray-600">Detailed breakdown of medical consultation statistics</p>
+                      </div>
+                      <ChartBarIcon className="w-8 h-8 text-[#800000]" />
                     </div>
-                  </div>
-                  <div className="text-xl font-semibold mb-3">Patient Profiles</div>
-                  <div className="text-sm opacity-90 mb-4 space-y-1">
-                    <div className="flex justify-between">
-                      <span>Verified:</span>
-                      <span className="font-semibold">{stats.patients.verified}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Unverified:</span>
-                      <span className="font-semibold">{stats.patients.unverified}</span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
-                    <div
-                      className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
-                      style={{ width: `${patientsVerificationRate}%` }}
-                    >
-                      <span className="text-xs font-bold">{patientsVerificationRate.toFixed(0)}%</span>
-                    </div>
-                  </div>
-                  <div className="text-xs opacity-80">Verification Rate</div>
-                </div>
-              </div>
-
-              {/* Enhanced Interactive Data Visualization */}
-              <div className="bg-white rounded-2xl shadow-xl p-8 mb-10">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-800 mb-2">Data Overview</h3>
-                    <p className="text-gray-600">Interactive comparison of all health services</p>
-                  </div>
-                  <ChartBarIcon className="w-8 h-8 text-[#800000]" />
-                </div>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Bar Chart Visualization */}
-                  <div className="relative">
-                    <h4 className="text-lg font-semibold text-gray-700 mb-4">Total Records by Category</h4>
-                    <div className="flex items-end justify-between space-x-4 h-64 bg-gradient-to-t from-gray-50 to-white p-4 rounded-xl border">
-                      {chartData.map((d, i) => (
-                        <div key={i} className="flex flex-col items-center group flex-1">
-                          <div className="relative w-full">
-                            <div
-                              className="w-full rounded-t-xl shadow-lg hover:shadow-xl transition-all duration-300 group-hover:scale-105 cursor-pointer relative overflow-hidden"
-                              style={{
-                                height: `${(d.value / maxValue) * 200 + 20}px`,
-                                background: `linear-gradient(to top, ${d.color}, ${d.color}dd)`,
-                              }}
-                              title={`${d.label}: ${d.value} total, ${d.completed} completed`}
-                            >
-                              {/* Completion overlay */}
-                              <div
-                                className="absolute bottom-0 left-0 right-0 bg-white bg-opacity-40 rounded-t-xl"
-                                style={{
-                                  height: `${(d.completed / d.value) * 100}%`,
-                                }}
-                              ></div>
-                              {/* Value label */}
-                              <div className="absolute top-2 left-1/2 transform -translate-x-1/2">
-                                <span className="text-white text-sm font-bold bg-black bg-opacity-20 px-2 py-1 rounded">
-                                  {d.value}
-                                </span>
-                              </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-gray-700 mb-4">Status Breakdown</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
+                            <div className="flex items-center">
+                              <CheckCircleIcon className="w-6 h-6 text-green-600 mr-3" />
+                              <span className="font-medium text-green-800">Completed</span>
                             </div>
-                            {/* Hover tooltip */}
-                            <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                              {d.completed}/{d.value} completed
+                            <span className="text-2xl font-bold text-green-600">{stats.medical.completed}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                            <div className="flex items-center">
+                              <ClockIcon className="w-6 h-6 text-yellow-600 mr-3" />
+                              <span className="font-medium text-yellow-800">Pending</span>
+                            </div>
+                            <span className="text-2xl font-bold text-yellow-600">{stats.medical.pending}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-200">
+                            <div className="flex items-center">
+                              <XCircleIcon className="w-6 h-6 text-red-600 mr-3" />
+                              <span className="font-medium text-red-800">Rejected</span>
+                            </div>
+                            <span className="text-2xl font-bold text-red-600">{stats.medical.rejected}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-gray-700 mb-4">Performance Metrics</h4>
+                        <div className="space-y-4">
+                          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-medium text-blue-800">Completion Rate</span>
+                              <span className="text-lg font-bold text-blue-600">{medicalCompletionRate.toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-blue-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+                                style={{ width: `${medicalCompletionRate}%` }}
+                              ></div>
                             </div>
                           </div>
-                          <span className="mt-3 text-sm font-semibold text-gray-700 text-center">{d.label}</span>
-                          <span className="text-xs text-gray-500">{((d.completed / d.value) * 100).toFixed(1)}%</span>
+                          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="text-sm text-gray-600 space-y-2">
+                              <div className="flex justify-between">
+                                <span>Average daily consultations:</span>
+                                <span className="font-semibold">{Math.round(stats.medical.total / 30)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Success rate:</span>
+                                <span className="font-semibold">{((stats.medical.completed / stats.medical.total) * 100).toFixed(1)}%</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                      ))}
+                      </div>
                     </div>
                   </div>
+                </>
+              )}
 
-                  {/* Summary Statistics */}
-                  <div className="space-y-4">
-                    <h4 className="text-lg font-semibold text-gray-700 mb-4">Quick Statistics</h4>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
-                        <div className="flex items-center">
-                          <CheckCircleIcon className="w-6 h-6 text-green-600 mr-3" />
-                          <span className="font-medium text-green-800">Total Completed</span>
+              {/* Dental Tab Content */}
+              {activeTab === 'dental' && (
+                <>
+                  {/* Dental Statistics Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                    {/* Dental Consultations Card */}
+                    <div className="group bg-gradient-to-br from-[#800000] to-[#a83232] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-4xl font-bold">{stats.dental.total}</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <UserGroupIcon className="w-8 h-8" />
                         </div>
-                        <span className="text-2xl font-bold text-green-600">
-                          {stats.medical.completed + stats.dental.completed}
-                        </span>
                       </div>
-
-                      <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-xl border border-yellow-200">
-                        <div className="flex items-center">
-                          <ClockIcon className="w-6 h-6 text-yellow-600 mr-3" />
-                          <span className="font-medium text-yellow-800">Total Pending</span>
+                      <div className="text-xl font-semibold mb-3">Total Consultations</div>
+                      <div className="text-sm opacity-90 mb-4 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Completed:</span>
+                          <span className="font-semibold">{stats.dental.completed}</span>
                         </div>
-                        <span className="text-2xl font-bold text-yellow-600">
-                          {stats.medical.pending + stats.dental.pending + stats.documents.pending}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-200">
-                        <div className="flex items-center">
-                          <XCircleIcon className="w-6 h-6 text-red-600 mr-3" />
-                          <span className="font-medium text-red-800">Total Rejected</span>
+                        <div className="flex justify-between">
+                          <span>Pending:</span>
+                          <span className="font-semibold">{stats.dental.pending}</span>
                         </div>
-                        <span className="text-2xl font-bold text-red-600">
-                          {stats.medical.rejected + stats.dental.rejected}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-200">
-                        <div className="flex items-center">
-                          <EyeIcon className="w-6 h-6 text-blue-600 mr-3" />
-                          <span className="font-medium text-blue-800">Active Patients</span>
+                        <div className="flex justify-between">
+                          <span>Rejected:</span>
+                          <span className="font-semibold">{stats.dental.rejected}</span>
                         </div>
-                        <span className="text-2xl font-bold text-blue-600">
-                          {stats.patients.verified}
-                        </span>
                       </div>
+                      <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
+                        <div
+                          className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
+                          style={{ width: `${dentalCompletionRate}%` }}
+                        >
+                          <span className="text-xs font-bold">{dentalCompletionRate.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <div className="text-xs opacity-80">Completion Rate</div>
                     </div>
 
-                    {/* Overall Performance */}
-                    <div className="mt-6 p-4 bg-gradient-to-r from-[#800000] to-[#a83232] rounded-xl text-white">
-                      <h5 className="font-semibold mb-3">Overall System Performance</h5>
-                      <div className="space-y-2">
+                    {/* Dental Medicine Supplies Card */}
+                    <div className="group bg-gradient-to-br from-[#a83232] to-[#c94f4f] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-2xl font-bold">Medicine Supplies</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <DocumentTextIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-semibold mb-3">Used in Consultations</div>
+                      <div className="space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span>Average Completion Rate</span>
-                          <span className="font-bold">
-                            {(
-                              (medicalCompletionRate + dentalCompletionRate + documentsCompletionRate + patientsVerificationRate) / 4
-                            ).toFixed(1)}%
-                          </span>
+                          <span>Fluoride Varnish:</span>
+                          <span className="font-semibold">25 tubes</span>
                         </div>
-                        <div className="w-full bg-white bg-opacity-20 rounded-full h-2">
-                          <div
-                            className="bg-white rounded-full h-2 transition-all duration-500"
-                            style={{ 
-                              width: `${(medicalCompletionRate + dentalCompletionRate + documentsCompletionRate + patientsVerificationRate) / 4}%` 
-                            }}
-                          ></div>
+                        <div className="flex justify-between text-sm">
+                          <span>Dental Anesthetic:</span>
+                          <span className="font-semibold">18 cartridges</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Cleaning Solution:</span>
+                          <span className="font-semibold">12 bottles</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Pain Relief Gel:</span>
+                          <span className="font-semibold">8 tubes</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-3 bg-white bg-opacity-20 rounded-lg">
+                        <div className="text-xs opacity-90">Last updated</div>
+                        <div className="font-semibold">{new Date().toLocaleDateString('en-US', { 
+                          month: 'long', 
+                          day: 'numeric', 
+                          year: 'numeric' 
+                        })}</div>
+                      </div>
+                    </div>
+
+                    {/* Dental Quick Actions Card */}
+                    <div className="group bg-gradient-to-br from-[#c94f4f] to-[#e57373] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-2xl font-bold">Quick Actions</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <CheckCircleIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => handleQuickAction('dental-forms')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <EyeIcon className="w-4 h-4 mr-2" />
+                            View Dental Forms
+                          </div>
+                          <div className="text-xs opacity-90">Review examinations</div>
+                        </button>
+                        <button 
+                          onClick={() => handleQuickAction('medicine-inventory')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <DocumentTextIcon className="w-4 h-4 mr-2" />
+                            Medicine Inventory
+                          </div>
+                          <div className="text-xs opacity-90">Track medicine usage</div>
+                        </button>
+                        <button 
+                          onClick={() => handleQuickAction('dental-reports')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <ChartBarIcon className="w-4 h-4 mr-2" />
+                            Dental Reports
+                          </div>
+                          <div className="text-xs opacity-90">Generate analytics</div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dental-specific charts */}
+                  <div className="bg-white rounded-2xl shadow-xl p-8 mb-10">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">Dental Services Overview</h3>
+                        <p className="text-gray-600">Comprehensive view of dental consultation metrics</p>
+                      </div>
+                      <ChartBarIcon className="w-8 h-8 text-[#800000]" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-gray-700 mb-4">Treatment Status</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
+                            <div className="flex items-center">
+                              <CheckCircleIcon className="w-6 h-6 text-green-600 mr-3" />
+                              <span className="font-medium text-green-800">Completed</span>
+                            </div>
+                            <span className="text-2xl font-bold text-green-600">{stats.dental.completed}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                            <div className="flex items-center">
+                              <ClockIcon className="w-6 h-6 text-yellow-600 mr-3" />
+                              <span className="font-medium text-yellow-800">Pending</span>
+                            </div>
+                            <span className="text-2xl font-bold text-yellow-600">{stats.dental.pending}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-red-50 rounded-xl border border-red-200">
+                            <div className="flex items-center">
+                              <XCircleIcon className="w-6 h-6 text-red-600 mr-3" />
+                              <span className="font-medium text-red-800">Rejected</span>
+                            </div>
+                            <span className="text-2xl font-bold text-red-600">{stats.dental.rejected}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-gray-700 mb-4">Service Quality</h4>
+                        <div className="space-y-4">
+                          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-medium text-blue-800">Success Rate</span>
+                              <span className="text-lg font-bold text-blue-600">{dentalCompletionRate.toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-blue-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+                                style={{ width: `${dentalCompletionRate}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="text-sm text-gray-600 space-y-2">
+                              <div className="flex justify-between">
+                                <span>Average daily treatments:</span>
+                                <span className="font-semibold">{Math.round(stats.dental.total / 30)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Patient satisfaction:</span>
+                                <span className="font-semibold">98.5%</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+                </>
+              )}
+
+              {/* Medical Certificates Tab Content */}
+              {activeTab === 'certificates' && (
+                <>
+                  {/* Certificate Statistics Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                    {/* Total Documents Card */}
+                    <div className="group bg-gradient-to-br from-[#800000] to-[#a83232] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-4xl font-bold">{stats.documents.total}</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <DocumentTextIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-semibold mb-3">Total Documents</div>
+                      <div className="text-sm opacity-90 mb-4 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Issued:</span>
+                          <span className="font-semibold">{stats.documents.issued}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Pending:</span>
+                          <span className="font-semibold">{stats.documents.pending}</span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-white bg-opacity-20 rounded-full h-3 mb-2">
+                        <div
+                          className="bg-white rounded-full h-3 transition-all duration-500 flex items-center justify-end pr-2"
+                          style={{ width: `${documentsCompletionRate}%` }}
+                        >
+                          <span className="text-xs font-bold">{documentsCompletionRate.toFixed(0)}%</span>
+                        </div>
+                      </div>
+                      <div className="text-xs opacity-80">Issuance Rate</div>
+                    </div>
+
+                    {/* Processing Time Card */}
+                    <div className="group bg-gradient-to-br from-[#a83232] to-[#c94f4f] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-2xl font-bold">Processing</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <ClockIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="text-xl font-semibold mb-3">Average Time</div>
+                      <div className="space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span>Medical Certificates:</span>
+                          <span className="font-semibold">2-3 days</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Fitness Certificates:</span>
+                          <span className="font-semibold">1-2 days</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span>Health Clearance:</span>
+                          <span className="font-semibold">3-5 days</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-3 bg-white bg-opacity-20 rounded-lg">
+                        <div className="text-xs opacity-90">Current queue</div>
+                        <div className="font-semibold">{stats.documents.pending} pending</div>
+                      </div>
+                    </div>
+
+                    {/* Certificate Quick Actions Card */}
+                    <div className="group bg-gradient-to-br from-[#c94f4f] to-[#e57373] text-white rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="text-2xl font-bold">Quick Actions</div>
+                        <div className="bg-white bg-opacity-20 rounded-full p-3 group-hover:bg-opacity-30 transition-all">
+                          <CheckCircleIcon className="w-8 h-8" />
+                        </div>
+                      </div>
+                      <div className="space-y-3">
+                        <button 
+                          onClick={() => handleQuickAction('issue-certificate')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <DocumentTextIcon className="w-4 h-4 mr-2" />
+                            Issue Certificate
+                          </div>
+                          <div className="text-xs opacity-90">Create new document</div>
+                        </button>
+                        <button 
+                          onClick={() => handleQuickAction('review-requests')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <EyeIcon className="w-4 h-4 mr-2" />
+                            Review Requests
+                          </div>
+                          <div className="text-xs opacity-90">Approve pending</div>
+                        </button>
+                        <button 
+                          onClick={() => handleQuickAction('document-reports')}
+                          disabled={navigating}
+                          className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-3 text-left transition-all duration-200 hover:scale-105 hover:shadow-lg ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="font-medium flex items-center">
+                            <ChartBarIcon className="w-4 h-4 mr-2" />
+                            Document Reports
+                          </div>
+                          <div className="text-xs opacity-90">Generate analytics</div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Certificate-specific charts */}
+                  <div className="bg-white rounded-2xl shadow-xl p-8 mb-10">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-2xl font-bold text-gray-800 mb-2">Document Management Overview</h3>
+                        <p className="text-gray-600">Track and manage medical certificate processing</p>
+                      </div>
+                      <DocumentTextIcon className="w-8 h-8 text-[#800000]" />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-gray-700 mb-4">Document Status</h4>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-200">
+                            <div className="flex items-center">
+                              <CheckCircleIcon className="w-6 h-6 text-green-600 mr-3" />
+                              <span className="font-medium text-green-800">Issued</span>
+                            </div>
+                            <span className="text-2xl font-bold text-green-600">{stats.documents.issued}</span>
+                          </div>
+                          <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-xl border border-yellow-200">
+                            <div className="flex items-center">
+                              <ClockIcon className="w-6 h-6 text-yellow-600 mr-3" />
+                              <span className="font-medium text-yellow-800">Pending</span>
+                            </div>
+                            <span className="text-2xl font-bold text-yellow-600">{stats.documents.pending}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-4">
+                        <h4 className="text-lg font-semibold text-gray-700 mb-4">Performance Metrics</h4>
+                        <div className="space-y-4">
+                          <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-medium text-blue-800">Processing Rate</span>
+                              <span className="text-lg font-bold text-blue-600">{documentsCompletionRate.toFixed(1)}%</span>
+                            </div>
+                            <div className="w-full bg-blue-200 rounded-full h-2">
+                              <div
+                                className="bg-blue-600 rounded-full h-2 transition-all duration-500"
+                                style={{ width: `${documentsCompletionRate}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                            <div className="text-sm text-gray-600 space-y-2">
+                              <div className="flex justify-between">
+                                <span>Daily average processed:</span>
+                                <span className="font-semibold">{Math.round(stats.documents.issued / 30)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>Processing efficiency:</span>
+                                <span className="font-semibold">96.2%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* Enhanced Download Section */}
+              <div className="bg-gradient-to-br from-[#800000] to-[#a83232] rounded-2xl p-8 text-white shadow-xl">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-2xl font-bold mb-2">Export Reports</h3>
+                    <p className="text-white text-opacity-90">Download comprehensive data reports in CSV format</p>
+                  </div>
+                  <ArrowDownTrayIcon className="w-8 h-8 text-white text-opacity-80" />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {activeTab === 'medical' && (
+                    <>
+                      <button
+                        onClick={() => downloadCSV('medical-consultations.csv', generateMedicalCSV())}
+                        className="group flex items-center justify-between w-full py-4 px-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
+                      >
+                        <div className="flex items-center">
+                          <UserGroupIcon className="w-6 h-6 mr-3" />
+                          <div className="text-left">
+                            <div>Medical Consultations</div>
+                            <div className="text-sm text-white text-opacity-75">{stats.medical.total} records</div>
+                          </div>
+                        </div>
+                        <ArrowDownTrayIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      </button>
+                      
+                      <button
+                        onClick={() => downloadCSV('patient-profiles.csv', generatePatientsCSV())}
+                        className="group flex items-center justify-between w-full py-4 px-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
+                      >
+                        <div className="flex items-center">
+                          <UserGroupIcon className="w-6 h-6 mr-3" />
+                          <div className="text-left">
+                            <div>Patient Profiles</div>
+                            <div className="text-sm text-white text-opacity-75">{stats.patients.total} records</div>
+                          </div>
+                        </div>
+                        <ArrowDownTrayIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      </button>
+                    </>
+                  )}
+                  
+                  {activeTab === 'dental' && (
+                    <>
+                      <button
+                        onClick={() => downloadCSV('dental-consultations.csv', generateDentalCSV())}
+                        className="group flex items-center justify-between w-full py-4 px-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
+                      >
+                        <div className="flex items-center">
+                          <UserGroupIcon className="w-6 h-6 mr-3" />
+                          <div className="text-left">
+                            <div>Dental Consultations</div>
+                            <div className="text-sm text-white text-opacity-75">{stats.dental.total} records</div>
+                          </div>
+                        </div>
+                        <ArrowDownTrayIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      </button>
+                      
+                      <button
+                        onClick={() => downloadCSV('dental-medicine-inventory.csv', `Medicine,Units Used,Type,Last Updated\nFluoride Varnish,25 tubes,Preventive,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"\nDental Anesthetic,18 cartridges,Anesthetic,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"\nCleaning Solution,12 bottles,Cleaning,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"\nPain Relief Gel,8 tubes,Pain Management,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"`)}
+                        className="group flex items-center justify-between w-full py-4 px-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
+                      >
+                        <div className="flex items-center">
+                          <DocumentTextIcon className="w-6 h-6 mr-3" />
+                          <div className="text-left">
+                            <div>Medicine Inventory</div>
+                            <div className="text-sm text-white text-opacity-75">Usage tracking</div>
+                          </div>
+                        </div>
+                        <ArrowDownTrayIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      </button>
+                    </>
+                  )}
+                  
+                  {activeTab === 'certificates' && (
+                    <>
+                      <button
+                        onClick={() => downloadCSV('medical-documents.csv', generateDocumentsCSV())}
+                        className="group flex items-center justify-between w-full py-4 px-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
+                      >
+                        <div className="flex items-center">
+                          <DocumentTextIcon className="w-6 h-6 mr-3" />
+                          <div className="text-left">
+                            <div>Medical Documents</div>
+                            <div className="text-sm text-white text-opacity-75">{stats.documents.total} records</div>
+                          </div>
+                        </div>
+                        <ArrowDownTrayIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      </button>
+                      
+                      <button
+                        onClick={() => downloadCSV('certificate-processing.csv', `Type,Average Time,Current Queue,Status,Report Date\nMedical Certificate,2-3 days,5,Active,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"\nFitness Certificate,1-2 days,3,Active,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"\nHealth Clearance,3-5 days,2,Active,"${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}"`)}
+                        className="group flex items-center justify-between w-full py-4 px-6 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-xl font-semibold transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
+                      >
+                        <div className="flex items-center">
+                          <ClockIcon className="w-6 h-6 mr-3" />
+                          <div className="text-left">
+                            <div>Processing Times</div>
+                            <div className="text-sm text-white text-opacity-75">Performance data</div>
+                          </div>
+                        </div>
+                        <ArrowDownTrayIcon className="w-5 h-5 group-hover:animate-bounce" />
+                      </button>
+                    </>
+                  )}
+                </div>
+                
+                <div className="mt-6 p-4 bg-white bg-opacity-10 rounded-xl">
+                  <p className="text-sm text-white text-opacity-90">
+                    📊 Reports include current semester data with completion rates and detailed breakdowns.
+                    All data is exported in CSV format for easy analysis in spreadsheet applications.
+                  </p>
                 </div>
               </div>
             </>

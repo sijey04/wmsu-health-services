@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { dentalFormAPI, djangoApiClient, patientsAPI } from '../utils/api';
+import { dentalFormAPI, djangoApiClient, patientsAPI, dentalMedicinesAPI } from '../utils/api';
 import FeedbackModal from './feedbackmodal';
 
 /**
@@ -139,21 +139,22 @@ const getToothType = (toothNumber) => {
   return 'molar';
 };
 
-const RadioGroup = ({ title, name, options, value, onChange }) => (
+const RadioGroup = ({ title, name, options, value, onChange, disabled = false }) => (
     <div className="space-y-3">
         <h4 className="text-sm font-medium text-gray-700">{title}</h4>
         <div className="flex flex-wrap gap-4">
             {options.map(option => (
-                <label key={option} className="flex items-center space-x-2 cursor-pointer group">
+                <label key={option} className={`flex items-center space-x-2 group ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                     <input
                         type="radio"
                         name={name}
                         value={option}
                         checked={value === option}
                         onChange={onChange}
-                        className="h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 focus:ring-2"
+                        disabled={disabled}
+                        className={`h-4 w-4 text-blue-600 border-gray-300 focus:ring-blue-500 focus:ring-2 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                     />
-                    <span className="text-sm text-gray-600 group-hover:text-gray-800 transition-colors">{option}</span>
+                    <span className={`text-sm transition-colors ${disabled ? 'text-gray-400' : 'text-gray-600 group-hover:text-gray-800'}`}>{option}</span>
                 </label>
             ))}
         </div>
@@ -256,6 +257,58 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
   const [permanentTeethStatus, setPermanentTeethStatus] = useState({});
   const [temporaryTeethStatus, setTemporaryTeethStatus] = useState({});
   const [toothModal, setToothModal] = useState({ open: false, tooth: null, treatment: '', status: '' });
+  
+  // Medicine/Inventory tracking states
+  const [availableInventory, setAvailableInventory] = useState([]);
+  const [usedMedicines, setUsedMedicines] = useState([]);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+
+  // Load available inventory items
+  const loadInventory = async () => {
+    setLoadingInventory(true);
+    try {
+      const response = await dentalMedicinesAPI.getAll();
+      // All items are already filtered for dental use
+      console.log('Loaded inventory:', response.data);
+      setAvailableInventory(response.data || []);
+    } catch (error) {
+      console.error('Error loading dental medicines:', error);
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  // Add medicine to used list
+  const addUsedMedicine = () => {
+    setUsedMedicines([...usedMedicines, { 
+      id: '', 
+      name: '', 
+      quantity: 1, 
+      unit: '', 
+      notes: '' 
+    }]);
+  };
+
+  // Remove medicine from used list
+  const removeUsedMedicine = (index) => {
+    setUsedMedicines(usedMedicines.filter((_, i) => i !== index));
+  };
+
+  // Update used medicine data
+  const updateUsedMedicine = (index, field, value) => {
+    console.log(`Updating medicine at index ${index}, field: ${field}, value:`, value);
+    const updated = usedMedicines.map((medicine, i) => 
+      i === index ? { ...medicine, [field]: value } : medicine
+    );
+    console.log('Updated medicines array:', updated);
+    console.log('Updated medicine at index:', updated[index]);
+    setUsedMedicines(updated);
+  };
+
+  useEffect(() => {
+    // Load inventory when component mounts
+    loadInventory();
+  }, []);
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -310,7 +363,8 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
           firstName: data.first_name || '',
           middleName: data.middle_name || '',
           age: data.age ? data.age.toString() : '',
-          sex: data.sex || 'Male',
+          // Convert gender to sex field, mapping 'Other' to 'Male' as fallback
+          sex: data.gender === 'Other' ? 'Male' : (data.gender || 'Male'),
           examinedBy: data.examined_by || '', // Auto-populated from staff details
           examinerPosition: data.examiner_position || '',
           examinerLicense: data.examiner_license || '',
@@ -385,7 +439,7 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
         surname: formData.surname,
         first_name: formData.firstName,
         middle_name: formData.middleName,
-        age: formData.age,
+        age: parseInt(formData.age) || 0, // Convert age to integer
         sex: formData.sex,
         has_toothbrush: formData.hasToothbrush,
         dentition: formData.dentition,
@@ -407,6 +461,7 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
         appointment: appointmentId,
         permanent_teeth_status: permanentTeethStatus,
         temporary_teeth_status: temporaryTeethStatus,
+        used_medicines: usedMedicines,
         // Add next appointment data if provided
         next_appointment_date: formData.nextAppointmentDate || null,
         next_appointment_time: formData.nextAppointmentTime || '10:00:00',
@@ -416,6 +471,7 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
       const response = await dentalFormAPI.submitAndComplete(dentalFormData);
       
       if (response.status === 201 || response.status === 200) {
+        
         const responseData = response.data;
         let message = 'Dental form saved successfully!';
         
@@ -571,15 +627,26 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
                 </div>
           
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <InputField 
-              label="Age" 
-              name="age" 
-              type="number"
-              value={formData.age} 
-              onChange={handleInputChange}
-              placeholder="Enter age"
-            />
-            <RadioGroup title="Sex" name="sex" options={['Male', 'Female']} value={formData.sex} onChange={handleInputChange} />
+            <div className="space-y-2">
+              <InputField 
+                label="Age" 
+                name="age" 
+                type="number"
+                value={formData.age} 
+                onChange={handleInputChange}
+                placeholder="Auto-populated from patient data"
+                disabled={true}
+              />
+              <p className="text-sm text-gray-500">
+                Automatically filled from patient data
+              </p>
+            </div>
+            <div className="space-y-2">
+              <RadioGroup title="Sex" name="sex" options={['Male', 'Female']} value={formData.sex} onChange={handleInputChange} disabled={true} />
+              <p className="text-sm text-gray-500">
+                Automatically filled from patient data
+              </p>
+            </div>
             </div>
           
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -793,6 +860,151 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
             </div>
           </div>
         </div>
+
+        <FormSection title="Medicines & Supplies Used">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <p className="text-sm text-gray-600">
+                Track medicines and supplies used during this dental appointment for record keeping.
+              </p>
+              <button
+                type="button"
+                onClick={addUsedMedicine}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm font-medium"
+              >
+                + Add Medicine/Supply
+              </button>
+            </div>
+
+            {loadingInventory && (
+              <div className="text-center py-4">
+                <svg className="animate-spin h-8 w-8 mx-auto text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p className="text-gray-500 mt-2">Loading inventory...</p>
+              </div>
+            )}
+
+            {usedMedicines.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 8.172V5L8 4z" />
+                </svg>
+                <p>No medicines or supplies added yet</p>
+                <p className="text-sm">Click &quot;Add Medicine/Supply&quot; to track usage for record keeping</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {usedMedicines.map((medicine, index) => (
+                  <div key={`${index}-${medicine.id || 'empty'}`} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Medicine/Supply *
+                        </label>
+                        <select
+                          key={`medicine-select-${index}-${medicine.id || 'empty'}`}
+                          value={medicine.id ? medicine.id.toString() : ''}
+                          onChange={(e) => {
+                            console.log('Selection changed:', e.target.value);
+                            console.log('Current medicine before update:', medicine);
+                            const selectedItem = availableInventory.find(item => item.id.toString() === e.target.value);
+                            console.log('Selected item:', selectedItem);
+                            
+                            // Update all fields in a single call to avoid batching issues
+                            const updated = usedMedicines.map((med, i) => 
+                              i === index ? { 
+                                ...med, 
+                                id: e.target.value,
+                                name: selectedItem?.name || '',
+                                unit: selectedItem?.unit || ''
+                              } : med
+                            );
+                            console.log('Updated medicines array:', updated);
+                            setUsedMedicines(updated);
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select medicine/supply...</option>
+                          {availableInventory.map(item => (
+                            <option key={item.id} value={item.id.toString()}>
+                              {item.name} ({item.type_display})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Quantity Used *
+                        </label>
+                        <input
+                          type="number"
+                          min="0.1"
+                          step="0.1"
+                          value={medicine.quantity}
+                          onChange={(e) => updateUsedMedicine(index, 'quantity', parseFloat(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="0"
+                        />
+                        {medicine.unit && (
+                          <p className="text-xs text-gray-500 mt-1">Unit: {medicine.unit}</p>
+                        )}
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Notes
+                        </label>
+                        <input
+                          type="text"
+                          value={medicine.notes}
+                          onChange={(e) => updateUsedMedicine(index, 'notes', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Optional notes"
+                        />
+                      </div>
+                      
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => removeUsedMedicine(index)}
+                          className="w-full px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {usedMedicines.length > 0 && (
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Inventory Impact Summary</h4>
+                <div className="space-y-1">
+                  {usedMedicines.filter(m => m.id && m.quantity).map((medicine, index) => {
+                    const inventoryItem = availableInventory.find(item => item.id === parseInt(medicine.id));
+                    const remaining = inventoryItem ? inventoryItem.quantity - medicine.quantity : 0;
+                    return (
+                      <div key={index} className="text-sm text-blue-700">
+                        • {medicine.name}: {medicine.quantity} {medicine.unit} used, {remaining} {medicine.unit} remaining
+                        {remaining < 5 && remaining >= 0 && (
+                          <span className="ml-2 text-red-600 font-medium">⚠️ Low stock!</span>
+                        )}
+                        {remaining < 0 && (
+                          <span className="ml-2 text-red-600 font-medium">❌ Insufficient stock!</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </FormSection>
 
         <div className="flex justify-end pt-6">
             <button

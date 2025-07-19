@@ -10,7 +10,9 @@ from .views import (
     ProfileRequirementViewSet, DocumentRequirementViewSet, CampusScheduleViewSet,
     DentistScheduleViewSet, PatientViewSet as ProfilePatientViewSet
 )
-from .views1 import MedicalFormDataViewSet, PatientViewSet as GeneralPatientViewSet
+from .views1 import MedicalFormDataViewSet, PatientViewSet as GeneralPatientViewSet, DentalInformationRecordViewSet
+from .views2 import AppointmentSchedulingViewSet, DentalMedicineSupplyViewSet
+from .semester_views import AcademicSemesterViewSet, StudentSemesterProfileViewSet
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -18,11 +20,16 @@ router.register(r'staff-management', StaffManagementViewSet, basename='staff-man
 router.register(r'patients', GeneralPatientViewSet)  # General patient endpoints use views1
 router.register(r'medical-records', MedicalRecordViewSet)
 router.register(r'appointments', AppointmentViewSet)
+router.register(r'appointments-v2', AppointmentSchedulingViewSet, basename='appointments-v2')  # New enhanced scheduling
+router.register(r'dental-medicines', DentalMedicineSupplyViewSet, basename='dental-medicines')  # Dental medicines and supplies
 router.register(r'academic-school-years', AcademicSchoolYearViewSet)
+router.register(r'semesters', AcademicSemesterViewSet, basename='semesters')  # Semester management
+router.register(r'semester-profiles', StudentSemesterProfileViewSet, basename='semester-profiles')  # Student semester profiles
 router.register(r'inventory', InventoryViewSet)
 router.register(r'waivers', WaiverViewSet)
 router.register(r'dental-waivers', DentalWaiverViewSet)
 router.register(r'dental-forms', DentalFormDataViewSet)
+router.register(r'dental-information-records', DentalInformationRecordViewSet)
 router.register(r'medical-forms', MedicalFormDataViewSet)
 router.register(r'medical-documents', MedicalDocumentViewSet)
 router.register(r'staff-details', StaffDetailsViewSet)
@@ -58,6 +65,9 @@ urlpatterns = [
     path('patients/create_my_profile/', ProfilePatientViewSet.as_view({'post': 'create_my_profile'}), name='profile-setup-create-my-profile'),
     path('patients/update_my_profile/', ProfilePatientViewSet.as_view({'put': 'update_my_profile', 'patch': 'update_my_profile'}), name='profile-setup-update-my-profile'),
     path('patients/create_or_update_profile/', ProfilePatientViewSet.as_view({'post': 'create_or_update_profile'}), name='profile-setup-create-or-update-profile'),
+    
+    # Semester specific endpoints
+    path('current-semester/', AcademicSemesterViewSet.as_view({'get': 'current'}), name='current-semester'),
     
     # General routes (must come after specific ones)
     path('', include(router.urls)),

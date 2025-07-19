@@ -50,9 +50,9 @@ export default function DentalWaiverPage() {
   useEffect(() => {
     if (submitted) {
       const timer = setTimeout(() => {
-        // Redirect back to dental appointment booking with original query params
+        // Redirect to profile setup after dental waiver submission
         router.push({
-          pathname: '/appointments/dental',
+          pathname: '/patient/profile-setup',
           query: router.query,
         });
       }, 3000);
@@ -63,17 +63,107 @@ export default function DentalWaiverPage() {
   useEffect(() => {
     async function checkDentalWaiver() {
       setLoading(true);
+      
+      // Get user info for debugging
+      const userStr = localStorage.getItem('user');
+      let currentUser = null;
+      if (userStr) {
+        try {
+          currentUser = JSON.parse(userStr);
+          console.log('Current user info:', currentUser);
+        } catch {}
+      }
+      
+      // Get current semester from router query or default to 1st_semester
+      const currentSemester = (router.query.semester as string) || '1st_semester';
+      console.log('Checking dental waiver for semester:', currentSemester);
+      
       try {
-        // Check if user has already signed the dental waiver
-        const res = await dentalWaiversAPI.checkStatus();
-        if (res.data.has_signed) {
+        // First try the checkStatus endpoint with semester parameter
+        console.log('Checking dental waiver status...');
+        const res = await dentalWaiversAPI.checkStatus(currentSemester);
+        console.log('Dental waiver check response:', res.data);
+        
+        // Handle different possible response formats
+        let hasSigned = false;
+        
+        // Check for has_signed format
+        if (res.data.has_signed === true) {
+          hasSigned = true;
+          console.log('Found has_signed = true');
+        }
+        
+        // Check for exists format (alternative response format)
+        if (res.data.exists === true) {
+          hasSigned = true;
+          console.log('Found exists = true');
+        }
+        
+        // Check if waiver data exists
+        if (res.data.waiver && typeof res.data.waiver === 'object') {
+          hasSigned = true;
+          console.log('Found waiver data object');
+        }
+        
+        console.log('Final hasSigned value:', hasSigned);
+        
+        if (hasSigned) {
+          console.log('User has already signed dental waiver for', currentSemester, ', redirecting...');
           setRedirecting(true);
-          router.replace({ pathname: '/appointments/dental', query: router.query });
+          // Check if coming from dental appointment flow
+          const { option } = router.query;
+          if (option === 'Book Dental Consultation') {
+            router.replace({ pathname: '/patient/profile-setup', query: router.query });
+          } else {
+            router.replace({ pathname: '/appointments/dental', query: router.query });
+          }
           return;
+        } else {
+          console.log('User has NOT signed dental waiver yet for', currentSemester);
         }
       } catch (error) {
         console.error('Error checking dental waiver status:', error);
+        console.error('Error details:', error.response?.data, error.response?.status);
+        
+        // Fallback: Try to get all dental waivers and check if any exist for this user
+        try {
+          console.log('Trying fallback method to check dental waiver...');
+          
+          if (currentUser?.id) {
+            const allWaivers = await dentalWaiversAPI.getAll();
+            console.log('All dental waivers response:', allWaivers.data);
+            
+            const waivers = Array.isArray(allWaivers.data) ? allWaivers.data : (allWaivers.data.results || []);
+            console.log('Processed waivers array:', waivers);
+            console.log('Current user ID:', currentUser.id);
+            
+            const userWaiver = waivers.find(w => {
+              console.log('Checking waiver:', w, 'waiver.user:', w.user, 'matches:', String(w.user) === String(currentUser.id));
+              return String(w.user) === String(currentUser.id);
+            });
+            
+            if (userWaiver) {
+              console.log('Found existing dental waiver via fallback method:', userWaiver);
+              setRedirecting(true);
+              const { option } = router.query;
+              if (option === 'Book Dental Consultation') {
+                router.replace({ pathname: '/patient/profile-setup', query: router.query });
+              } else {
+                router.replace({ pathname: '/appointments/dental', query: router.query });
+              }
+              return;
+            } else {
+              console.log('No dental waiver found for user via fallback method');
+            }
+          } else {
+            console.log('No user ID found for fallback check');
+          }
+        } catch (fallbackError) {
+          console.error('Fallback dental waiver check also failed:', fallbackError);
+        }
       }
+      
+      console.log('No dental waiver found, showing form');
       setLoading(false);
     }
     checkDentalWaiver();
@@ -81,6 +171,73 @@ export default function DentalWaiverPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  // Helper function to get patient ID from localStorage or backend
+  const getPatientId = async () => {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) {
+      console.error('No user data found in localStorage');
+      return null;
+    }
+    
+    try {
+      const user = JSON.parse(userStr);
+      console.log('User data from localStorage:', user);
+      
+      // Try multiple ways to get patient ID based on backend structure
+      if (user.patient_profile) {
+        console.log('Using patient_profile:', user.patient_profile);
+        return user.patient_profile;
+      }
+      
+      if (user.patient?.id) {
+        console.log('Using patient.id:', user.patient.id);
+        return user.patient.id;
+      }
+      
+      // If no patient_profile field exists, try to get current patient profile from backend
+      if (user.id) {
+        console.log('No patient_profile found, trying to fetch from backend...');
+        try {
+          // Import the djangoApiClient from utils/api
+          const { djangoApiClient } = await import('../../utils/api');
+          
+          // Try the patient profile endpoint
+          const response = await djangoApiClient.get('/patients/my_profile/');
+          console.log('Backend response:', response.data);
+          
+          if (response.data?.id) {
+            console.log('Got patient ID from backend:', response.data.id);
+            return response.data.id;
+          }
+          
+          // If no ID in response, try the patients list endpoint
+          const listResponse = await djangoApiClient.get(`/patients/?user=${user.id}`);
+          console.log('Patient list response:', listResponse.data);
+          
+          if (listResponse.data?.results && listResponse.data.results.length > 0) {
+            const userProfile = listResponse.data.results[0];
+            console.log('Got patient ID from list:', userProfile.id);
+            return userProfile.id;
+          }
+          
+          if (Array.isArray(listResponse.data) && listResponse.data.length > 0) {
+            const userProfile = listResponse.data[0];
+            console.log('Got patient ID from array:', userProfile.id);
+            return userProfile.id;
+          }
+        } catch (backendError) {
+          console.error('Error fetching patient profile from backend:', backendError);
+        }
+      }
+      
+      console.error('No patient ID found in any format');
+      return null;
+    } catch (e) {
+      console.error('Error parsing user data:', e);
+      return null;
+    }
   };
 
   const handleSubmit = async () => {
@@ -91,35 +248,35 @@ export default function DentalWaiverPage() {
     setSubmitting(true);
     setError('');
     try {
-      // Get user from localStorage
-      const userStr = localStorage.getItem('user');
-      let patientId = null;
-      if (userStr) {
-        try {
-          const user = JSON.parse(userStr);
-          // Use patient_profile directly as the patient ID
-          patientId = user.patient_profile || user.patient?.id || user.id;
-        } catch (e) {}
-      }
+      // Get patient ID using the helper function
+      const patientId = await getPatientId();
+      
       if (!patientId) {
         setError('Could not determine your patient ID. Please log in again.');
         setSubmitting(false);
         return;
       }
+
+      // Get current semester from router query or default to 1st_semester
+      const currentSemester = (router.query.semester as string) || '1st_semester';
+      
       // Get signature as base64
       const signature = pad.current.toDataURL();
       // Prepare data
       const data = {
         patient: patientId,
         patient_name: fullName,
+        semester: currentSemester,
         date_signed: dateSigned,
         patient_signature: signature,
       };
+      console.log('Submitting dental waiver for semester:', currentSemester);
       await dentalWaiversAPI.create(data);
       setShowFeedback(true);
       setSubmitted(true);
     } catch (err: any) {
-      setError(err?.response?.data?.detail || 'Failed to submit dental waiver.');
+      console.error('Error submitting dental waiver:', err);
+      setError(err?.response?.data?.detail || err?.response?.data?.patient?.[0] || 'Failed to submit dental waiver.');
     } finally {
       setSubmitting(false);
     }
@@ -134,6 +291,31 @@ export default function DentalWaiverPage() {
   // Dummy handlers for Layout
   const handleLoginClick = () => {};
   const handleSignupClick = () => {};
+
+  // Temporary debug function
+  const debugCheckStatus = async () => {
+    console.log('=== MANUAL DEBUG CHECK ===');
+    try {
+      const res = await dentalWaiversAPI.checkStatus();
+      console.log('Manual check result:', res.data);
+      console.log('Response keys:', Object.keys(res.data));
+      console.log('has_signed:', res.data.has_signed);
+      console.log('exists:', res.data.exists);
+      console.log('waiver:', res.data.waiver);
+      console.log('dental_waiver:', res.data.dental_waiver);
+      
+      let status = 'No waiver found';
+      if (res.data.has_signed === true) status = 'has_signed = true';
+      else if (res.data.exists === true) status = 'exists = true';
+      else if (res.data.waiver) status = 'waiver object exists';
+      else if (res.data.dental_waiver) status = 'dental_waiver object exists';
+      
+      alert(`Manual check result: ${status}\nResponse: ${JSON.stringify(res.data, null, 2)}`);
+    } catch (error) {
+      console.error('Manual check error:', error);
+      alert(`Manual check error: ${error.message}`);
+    }
+  };
 
   return (
     <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick}>
@@ -277,6 +459,17 @@ export default function DentalWaiverPage() {
           {/* Action Buttons and Submission Message */}
           <div className="mt-12 flex flex-col items-end no-print">
             {error && <div className="text-red-600 text-sm mb-2 text-center w-full">{error}</div>}
+            
+            {/* Temporary debug button */}
+            <div className="w-full mb-4">
+              <button
+                onClick={debugCheckStatus}
+                className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-semibold hover:bg-yellow-600 transition-all duration-200"
+              >
+                Debug: Check Dental Waiver Status
+              </button>
+            </div>
+            
             <div className="flex justify-end space-x-4 w-full">
               <button
                 onClick={handlePrint}
@@ -299,10 +492,10 @@ export default function DentalWaiverPage() {
       )}
       <FeedbackModal
         open={showFeedback}
-        message="Dental waiver submitted! Returning to appointment booking..."
+        message="Dental waiver submitted! Proceeding to profile setup..."
         onClose={() => {
           setShowFeedback(false);
-          router.push({ pathname: '/appointments/dental', query: router.query });
+          router.push({ pathname: '/patient/profile-setup', query: router.query });
         }}
       />
       <style jsx global>{`

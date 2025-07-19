@@ -1,41 +1,38 @@
 import os
 import sys
+import subprocess
 
-# Add the Django project to the Python path
-sys.path.insert(0, r'C:\xampp\htdocs\wmsuhealthservices\backend\django_api')
-
-# Set up Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django_api.settings.settings')
-
-import django
-django.setup()
-
-from django.core.management import execute_from_command_line
-from django.db import connection
-
-print("=== Django Migration Status Check ===")
+# Change to the Django project directory
+os.chdir(r'c:\xampp\htdocs\wmsuhealthservices\backend\django_api')
 
 try:
-    # Check if we can connect to the database
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT 1")
-        print("✅ Database connection successful")
+    # Try to run Django check command
+    result = subprocess.run([sys.executable, 'manage.py', 'check'], 
+                          capture_output=True, text=True, timeout=30)
     
-    # Check migration status
-    from django.db.migrations.executor import MigrationExecutor
-    executor = MigrationExecutor(connection)
-    
-    # Get unapplied migrations
-    plan = executor.migration_plan(executor.loader.graph.leaf_nodes())
-    
-    if plan:
-        print(f"❌ {len(plan)} unapplied migrations found:")
-        for migration, backwards in plan:
-            print(f"  - {migration.app_label}.{migration.name}")
+    if result.returncode == 0:
+        print("✓ Django check passed successfully!")
+        print("Output:", result.stdout)
     else:
-        print("✅ All migrations are applied")
+        print("✗ Django check failed!")
+        print("Error:", result.stderr)
+        print("Output:", result.stdout)
         
+    # Try to show migrations
+    print("\n" + "="*50)
+    print("Checking migration status...")
+    
+    result2 = subprocess.run([sys.executable, 'manage.py', 'showmigrations', 'api'], 
+                           capture_output=True, text=True, timeout=30)
+    
+    if result2.returncode == 0:
+        print("✓ Migration status check passed!")
+        print("Migrations:", result2.stdout)
+    else:
+        print("✗ Migration status check failed!")
+        print("Error:", result2.stderr)
+        
+except subprocess.TimeoutExpired:
+    print("✗ Command timed out")
 except Exception as e:
-    print(f"❌ Error: {e}")
-    import traceback
-    traceback.print_exc()
+    print(f"✗ Error running command: {e}")

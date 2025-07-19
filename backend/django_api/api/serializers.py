@@ -6,7 +6,8 @@ from .models import (
     MedicalDocument, DentalFormData, MedicalFormData, StaffDetails,
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
-    ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem
+    ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
+    DentalInformationRecord, DentalMedicineSupply
 )
 
 
@@ -633,7 +634,11 @@ class DentalFormDataSerializer(serializers.ModelSerializer):
             if not validated_data.get('age'):
                 validated_data['age'] = patient.age
             if not validated_data.get('sex'):
-                validated_data['sex'] = patient.gender
+                # Map patient gender to dental form sex field, handling 'Other' case
+                if patient.gender == 'Other':
+                    validated_data['sex'] = 'Male'  # Default fallback
+                else:
+                    validated_data['sex'] = patient.gender or 'Male'
         
         # Create the dental form data
         dental_form = super().create(validated_data)
@@ -701,7 +706,11 @@ class MedicalFormDataSerializer(serializers.ModelSerializer):
             if not validated_data.get('age'):
                 validated_data['age'] = patient.age
             if not validated_data.get('sex'):
-                validated_data['sex'] = patient.gender
+                # Map patient gender to medical form sex field, handling 'Other' case
+                if patient.gender == 'Other':
+                    validated_data['sex'] = 'Male'  # Default fallback
+                else:
+                    validated_data['sex'] = patient.gender or 'Male'
         
         return super().create(validated_data)
 
@@ -872,3 +881,56 @@ class FamilyMedicalHistoryItemSerializer(serializers.ModelSerializer):
         model = FamilyMedicalHistoryItem
         fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
+
+
+class DentalInformationRecordSerializer(serializers.ModelSerializer):
+    """Serializer for dental patient information records"""
+    school_year_display = serializers.CharField(source='school_year.academic_year', read_only=True)
+    semester_display = serializers.CharField(source='get_semester_display', read_only=True)
+    
+    class Meta:
+        model = DentalInformationRecord
+        fields = [
+            'id', 'patient', 'school_year', 'school_year_display', 'semester', 'semester_display',
+            'patient_name', 'age', 'sex', 'year_section', 'date',
+            'name_of_previous_dentist', 'last_dental_visit', 'date_of_last_cleaning',
+            'oral_hygiene_instructions', 'gums_bleed_brushing', 'teeth_sensitive_hot_cold',
+            'feel_pain_teeth', 'difficult_extractions_past', 'orthodontic_treatment',
+            'prolonged_bleeding_extractions', 'frequent_headaches', 'clench_grind_teeth',
+            'allergic_to_following', 'allergic_penicillin', 'allergic_amoxicillin',
+            'allergic_local_anesthetic', 'allergic_sulfa_drugs', 'allergic_latex', 'allergic_others',
+            'is_woman', 'menstruation_today', 'pregnant', 'taking_birth_control',
+            'smoke', 'under_medical_treatment', 'medical_treatment_condition',
+            'hospitalized', 'hospitalization_when_why', 'taking_prescription_medication',
+            'prescription_medication_details',
+            'high_blood_pressure', 'low_blood_pressure', 'epilepsy_convulsions',
+            'aids_hiv_positive', 'sexually_transmitted_disease', 'stomach_trouble_ulcers',
+            'fainting_seizure', 'rapid_weight_loss', 'radiation_therapy',
+            'joint_replacement_implant', 'heart_surgery', 'heart_attack',
+            'thyroid_problem', 'heart_disease', 'heart_murmur',
+            'hepatitis_liver_disease', 'rheumatic_fever', 'hay_fever_allergies',
+            'respiratory_problems', 'hepatitis_jaundice', 'tuberculosis',
+            'swollen_ankles', 'kidney_disease', 'diabetes', 'chest_pain',
+            'stroke', 'cancer_tumors', 'anemia', 'angina', 'asthma',
+            'emphysema', 'blood_diseases', 'head_injuries', 'arthritis_rheumatism',
+            'other_conditions', 'patient_signature', 'signature_date',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+    
+    def create(self, validated_data):
+        # Automatically set patient from the request user
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            # Get or create patient profile for current user
+            user = request.user
+            patient = user.get_current_patient_profile()
+            if patient:
+                validated_data['patient'] = patient
+            else:
+                # If no patient profile exists, we need to handle this
+                raise serializers.ValidationError({
+                    'patient': 'No patient profile found. Please create your profile first.'
+                })
+        
+        return super().create(validated_data)
