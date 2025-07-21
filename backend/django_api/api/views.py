@@ -2378,13 +2378,21 @@ class PastMedicalHistoryItemViewSet(viewsets.ModelViewSet):
         try:
             name = request.data.get('name')
             is_enabled = request.data.get('is_enabled', True)
+            has_sub_options = request.data.get('has_sub_options', False)
+            sub_options = request.data.get('sub_options', [])
+            requires_specification = request.data.get('requires_specification', False)
+            specification_placeholder = request.data.get('specification_placeholder', '')
             
             if not name:
                 return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             past_medical_history_item = PastMedicalHistoryItem.objects.create(
                 name=name,
-                is_enabled=is_enabled
+                is_enabled=is_enabled,
+                has_sub_options=has_sub_options,
+                sub_options=sub_options,
+                requires_specification=requires_specification,
+                specification_placeholder=specification_placeholder
             )
             
             serializer = self.get_serializer(past_medical_history_item)
@@ -2398,12 +2406,20 @@ class PastMedicalHistoryItemViewSet(viewsets.ModelViewSet):
         try:
             item_id = request.data.get('id')
             is_enabled = request.data.get('is_enabled', True)
+            has_sub_options = request.data.get('has_sub_options', False)
+            sub_options = request.data.get('sub_options', [])
+            requires_specification = request.data.get('requires_specification', False)
+            specification_placeholder = request.data.get('specification_placeholder', '')
             
             if not item_id:
                 return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             past_medical_history_item = PastMedicalHistoryItem.objects.get(id=item_id)
             past_medical_history_item.is_enabled = is_enabled
+            past_medical_history_item.has_sub_options = has_sub_options
+            past_medical_history_item.sub_options = sub_options
+            past_medical_history_item.requires_specification = requires_specification
+            past_medical_history_item.specification_placeholder = specification_placeholder
             past_medical_history_item.save()
             
             serializer = self.get_serializer(past_medical_history_item)
@@ -2479,13 +2495,21 @@ class FamilyMedicalHistoryItemViewSet(viewsets.ModelViewSet):
         try:
             name = request.data.get('name')
             is_enabled = request.data.get('is_enabled', True)
+            has_sub_options = request.data.get('has_sub_options', False)
+            sub_options = request.data.get('sub_options', [])
+            requires_specification = request.data.get('requires_specification', False)
+            specification_placeholder = request.data.get('specification_placeholder', '')
             
             if not name:
                 return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             family_medical_history_item = FamilyMedicalHistoryItem.objects.create(
                 name=name,
-                is_enabled=is_enabled
+                is_enabled=is_enabled,
+                has_sub_options=has_sub_options,
+                sub_options=sub_options,
+                requires_specification=requires_specification,
+                specification_placeholder=specification_placeholder
             )
             
             serializer = self.get_serializer(family_medical_history_item)
@@ -2499,12 +2523,30 @@ class FamilyMedicalHistoryItemViewSet(viewsets.ModelViewSet):
         try:
             item_id = request.data.get('id')
             is_enabled = request.data.get('is_enabled', True)
+            name = request.data.get('name')
+            has_sub_options = request.data.get('has_sub_options')
+            sub_options = request.data.get('sub_options')
+            requires_specification = request.data.get('requires_specification')
+            specification_placeholder = request.data.get('specification_placeholder')
             
             if not item_id:
                 return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             family_medical_history_item = FamilyMedicalHistoryItem.objects.get(id=item_id)
             family_medical_history_item.is_enabled = is_enabled
+            
+            # Update additional fields if provided
+            if name is not None:
+                family_medical_history_item.name = name
+            if has_sub_options is not None:
+                family_medical_history_item.has_sub_options = has_sub_options
+            if sub_options is not None:
+                family_medical_history_item.sub_options = sub_options
+            if requires_specification is not None:
+                family_medical_history_item.requires_specification = requires_specification
+            if specification_placeholder is not None:
+                family_medical_history_item.specification_placeholder = specification_placeholder
+            
             family_medical_history_item.save()
             
             serializer = self.get_serializer(family_medical_history_item)

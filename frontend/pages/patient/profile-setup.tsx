@@ -685,6 +685,12 @@ export default function PatientProfileSetupPage() {
             console.log('Hospital admission/surgery details required');
           }
         }
+        if (!profile?.hospital_admission_year || profile.hospital_admission_year.trim() === '') {
+          errors.hospital_admission_year = 'Please provide the year when the hospital admission or surgery occurred.';
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Hospital admission/surgery year required');
+          }
+        }
       }
     }
 
@@ -731,6 +737,7 @@ export default function PatientProfileSetupPage() {
       if (errors.family_medical_history_other) stepSpecificErrors.family_medical_history_other = errors.family_medical_history_other;
       if (errors.family_medical_history_allergies) stepSpecificErrors.family_medical_history_allergies = errors.family_medical_history_allergies;
       if (errors.hospital_admission_details) stepSpecificErrors.hospital_admission_details = errors.hospital_admission_details;
+      if (errors.hospital_admission_year) stepSpecificErrors.hospital_admission_year = errors.hospital_admission_year;
     }
     
     if (process.env.NODE_ENV === 'development') {
@@ -2539,8 +2546,8 @@ export default function PatientProfileSetupPage() {
                     type="button"
                   >+ Add Medication</button>
                   
-                  {/* Save Medications Button - shows when there are unsaved medication changes */}
-                  {hasUnsavedChanges && (
+                  {/* Save Medications Button - shows when there are unsaved medication changes and medications exist */}
+                  {hasUnsavedChanges && Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0 && (
                     <button
                       className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
                       onClick={handleSaveMedications}
@@ -2707,6 +2714,45 @@ export default function PatientProfileSetupPage() {
                       />
                       <label htmlFor={`past-${item.id}`} className="ml-3 text-sm font-medium text-gray-900 cursor-pointer">{item.name}</label>
                     </div>
+                    
+                    {/* Sub-options for this condition */}
+                    {item.has_sub_options && Array.isArray(item.sub_options) && item.sub_options.length > 0 && (
+                      Array.isArray(profile?.past_medical_history) && profile.past_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3 space-y-2 pl-4 border-l-2 border-gray-200">
+                        <p className="text-xs text-gray-600 font-medium">Select specific conditions:</p>
+                        {item.sub_options.map((subOption: string, index: number) => (
+                          <div key={index} className="flex items-start">
+                            <input
+                              type="checkbox"
+                              id={`past-${item.id}-sub-${index}`}
+                              className="h-3 w-3 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
+                              checked={Array.isArray(profile?.[`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`]) && 
+                                profile[`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`].includes(subOption)}
+                              onChange={e => handleCheckboxArrayChange(`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`, subOption, e.target.checked)}
+                            />
+                            <label htmlFor={`past-${item.id}-sub-${index}`} className="ml-2 text-xs text-gray-700 cursor-pointer">
+                              {subOption}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Specification text field for this condition */}
+                    {item.requires_specification && (
+                      Array.isArray(profile?.past_medical_history) && profile.past_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3">
+                        <input
+                          type="text"
+                          placeholder={item.specification_placeholder || 'Please specify...'}
+                          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                          value={profile?.[`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`] || ''}
+                          onChange={e => handleProfileChange(`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`, e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 
@@ -2809,22 +2855,188 @@ export default function PatientProfileSetupPage() {
                 
                 {/* Conditional input for surgery/admission details */}
                 {profile?.hospital_admission_or_surgery === true && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Please specify the reason for admission and/or type of surgery: <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.hospital_admission_details ? 'border-red-500' : 'border-gray-300'}`}
-                      rows={3}
-                      value={profile?.hospital_admission_details || ''}
-                      onChange={e => handleProfileChange('hospital_admission_details', e.target.value)}
-                      placeholder="Please describe the reason for hospital admission and/or type of surgery performed..."
-                    />
-                    {fieldErrors.hospital_admission_details && <div className="text-red-500 text-xs mt-1">{fieldErrors.hospital_admission_details}</div>}
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Please specify the reason for admission and/or type of surgery: <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.hospital_admission_details ? 'border-red-500' : 'border-gray-300'}`}
+                        rows={3}
+                        value={profile?.hospital_admission_details || ''}
+                        onChange={e => handleProfileChange('hospital_admission_details', e.target.value)}
+                        placeholder="Please describe the reason for hospital admission and/or type of surgery performed..."
+                      />
+                      {fieldErrors.hospital_admission_details && <div className="text-red-500 text-xs mt-1">{fieldErrors.hospital_admission_details}</div>}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        What year did this happen? <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.hospital_admission_year ? 'border-red-500' : 'border-gray-300'}`}
+                        value={profile?.hospital_admission_year || ''}
+                        onChange={e => handleProfileChange('hospital_admission_year', e.target.value)}
+                        placeholder="e.g., 2023, 2020-2021, etc."
+                      />
+                      {fieldErrors.hospital_admission_year && <div className="text-red-500 text-xs mt-1">{fieldErrors.hospital_admission_year}</div>}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
+
+            {/* Menstrual & Obstetric History (for females only) */}
+            {profile?.gender === 'Female' && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
+                  <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                  Menstrual & Obstetric History
+                  <span className="ml-2 text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded-full">
+                    For females only
+                  </span>
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Age when menstruation began */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Age when menstruation began:
+                    </label>
+                    <input
+                      type="number"
+                      min="8"
+                      max="20"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                      value={profile?.menstruation_age_began || ''}
+                      onChange={e => handleProfileChange('menstruation_age_began', parseInt(e.target.value) || null)}
+                      placeholder="Age"
+                    />
+                  </div>
+
+                  {/* Menstrual regularity */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Menstrual pattern:
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="menstrual-pattern"
+                          className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500"
+                          checked={profile?.menstruation_regular === true}
+                          onChange={() => {
+                            handleProfileChange('menstruation_regular', true);
+                            handleProfileChange('menstruation_irregular', false);
+                          }}
+                        />
+                        <span className="ml-2 text-sm text-gray-900">Regular (monthly)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="menstrual-pattern"
+                          className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500"
+                          checked={profile?.menstruation_irregular === true}
+                          onChange={() => {
+                            handleProfileChange('menstruation_regular', false);
+                            handleProfileChange('menstruation_irregular', true);
+                          }}
+                        />
+                        <span className="ml-2 text-sm text-gray-900">Irregular</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Number of pregnancies */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of pregnancies:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                      value={profile?.number_of_pregnancies || ''}
+                      onChange={e => handleProfileChange('number_of_pregnancies', parseInt(e.target.value) || null)}
+                      placeholder="Number"
+                    />
+                  </div>
+
+                  {/* Number of live children */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of live children:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                      value={profile?.number_of_live_children || ''}
+                      onChange={e => handleProfileChange('number_of_live_children', parseInt(e.target.value) || null)}
+                      placeholder="Number"
+                    />
+                  </div>
+
+                  {/* Menstrual symptoms */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Menstrual Symptoms:
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        'Dysmenorrhea (cramps)',
+                        'Migraine',
+                        'Loss of consciousness',
+                        'Other'
+                      ].map(symptom => (
+                        <label key={symptom} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                            checked={profile?.menstrual_symptoms?.includes(symptom) || false}
+                            onChange={e => {
+                              const symptoms = profile?.menstrual_symptoms?.split(', ') || [];
+                              if (e.target.checked) {
+                                symptoms.push(symptom);
+                              } else {
+                                const index = symptoms.indexOf(symptom);
+                                if (index > -1) symptoms.splice(index, 1);
+                              }
+                              handleProfileChange('menstrual_symptoms', symptoms.join(', '));
+                            }}
+                          />
+                          <span className="ml-2 text-sm text-gray-900">{symptom}</span>
+                        </label>
+                      ))}
+                    </div>
+                    
+                    {/* Other symptoms specification */}
+                    {profile?.menstrual_symptoms?.includes('Other') && (
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                          placeholder="Please specify other menstrual symptoms..."
+                          value={profile?.menstrual_symptoms?.replace(/Dysmenorrhea \(cramps\),?\s?|Migraine,?\s?|Loss of consciousness,?\s?|Other,?\s?/g, '') || ''}
+                          onChange={e => {
+                            const baseSymptoms = (profile?.menstrual_symptoms?.match(/Dysmenorrhea \(cramps\)|Migraine|Loss of consciousness|Other/g) || []).join(', ');
+                            const otherText = e.target.value.trim();
+                            const newSymptoms = otherText ? `${baseSymptoms}, ${otherText}` : baseSymptoms;
+                            handleProfileChange('menstrual_symptoms', newSymptoms);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Loading State for Family Medical History */}
             {medicalListsLoading && (
@@ -2840,7 +3052,7 @@ export default function PatientProfileSetupPage() {
             {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
-                <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
                 Family Medical History
                 {familyMedicalHistories.length > 0 && (
                   <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
@@ -2863,6 +3075,45 @@ export default function PatientProfileSetupPage() {
                       />
                       <label htmlFor={`fam-${item.id}`} className="ml-3 text-sm font-medium text-gray-900 cursor-pointer">{item.name}</label>
                     </div>
+                    
+                    {/* Sub-options for this condition */}
+                    {item.has_sub_options && Array.isArray(item.sub_options) && item.sub_options.length > 0 && (
+                      Array.isArray(profile?.family_medical_history) && profile.family_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3 space-y-2 pl-4 border-l-2 border-gray-200">
+                        <p className="text-xs text-gray-600 font-medium">Select specific conditions:</p>
+                        {item.sub_options.map((subOption: string, index: number) => (
+                          <div key={index} className="flex items-start">
+                            <input
+                              type="checkbox"
+                              id={`fam-${item.id}-sub-${index}`}
+                              className="h-3 w-3 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
+                              checked={Array.isArray(profile?.[`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`]) && 
+                                profile[`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`].includes(subOption)}
+                              onChange={e => handleCheckboxArrayChange(`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`, subOption, e.target.checked)}
+                            />
+                            <label htmlFor={`fam-${item.id}-sub-${index}`} className="ml-2 text-xs text-gray-700 cursor-pointer">
+                              {subOption}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Specification text field for this condition */}
+                    {item.requires_specification && (
+                      Array.isArray(profile?.family_medical_history) && profile.family_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3">
+                        <input
+                          type="text"
+                          placeholder={item.specification_placeholder || 'Please specify...'}
+                          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                          value={profile?.[`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`] || ''}
+                          onChange={e => handleProfileChange(`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`, e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 
@@ -3038,10 +3289,75 @@ export default function PatientProfileSetupPage() {
               </div>
             </div>
 
-            {/* Emergency Contact Summary */}
+            {/* User Type Information Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
                 <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">2</span>
+                User Type Information
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <p className="font-medium text-gray-600 text-xs">User Type</p>
+                  <p className="text-gray-900 font-semibold">{profile?.user_type || 'Not specified'}</p>
+                </div>
+                
+                {profile?.user_type === 'Employee' && (
+                  <>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Employee ID</p>
+                      <p className="text-gray-900 font-semibold">{profile?.employee_id || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Position Type</p>
+                      <p className="text-gray-900 font-semibold">{profile?.position_type || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Department</p>
+                      <p className="text-gray-900 font-semibold">{profile?.department || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
+                
+                {profile?.user_type === 'College' && (
+                  <>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Course</p>
+                      <p className="text-gray-900 font-semibold">{profile?.course || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Year Level</p>
+                      <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
+                
+                {profile?.user_type === 'Senior High School' && (
+                  <>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Strand</p>
+                      <p className="text-gray-900 font-semibold">{profile?.strand || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Year Level</p>
+                      <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
+                
+                {(profile?.user_type === 'High School' || profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') && (
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="font-medium text-gray-600 text-xs">Year Level</p>
+                    <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Emergency Contact Summary */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+              <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">3</span>
                 Emergency Contact
               </h3>
               
@@ -3068,7 +3384,7 @@ export default function PatientProfileSetupPage() {
             {/* Health History Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
-                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">3</span>
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">4</span>
                 Health History
               </h3>
               
@@ -3119,7 +3435,7 @@ export default function PatientProfileSetupPage() {
             {/* Medical & Family History Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
-                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">4</span>
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">5</span>
                 Medical & Family History
               </h3>
               
@@ -3127,13 +3443,42 @@ export default function PatientProfileSetupPage() {
                 {/* Past Medical History */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Past Medical History</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.past_medical_history) && profile.past_medical_history.length > 0 
-                      ? profile.past_medical_history.join(', ') 
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.past_medical_history) && profile.past_medical_history.length > 0 ? (
+                      <div className="space-y-2">
+                        {profile.past_medical_history.map((condition: string, index: number) => {
+                          const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+                          const subOptions = profile?.[`past_medical_history_${conditionKey}_sub`];
+                          const specification = profile?.[`past_medical_history_${conditionKey}_spec`];
+                          
+                          return (
+                            <div key={index} className="text-sm">
+                              <span className="font-semibold">{condition}</span>
+                              {Array.isArray(subOptions) && subOptions.length > 0 && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Selected: </span>
+                                  <span className="text-xs text-gray-800">{subOptions.join(', ')}</span>
+                                </div>
+                              )}
+                              {specification && specification.trim() && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Details: </span>
+                                  <span className="text-xs text-gray-800">{specification}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
                   {profile?.past_medical_history_other && (
-                    <p className="text-gray-700 mt-1 text-xs">Other: {profile.past_medical_history_other}</p>
+                    <div className="text-gray-700 mt-2 text-xs">
+                      <span className="font-medium">Other: </span>
+                      <span>{profile.past_medical_history_other}</span>
+                    </div>
                   )}
                 </div>
 
@@ -3146,21 +3491,107 @@ export default function PatientProfileSetupPage() {
                   {profile?.hospital_admission_details && (
                     <p className="text-gray-700 mt-1 text-xs">{profile.hospital_admission_details}</p>
                   )}
+                  {profile?.hospital_admission_year && (
+                    <p className="text-gray-700 mt-1 text-xs"><strong>Year:</strong> {profile.hospital_admission_year}</p>
+                  )}
                 </div>
+
+                {/* Menstrual & Obstetric History (for females only) */}
+                {profile?.gender === 'Female' && (
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="font-medium text-gray-600 text-xs mb-2">Menstrual & Obstetric History</p>
+                    <div className="space-y-2 text-sm">
+                      {profile?.menstruation_age_began && (
+                        <div>
+                          <span className="font-medium text-gray-700">Age when menstruation began:</span>
+                          <span className="ml-2 text-gray-900">{profile.menstruation_age_began} years old</span>
+                        </div>
+                      )}
+                      
+                      {(profile?.menstruation_regular || profile?.menstruation_irregular) && (
+                        <div>
+                          <span className="font-medium text-gray-700">Menstrual pattern:</span>
+                          <span className="ml-2 text-gray-900">
+                            {profile?.menstruation_regular ? 'Regular (monthly)' : 'Irregular'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {profile?.number_of_pregnancies !== undefined && profile?.number_of_pregnancies !== null && (
+                        <div>
+                          <span className="font-medium text-gray-700">Number of pregnancies:</span>
+                          <span className="ml-2 text-gray-900">{profile.number_of_pregnancies}</span>
+                        </div>
+                      )}
+                      
+                      {profile?.number_of_live_children !== undefined && profile?.number_of_live_children !== null && (
+                        <div>
+                          <span className="font-medium text-gray-700">Number of live children:</span>
+                          <span className="ml-2 text-gray-900">{profile.number_of_live_children}</span>
+                        </div>
+                      )}
+                      
+                      {profile?.menstrual_symptoms && profile.menstrual_symptoms.trim() && (
+                        <div>
+                          <span className="font-medium text-gray-700">Menstrual symptoms:</span>
+                          <span className="ml-2 text-gray-900">{profile.menstrual_symptoms}</span>
+                        </div>
+                      )}
+                      
+                      {!profile?.menstruation_age_began && !profile?.menstruation_regular && !profile?.menstruation_irregular && 
+                       profile?.number_of_pregnancies === undefined && profile?.number_of_live_children === undefined && 
+                       (!profile?.menstrual_symptoms || !profile.menstrual_symptoms.trim()) && (
+                        <p className="text-gray-500 text-xs">No menstrual or obstetric history provided</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Family Medical History */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Family Medical History</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.family_medical_history) && profile.family_medical_history.length > 0 
-                      ? profile.family_medical_history.join(', ') 
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.family_medical_history) && profile.family_medical_history.length > 0 ? (
+                      <div className="space-y-2">
+                        {profile.family_medical_history.map((condition: string, index: number) => {
+                          const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+                          const subOptions = profile?.[`family_medical_history_${conditionKey}_sub`];
+                          const specification = profile?.[`family_medical_history_${conditionKey}_spec`];
+                          
+                          return (
+                            <div key={index} className="text-sm">
+                              <span className="font-semibold">{condition}</span>
+                              {Array.isArray(subOptions) && subOptions.length > 0 && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Selected: </span>
+                                  <span className="text-xs text-gray-800">{subOptions.join(', ')}</span>
+                                </div>
+                              )}
+                              {specification && specification.trim() && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Details: </span>
+                                  <span className="text-xs text-gray-800">{specification}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
                   {profile?.family_medical_history_other && (
-                    <p className="text-gray-700 mt-1 text-xs">Other: {profile.family_medical_history_other}</p>
+                    <div className="text-gray-700 mt-2 text-xs">
+                      <span className="font-medium">Other: </span>
+                      <span>{profile.family_medical_history_other}</span>
+                    </div>
                   )}
                   {profile?.family_medical_history_allergies && (
-                    <p className="text-gray-700 mt-1 text-xs">Allergies: {profile.family_medical_history_allergies}</p>
+                    <div className="text-gray-700 mt-2 text-xs">
+                      <span className="font-medium">Allergies: </span>
+                      <span>{profile.family_medical_history_allergies}</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -3237,6 +3668,7 @@ export default function PatientProfileSetupPage() {
             'strand': 'Strand',
             'hospital_admission_or_surgery': 'Hospital Admission/Surgery',
             'hospital_admission_details': 'Hospital Admission/Surgery Details',
+            'hospital_admission_year': 'Hospital Admission/Surgery Year',
             'past_medical_history_other': 'Past Medical History (Other)',
             'food_allergy_specify': 'Food Allergies Specification',
             'other_comorbid_specify': 'Other Comorbid Illness Specification',

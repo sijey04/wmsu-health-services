@@ -80,6 +80,10 @@ interface PastMedicalHistoryItem {
   id: string;
   name: string;
   enabled: boolean;
+  has_sub_options?: boolean;
+  sub_options?: string[];
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   isNew?: boolean;
 }
 
@@ -87,6 +91,10 @@ interface FamilyMedicalHistoryItem {
   id: string;
   name: string;
   enabled: boolean;
+  has_sub_options?: boolean;
+  sub_options?: string[];
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   isNew?: boolean;
 }
 
@@ -131,6 +139,12 @@ export default function AdminControls() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
+  
+  // Sub-options modal state
+  const [showSubOptionsModal, setShowSubOptionsModal] = useState(false);
+  const [editingSubOptions, setEditingSubOptions] = useState<any>(null);
+  const [subOptionsType, setSubOptionsType] = useState<'past' | 'family'>('past');
+  const [tempSubOptions, setTempSubOptions] = useState<string[]>([]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -276,7 +290,11 @@ export default function AdminControls() {
         setPastMedicalHistories(pastMedicalResponse.data.map((history: any) => ({
           id: history.id.toString(),
           name: history.name,
-          enabled: history.is_enabled
+          enabled: history.is_enabled,
+          has_sub_options: history.has_sub_options || false,
+          sub_options: history.sub_options || [],
+          requires_specification: history.requires_specification || false,
+          specification_placeholder: history.specification_placeholder || ''
         })));
       }
 
@@ -284,7 +302,11 @@ export default function AdminControls() {
         setFamilyMedicalHistories(familyMedicalResponse.data.map((history: any) => ({
           id: history.id.toString(),
           name: history.name,
-          enabled: history.is_enabled
+          enabled: history.is_enabled,
+          has_sub_options: history.has_sub_options || false,
+          sub_options: history.sub_options || [],
+          requires_specification: history.requires_specification || false,
+          specification_placeholder: history.specification_placeholder || ''
         })));
       }
 
@@ -339,6 +361,45 @@ export default function AdminControls() {
   const showAlert = (type: 'success' | 'error', message: string) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 5000);
+  };
+
+  // Sub-options modal functions
+  const openSubOptionsModal = (item: any, type: 'past' | 'family') => {
+    setEditingSubOptions(item);
+    setSubOptionsType(type);
+    setTempSubOptions([...(item.sub_options || [])]);
+    setShowSubOptionsModal(true);
+  };
+
+  const closeSubOptionsModal = () => {
+    setShowSubOptionsModal(false);
+    setEditingSubOptions(null);
+    setTempSubOptions([]);
+  };
+
+  const addSubOption = () => {
+    setTempSubOptions([...tempSubOptions, '']);
+  };
+
+  const updateSubOption = (index: number, value: string) => {
+    const newSubOptions = [...tempSubOptions];
+    newSubOptions[index] = value;
+    setTempSubOptions(newSubOptions);
+  };
+
+  const removeSubOption = (index: number) => {
+    const newSubOptions = tempSubOptions.filter((_, i) => i !== index);
+    setTempSubOptions(newSubOptions);
+  };
+
+  const saveSubOptions = () => {
+    const filteredOptions = tempSubOptions.filter(option => option.trim() !== '');
+    if (subOptionsType === 'past') {
+      updatePastMedicalHistory(editingSubOptions.id, 'sub_options', filteredOptions);
+    } else {
+      updateFamilyMedicalHistory(editingSubOptions.id, 'sub_options', filteredOptions);
+    }
+    closeSubOptionsModal();
   };
 
   const confirmDelete = (message: string, action: () => void) => {
@@ -434,14 +495,22 @@ export default function AdminControls() {
           savePromises.push(
             djangoApiClient.post('/user-management/past_medical_histories/create_past_medical_history/', {
               name: history.name,
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         } else {
           savePromises.push(
             djangoApiClient.put('/user-management/past_medical_histories/update_past_medical_history/', {
               id: parseInt(history.id),
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         }
@@ -453,14 +522,22 @@ export default function AdminControls() {
           savePromises.push(
             djangoApiClient.post('/user-management/family_medical_histories/create_family_medical_history/', {
               name: history.name,
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         } else {
           savePromises.push(
             djangoApiClient.put('/user-management/family_medical_histories/update_family_medical_history/', {
               id: parseInt(history.id),
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         }
@@ -791,6 +868,10 @@ export default function AdminControls() {
       id: Date.now().toString(),
       name: '',
       enabled: true,
+      has_sub_options: false,
+      sub_options: [],
+      requires_specification: false,
+      specification_placeholder: '',
       isNew: true
     };
     setPastMedicalHistories(prev => [...prev, newItem]);
@@ -827,6 +908,10 @@ export default function AdminControls() {
       id: Date.now().toString(),
       name: '',
       enabled: true,
+      has_sub_options: false,
+      sub_options: [],
+      requires_specification: false,
+      specification_placeholder: '',
       isNew: true
     };
     setFamilyMedicalHistories(prev => [...prev, newItem]);
@@ -1599,32 +1684,103 @@ export default function AdminControls() {
                   <ul className="divide-y divide-gray-200">
                     {pastMedicalHistories.map((item) => (
                       <li key={item.id} className={`px-4 py-4 ${item.isNew ? 'bg-green-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 mr-4">
-                            <input
-                              type="text"
-                              value={item.name}
-                              onChange={(e) => updatePastMedicalHistory(item.id, 'name', e.target.value)}
-                              placeholder="Enter medical condition name"
-                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <label className="flex items-center">
+                        <div className="space-y-4">
+                          {/* Main item configuration */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0 mr-4">
                               <input
-                                type="checkbox"
-                                checked={item.enabled}
-                                onChange={(e) => updatePastMedicalHistory(item.id, 'enabled', e.target.checked)}
-                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updatePastMedicalHistory(item.id, 'name', e.target.value)}
+                                placeholder="Enter medical condition name"
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                               />
-                              <span className="ml-2 text-sm text-gray-700">Enabled</span>
-                            </label>
-                            <button
-                              onClick={() => removePastMedicalHistory(item.id)}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.enabled}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'enabled', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                              </label>
+                              <button
+                                onClick={() => removePastMedicalHistory(item.id)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-options configuration */}
+                          <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                            <div className="flex items-center space-x-4">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.has_sub_options || false}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'has_sub_options', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Has sub-options (checkboxes)</span>
+                              </label>
+                              
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.requires_specification || false}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'requires_specification', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Requires text specification</span>
+                              </label>
+                            </div>
+
+                            {/* Sub-options list */}
+                            {item.has_sub_options && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Sub-options:
+                                  </label>
+                                  <button
+                                    onClick={() => openSubOptionsModal(item, 'past')}
+                                    className="px-3 py-1 bg-[#8B1538] text-white text-xs rounded hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                                  >
+                                    Configure Sub-options
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {(item.sub_options || []).length > 0 ? (
+                                    <span>{(item.sub_options || []).length} sub-option(s) configured: {(item.sub_options || []).slice(0, 3).join(', ')}{(item.sub_options || []).length > 3 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-400">No sub-options configured yet</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Specification placeholder */}
+                            {item.requires_specification && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Specification placeholder text:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={item.specification_placeholder || ''}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'specification_placeholder', e.target.value)}
+                                  placeholder="e.g., Please specify the condition..."
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  💡 This text will appear as placeholder in the text input field for patients to specify details.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -1650,32 +1806,103 @@ export default function AdminControls() {
                   <ul className="divide-y divide-gray-200">
                     {familyMedicalHistories.map((item) => (
                       <li key={item.id} className={`px-4 py-4 ${item.isNew ? 'bg-green-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 mr-4">
-                            <input
-                              type="text"
-                              value={item.name}
-                              onChange={(e) => updateFamilyMedicalHistory(item.id, 'name', e.target.value)}
-                              placeholder="Enter family medical condition name"
-                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <label className="flex items-center">
+                        <div className="space-y-4">
+                          {/* Main item configuration */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0 mr-4">
                               <input
-                                type="checkbox"
-                                checked={item.enabled}
-                                onChange={(e) => updateFamilyMedicalHistory(item.id, 'enabled', e.target.checked)}
-                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updateFamilyMedicalHistory(item.id, 'name', e.target.value)}
+                                placeholder="Enter family medical condition name"
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                               />
-                              <span className="ml-2 text-sm text-gray-700">Enabled</span>
-                            </label>
-                            <button
-                              onClick={() => removeFamilyMedicalHistory(item.id)}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.enabled}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'enabled', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                              </label>
+                              <button
+                                onClick={() => removeFamilyMedicalHistory(item.id)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-options configuration */}
+                          <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                            <div className="flex items-center space-x-4">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.has_sub_options || false}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'has_sub_options', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Has sub-options (checkboxes)</span>
+                              </label>
+                              
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.requires_specification || false}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'requires_specification', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Requires text specification</span>
+                              </label>
+                            </div>
+
+                            {/* Sub-options list */}
+                            {item.has_sub_options && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Sub-options:
+                                  </label>
+                                  <button
+                                    onClick={() => openSubOptionsModal(item, 'family')}
+                                    className="px-3 py-1 bg-[#8B1538] text-white text-xs rounded hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                                  >
+                                    Configure Sub-options
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {(item.sub_options || []).length > 0 ? (
+                                    <span>{(item.sub_options || []).length} sub-option(s) configured: {(item.sub_options || []).slice(0, 3).join(', ')}{(item.sub_options || []).length > 3 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-400">No sub-options configured yet</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Specification placeholder */}
+                            {item.requires_specification && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Specification placeholder text:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={item.specification_placeholder || ''}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'specification_placeholder', e.target.value)}
+                                  placeholder="e.g., Please specify family medical condition..."
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  💡 This text will appear as placeholder in the text input field for patients to specify details.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -1869,6 +2096,83 @@ export default function AdminControls() {
           alert.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
           {alert.message}
+        </div>
+      )}
+
+      {/* Sub-options Configuration Modal */}
+      {showSubOptionsModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Configure Sub-options for "{editingSubOptions?.name}"
+                </h3>
+                <button
+                  onClick={closeSubOptionsModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                <p className="text-sm text-gray-600 mb-4">
+                  💡 These will appear as individual checkboxes under the main condition for patients to select.
+                </p>
+                
+                {tempSubOptions.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => updateSubOption(index, e.target.value)}
+                        placeholder={`Sub-option ${index + 1}`}
+                        className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeSubOption(index)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                      title="Remove this sub-option"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                
+                <button
+                  onClick={addSubOption}
+                  className="flex items-center space-x-2 text-[#8B1538] hover:text-[#7A1230] text-sm font-medium"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Add Sub-option</span>
+                </button>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button
+                  onClick={closeSubOptionsModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveSubOptions}
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#8B1538] rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                >
+                  Save Sub-options
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </AdminLayout>

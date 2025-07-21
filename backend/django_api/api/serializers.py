@@ -123,9 +123,14 @@ class PatientSerializer(serializers.ModelSerializer):
             'emergency_contact_number', 'emergency_contact_relationship',
             'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street', 
             'comorbid_illnesses', 'maintenance_medications', 'vaccination_history', 'past_medical_history', 
-            'hospital_admission_or_surgery', 'hospital_admission_details',
+            'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             'family_medical_history', 'allergies', 'created_at', 'updated_at', 'user_email', 'user_name', 'user_first_name', 
-            'user_middle_name', 'user_last_name', 'school_year'
+            'user_middle_name', 'user_last_name', 'school_year',
+            # Menstrual & Obstetric History
+            'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
+            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms',
+            # User type fields
+            'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand'
         ]
 
 
@@ -279,11 +284,16 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             # Health history
             'comorbid_illnesses', 'maintenance_medications', 'vaccination_history',
             # Past medical/surgical history
-            'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details',
+            'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
+            # Menstrual & Obstetric History (for females)
+            'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
+            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms',
             # Family medical history
             'family_medical_history', 'allergies',
             # School year
             'school_year',
+            # User type fields
+            'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand'
         ]
 
     def validate(self, attrs):
@@ -293,6 +303,10 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             if not attrs.get('hospital_admission_details'):
                 raise serializers.ValidationError({
                     'hospital_admission_details': 'Please provide details when hospital admission or surgery is "Yes".'
+                })
+            if not attrs.get('hospital_admission_year'):
+                raise serializers.ValidationError({
+                    'hospital_admission_year': 'Please provide the year when hospital admission or surgery occurred.'
                 })
         
         return attrs
@@ -871,7 +885,9 @@ class PastMedicalHistoryItemSerializer(serializers.ModelSerializer):
     """Serializer for past medical history items configuration"""
     class Meta:
         model = PastMedicalHistoryItem
-        fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 
+                 'has_sub_options', 'sub_options', 'requires_specification', 
+                 'specification_placeholder', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
@@ -879,7 +895,9 @@ class FamilyMedicalHistoryItemSerializer(serializers.ModelSerializer):
     """Serializer for family medical history items configuration"""
     class Meta:
         model = FamilyMedicalHistoryItem
-        fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'is_enabled', 'display_order',
+                 'has_sub_options', 'sub_options', 'requires_specification', 
+                 'specification_placeholder', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 

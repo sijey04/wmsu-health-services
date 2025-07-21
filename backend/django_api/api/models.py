@@ -231,6 +231,7 @@ class Patient(models.Model):
     past_medical_history = models.JSONField(blank=True, null=True, help_text='List of past medical/surgical history')
     hospital_admission_or_surgery = models.BooleanField(default=False)
     hospital_admission_details = models.TextField(blank=True, null=True, help_text='Details of hospital admission or surgery when answer is Yes')
+    hospital_admission_year = models.CharField(max_length=20, blank=True, null=True, help_text='Year of hospital admission or surgery')
     
     # Family Medical History
     family_medical_history = models.JSONField(blank=True, null=True, help_text='List of family medical history')
@@ -1301,6 +1302,12 @@ class PastMedicalHistoryItem(models.Model):
     is_enabled = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
     
+    # Sub-options configuration
+    has_sub_options = models.BooleanField(default=False, help_text="Whether this item has sub-checkboxes")
+    sub_options = models.JSONField(default=list, blank=True, help_text="List of sub-option names")
+    requires_specification = models.BooleanField(default=False, help_text="Whether this item requires text specification")
+    specification_placeholder = models.CharField(max_length=200, blank=True, help_text="Placeholder text for specification field")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1317,6 +1324,12 @@ class FamilyMedicalHistoryItem(models.Model):
     description = models.TextField(blank=True)
     is_enabled = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
+    
+    # Sub-options configuration
+    has_sub_options = models.BooleanField(default=False, help_text="Whether this item has sub-checkboxes")
+    sub_options = models.JSONField(default=list, blank=True, help_text="List of sub-option names")
+    requires_specification = models.BooleanField(default=False, help_text="Whether this item requires text specification")
+    specification_placeholder = models.CharField(max_length=200, blank=True, help_text="Placeholder text for specification field")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
