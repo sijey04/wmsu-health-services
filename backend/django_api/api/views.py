@@ -2351,147 +2351,8 @@ class PastMedicalHistoryItemViewSet(viewsets.ModelViewSet):
         """Filter based on user permissions"""
         user = self.request.user
         if user.is_staff or user.user_type in ['staff', 'admin']:
-            return PastMedicalHistoryItem.objects.all()
-        return PastMedicalHistoryItem.objects.none()
-    
-    def perform_create(self, serializer):
-        """Only staff can create past medical history items"""
-        if not (self.request.user.is_staff or self.request.user.user_type in ['staff', 'admin']):
-            raise PermissionDenied("Only staff can create past medical history items")
-        serializer.save()
-    
-    def perform_update(self, serializer):
-        """Only staff can update past medical history items"""
-        if not (self.request.user.is_staff or self.request.user.user_type in ['staff', 'admin']):
-            raise PermissionDenied("Only staff can update past medical history items")
-        serializer.save()
-    
-    def perform_destroy(self, instance):
-        """Only staff can delete past medical history items"""
-        if not (self.request.user.is_staff or self.request.user.user_type in ['staff', 'admin']):
-            raise PermissionDenied("Only staff can delete past medical history items")
-        instance.delete()
-    
-    @action(detail=False, methods=['post'])
-    def create_past_medical_history(self, request):
-        """Create a new past medical history item"""
-        try:
-            name = request.data.get('name')
-            is_enabled = request.data.get('is_enabled', True)
-            
-            if not name:
-                return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            past_medical_history_item = PastMedicalHistoryItem.objects.create(
-                name=name,
-                is_enabled=is_enabled
-            )
-            
-            serializer = self.get_serializer(past_medical_history_item)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    @action(detail=False, methods=['put'])
-    def update_past_medical_history(self, request):
-        """Update an existing past medical history item"""
-        try:
-            item_id = request.data.get('id')
-            is_enabled = request.data.get('is_enabled', True)
-            
-            if not item_id:
-                return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            if not illness_id:
-                return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            illness = ComorbidIllness.objects.get(id=illness_id)
-            illness.is_enabled = is_enabled
-            illness.save()
-            
-            serializer = self.get_serializer(illness)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except ComorbidIllness.DoesNotExist:
-            return Response({'error': 'Comorbid illness not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class VaccinationViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing vaccination types configuration"""
-    queryset = Vaccination.objects.all()
-    serializer_class = VaccinationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        """Filter based on user permissions"""
-        user = self.request.user
-        if user.is_staff or user.user_type in ['staff', 'admin']:
-            return Vaccination.objects.all().order_by('name')
-        return Vaccination.objects.filter(is_enabled=True).order_by('name')
-    
-    @action(detail=False, methods=['post'])
-    def create_vaccination(self, request):
-        """Create a new vaccination"""
-        try:
-            name = request.data.get('name')
-            is_enabled = request.data.get('is_enabled', True)
-            
-            if not name:
-                return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            vaccination = Vaccination.objects.create(
-                name=name,
-                is_enabled=is_enabled
-            )
-            
-            serializer = self.get_serializer(vaccination)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    @action(detail=False, methods=['put'])
-    def update_vaccination(self, request):
-        """Update an existing vaccination"""
-        try:
-            vaccination_id = request.data.get('id')
-            is_enabled = request.data.get('is_enabled', True)
-            
-            if not vaccination_id:
-                return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            vaccination = Vaccination.objects.get(id=vaccination_id)
-            vaccination.is_enabled = is_enabled
-            vaccination.save()
-            
-            serializer = self.get_serializer(vaccination)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Vaccination.DoesNotExist:
-            return Response({'error': 'Vaccination not found'}, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-
-class PastMedicalHistoryItemViewSet(viewsets.ModelViewSet):
-    """ViewSet for managing past medical history items"""
-    queryset = PastMedicalHistoryItem.objects.all()
-    serializer_class = PastMedicalHistoryItemSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_permissions(self):
-        """Only allow staff/admin users to modify past medical history items"""
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            permission_classes = [permissions.IsAuthenticated]
-        else:
-            permission_classes = [permissions.IsAuthenticated]
-        return [permission() for permission in permission_classes]
-    
-    def get_queryset(self):
-        """Filter based on user permissions"""
-        user = self.request.user
-        if user.is_staff or user.user_type in ['staff', 'admin']:
-            return PastMedicalHistoryItem.objects.all()
-        return PastMedicalHistoryItem.objects.none()
+            return PastMedicalHistoryItem.objects.all().order_by('name')
+        return PastMedicalHistoryItem.objects.filter(is_enabled=True).order_by('name')
     
     def perform_create(self, serializer):
         """Only staff can create past medical history items"""
@@ -2591,8 +2452,8 @@ class FamilyMedicalHistoryItemViewSet(viewsets.ModelViewSet):
         """Filter based on user permissions"""
         user = self.request.user
         if user.is_staff or user.user_type in ['staff', 'admin']:
-            return FamilyMedicalHistoryItem.objects.all()
-        return FamilyMedicalHistoryItem.objects.none()
+            return FamilyMedicalHistoryItem.objects.all().order_by('name')
+        return FamilyMedicalHistoryItem.objects.filter(is_enabled=True).order_by('name')
     
     def perform_create(self, serializer):
         """Only staff can create family medical history items"""
@@ -2873,6 +2734,37 @@ class ProfileRequirementViewSet(viewsets.ModelViewSet):
                     continue
         
         return Response({'message': 'Profile requirements updated successfully'})
+    
+    @action(detail=False, methods=['get'])
+    def get_form_configuration(self, request):
+        """Get form configuration for profile setup - returns enabled fields organized by category"""
+        try:
+            # Get all active profile requirements
+            requirements = ProfileRequirement.objects.filter(is_active=True)
+            
+            # Organize by category
+            config = {
+                'personal': [],
+                'health': [],
+                'emergency': [],
+                'family': []
+            }
+            
+            for req in requirements:
+                category = req.category.lower()
+                if category in config:
+                    config[category].append({
+                        'id': req.id,
+                        'field_name': req.field_name,
+                        'display_name': req.display_name,
+                        'is_required': req.is_required,
+                        'description': req.description or '',
+                        'is_active': req.is_active
+                    })
+            
+            return Response(config, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class DocumentRequirementViewSet(viewsets.ModelViewSet):

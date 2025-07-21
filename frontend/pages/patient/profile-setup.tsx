@@ -37,6 +37,27 @@ export default function PatientProfileSetupPage() {
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<any[]>([]);
   const [medicalListsLoading, setMedicalListsLoading] = useState(false);
 
+  // Admin controls state
+  const [profileRequirements, setProfileRequirements] = useState<any[]>([]);
+  const [availableFields, setAvailableFields] = useState<any>({
+    personal: [],
+    health: [],
+    emergency: [],
+    family: []
+  });
+  const [requiredFieldsByStep, setRequiredFieldsByStep] = useState<any>({
+    1: [
+      'name', 'first_name', 'date_of_birth', 'age', 'gender', 'blood_type', 'religion', 'nationality', 'civil_status', 'email', 'contact_number', 'city_municipality', 'barangay', 'street',
+      'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_barangay', 'emergency_contact_street',
+    ],
+    2: [
+      // No required fields for health history step - optional information
+    ],
+    3: [
+      'hospital_admission_or_surgery'
+    ]
+  });
+
   // Edit mode and versioning state
   const [isEditMode, setIsEditMode] = useState(false);
   const [originalProfile, setOriginalProfile] = useState<any>(null);
@@ -45,17 +66,63 @@ export default function PatientProfileSetupPage() {
 
   const progress = (currentStep / steps.length) * 100;
 
-  const requiredFieldsByStep = {
-    1: [
-      'name', 'first_name', 'date_of_birth', 'age', 'gender', 'blood_type', 'religion', 'nationality', 'civil_status', 'email', 'contact_number', 'city_municipality', 'barangay', 'street',
-      'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_middle_name', 'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_barangay', 'emergency_contact_street',
-    ],
-    2: [
-      // No required fields for health history step - optional information
-    ],
-    3: [
-      'hospital_admission_or_surgery'
-    ]
+  // Helper function to check if a field should be shown based on admin configuration
+  const isFieldEnabled = (category: string, fieldName: string) => {
+    if (!availableFields[category] || availableFields[category].length === 0) {
+      return true; // Show all fields by default if no configuration is loaded
+    }
+    
+    return availableFields[category].some(field => 
+      field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+    );
+  };
+
+  // Helper function to check if a field is required based on admin configuration
+  const isFieldRequired = (category: string, fieldName: string) => {
+    if (!availableFields[category] || availableFields[category].length === 0) {
+      return requiredFieldsByStep[currentStep]?.includes(fieldName) || false;
+    }
+    
+    const configField = availableFields[category].find(field => 
+      field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+    );
+    
+    return configField ? configField.is_required : false;
+  };
+
+  // Helper function to get field description from admin configuration
+  const getFieldDescription = (category: string, fieldName: string) => {
+    if (!availableFields[category] || availableFields[category].length === 0) {
+      return null;
+    }
+    
+    const configField = availableFields[category].find(field => 
+      field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+    );
+    
+    return configField ? configField.description : null;
+  };
+
+  // Show notification about admin-controlled fields
+  const showAdminControlledNotification = () => {
+    const hasConfiguredFields = Object.values(availableFields).some(category => 
+      Array.isArray(category) && category.length > 0
+    );
+    
+    if (hasConfiguredFields) {
+      return (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center">
+            <span className="text-blue-600 text-sm mr-2">ⓘ</span>
+            <p className="text-blue-800 text-sm">
+              <strong>Field Configuration:</strong> Some form fields are controlled by administrator settings. 
+              Required fields are marked with an asterisk (*).
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   // Define fetchProfile function outside useEffect so it can be called from multiple places
@@ -261,6 +328,143 @@ export default function PatientProfileSetupPage() {
     }
   };
 
+  // Input sanitization functions
+  const sanitizeInput = (value: string, type: 'text' | 'email' | 'phone' | 'number' | 'name' = 'text'): string => {
+    if (!value) return value;
+    
+    let sanitized = value.toString().trim();
+    
+    switch (type) {
+      case 'name':
+        // Remove numbers and special characters except hyphens, apostrophes, periods
+        sanitized = sanitized.replace(/[^a-zA-Z\s\-'\.]/g, '');
+        // Capitalize first letter of each word
+        sanitized = sanitized.replace(/\b\w/g, l => l.toUpperCase());
+        break;
+      case 'email':
+        // Convert to lowercase and remove invalid characters
+        sanitized = sanitized.toLowerCase().replace(/[^a-z0-9@._-]/g, '');
+        break;
+      case 'phone':
+        // Remove all non-numeric characters
+        sanitized = sanitized.replace(/[^0-9]/g, '');
+        // Ensure it starts with 09 and is 11 digits
+        if (sanitized.length === 11 && sanitized.startsWith('09')) {
+          return sanitized;
+        }
+        break;
+      case 'number':
+        // Remove non-numeric characters except decimal point
+        sanitized = sanitized.replace(/[^0-9.]/g, '');
+        break;
+      case 'text':
+      default:
+        // Remove dangerous characters but keep basic punctuation
+        sanitized = sanitized.replace(/[<>\"'&]/g, '');
+        break;
+    }
+    
+    return sanitized;
+  };
+
+  // Enhanced validation function
+  const validateField = (field: string, value: any): string | null => {
+    if (!value && typeof value !== 'boolean') return null;
+    
+    const stringValue = value?.toString().trim();
+    
+    switch (field) {
+      case 'name':
+      case 'first_name':
+      case 'middle_name':
+      case 'emergency_contact_surname':
+      case 'emergency_contact_first_name':
+      case 'emergency_contact_middle_name':
+        if (stringValue && stringValue.length < 2) {
+          return 'Name must be at least 2 characters long.';
+        }
+        if (stringValue && !/^[a-zA-Z\s\-'\.]+$/.test(stringValue)) {
+          return 'Name can only contain letters, spaces, hyphens, apostrophes, and periods.';
+        }
+        break;
+        
+      case 'email':
+        if (stringValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stringValue)) {
+          return 'Please enter a valid email address.';
+        }
+        break;
+        
+      case 'contact_number':
+      case 'emergency_contact_number':
+        if (stringValue && !/^09\d{9}$/.test(stringValue)) {
+          return 'Phone number must be 11 digits and start with 09.';
+        }
+        break;
+        
+      case 'date_of_birth':
+        if (stringValue) {
+          const birthDate = new Date(stringValue);
+          const today = new Date();
+          const minDate = new Date();
+          minDate.setFullYear(today.getFullYear() - 120); // Max age 120
+          
+          if (birthDate > today) {
+            return 'Birthday cannot be in the future.';
+          }
+          if (birthDate < minDate) {
+            return 'Please enter a valid birth date.';
+          }
+          
+          // Check if person is at least 3 years old for kindergarten and above
+          const age = today.getFullYear() - birthDate.getFullYear();
+          if (age < 3) {
+            return 'Person must be at least 3 years old.';
+          }
+        }
+        break;
+        
+      case 'age':
+        if (stringValue) {
+          const ageNum = parseInt(stringValue);
+          if (isNaN(ageNum) || ageNum < 3 || ageNum > 120) {
+            return 'Age must be between 3 and 120 years.';
+          }
+        }
+        break;
+        
+      case 'employee_id':
+        if (stringValue && (stringValue.length < 3 || stringValue.length > 20)) {
+          return 'Employee ID must be between 3 and 20 characters.';
+        }
+        if (stringValue && !/^[a-zA-Z0-9\-_]+$/.test(stringValue)) {
+          return 'Employee ID can only contain letters, numbers, hyphens, and underscores.';
+        }
+        break;
+        
+      case 'city_municipality':
+      case 'barangay':
+      case 'street':
+      case 'emergency_contact_barangay':
+      case 'emergency_contact_street':
+        if (stringValue && stringValue.length < 2) {
+          return 'Address field must be at least 2 characters long.';
+        }
+        if (stringValue && !/^[a-zA-Z0-9\s\-'.,#\/]+$/.test(stringValue)) {
+          return 'Address can only contain letters, numbers, spaces, and common punctuation.';
+        }
+        break;
+        
+      default:
+        // Generic text validation
+        if (stringValue && stringValue.length > 500) {
+          return 'Text is too long (maximum 500 characters).';
+        }
+        break;
+    }
+    
+    return null;
+  };
+
   const validateStep = (step: number) => {
     const required = requiredFieldsByStep[step] || [];
     const errors: any = {};
@@ -271,60 +475,43 @@ export default function PatientProfileSetupPage() {
       console.log(`Validating step ${step}, current step: ${currentStep}`);
       console.log(`Required fields for step ${step}:`, required);
       console.log('Current profile data:', profile);
+      console.log('Profile keys:', Object.keys(profile || {}));
     }
     
     // Only validate fields for the current step
     required.forEach(field => {
       const value = profile?.[field];
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Checking field '${field}':`, value, typeof value);
+        console.log(`Checking field '${field}':`, value, typeof value, 'exists in profile:', field in (profile || {}));
       }
       
-      // Special handling for boolean fields: only undefined/null is considered missing
+      // Check if field is required and missing
       if (typeof value === 'boolean') {
         if (value === undefined || value === null) {
           errors[field] = 'This field is required.';
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Field '${field}' is missing (boolean)`);
-          }
         }
-      } else if (!value || (Array.isArray(value) && value.length === 0)) {
+      } else if (!value || (Array.isArray(value) && value.length === 0) || (typeof value === 'string' && value.trim() === '')) {
         errors[field] = 'This field is required.';
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Field '${field}' is missing (empty/null)`);
-        }
       } else {
-        // Format validation for specific fields
-        if (field === 'email' && value) {
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(value)) {
-            errors[field] = 'Please enter a valid email address.';
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Field '${field}' has invalid format`);
-            }
-          }
-        }
-        if (field === 'contact_number' && value) {
-          const phoneRegex = /^09\d{9}$/;
-          if (!phoneRegex.test(value)) {
-            errors[field] = 'Phone number must be 11 digits and start with 09.';
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Field '${field}' has invalid format`);
-            }
-          }
-        }
-        if (field === 'date_of_birth' && value) {
-          const birthDate = new Date(value);
-          const today = new Date();
-          if (birthDate > today) {
-            errors[field] = 'Birthday cannot be in the future.';
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Field '${field}' has invalid date`);
-            }
-          }
+        // Apply field-specific validation
+        const validationError = validateField(field, value);
+        if (validationError) {
+          errors[field] = validationError;
         }
       }
     });
+
+    // Additional validation for ALL fields (not just required ones) to catch format errors
+    if (profile) {
+      Object.keys(profile).forEach(field => {
+        if (profile[field] && !errors[field]) {
+          const validationError = validateField(field, profile[field]);
+          if (validationError) {
+            errors[field] = validationError;
+          }
+        }
+      });
+    }
 
     // STEP-SPECIFIC VALIDATIONS
     
@@ -420,6 +607,42 @@ export default function PatientProfileSetupPage() {
         // If the field exists but is empty, don't require it to be filled
         // This allows users to clear the field without validation errors
       }
+
+      // Medication validation
+      if (profile?.maintenance_medications && Array.isArray(profile.maintenance_medications)) {
+        profile.maintenance_medications.forEach((med: any, idx: number) => {
+          if (med.drug || med.dose || med.unit || med.frequency || med.duration || med.custom_duration) {
+            // If any field is filled, validate all required fields
+            if (!med.drug || med.drug.trim() === '') {
+              errors[`medication_${idx}_drug`] = `Medication #${idx + 1}: Drug name is required.`;
+            }
+            if (!med.dose || med.dose.trim() === '') {
+              errors[`medication_${idx}_dose`] = `Medication #${idx + 1}: Dose is required.`;
+            } else if (!/^\d+(\.\d+)?$/.test(med.dose.toString())) {
+              errors[`medication_${idx}_dose`] = `Medication #${idx + 1}: Dose must be a valid number.`;
+            }
+            if (!med.unit || med.unit.trim() === '') {
+              errors[`medication_${idx}_unit`] = `Medication #${idx + 1}: Unit is required.`;
+            }
+            if (!med.frequency || med.frequency.trim() === '' || med.frequency === 'Frequency') {
+              errors[`medication_${idx}_frequency`] = `Medication #${idx + 1}: Frequency is required.`;
+            }
+            
+            // Duration validation - check both regular duration and custom duration
+            if (med.duration_type === 'specify') {
+              if (!med.custom_duration || med.custom_duration.trim() === '') {
+                errors[`medication_${idx}_custom_duration`] = `Medication #${idx + 1}: Please specify the duration.`;
+              } else if (med.custom_duration.trim().length < 3) {
+                errors[`medication_${idx}_custom_duration`] = `Medication #${idx + 1}: Duration specification is too short.`;
+              }
+            } else {
+              if (!med.duration || med.duration.trim() === '') {
+                errors[`medication_${idx}_duration`] = `Medication #${idx + 1}: Duration is required.`;
+              }
+            }
+          }
+        });
+      }
     }
 
     // Step 3: Medical history conditional validation
@@ -496,6 +719,13 @@ export default function PatientProfileSetupPage() {
     } else if (step === 2) {
       if (errors.food_allergy_specify) stepSpecificErrors.food_allergy_specify = errors.food_allergy_specify;
       if (errors.other_comorbid_specify) stepSpecificErrors.other_comorbid_specify = errors.other_comorbid_specify;
+      
+      // Include all medication validation errors for step 2
+      Object.keys(errors).forEach(errorKey => {
+        if (errorKey.startsWith('medication_')) {
+          stepSpecificErrors[errorKey] = errors[errorKey];
+        }
+      });
     } else if (step === 3) {
       if (errors.past_medical_history_other) stepSpecificErrors.past_medical_history_other = errors.past_medical_history_other;
       if (errors.family_medical_history_other) stepSpecificErrors.family_medical_history_other = errors.family_medical_history_other;
@@ -564,11 +794,32 @@ export default function PatientProfileSetupPage() {
     const loadMedicalLists = async () => {
       setMedicalListsLoading(true);
       try {
+        // Load profile requirements from admin controls
+        try {
+          const configResponse = await djangoApiClient.get('/admin-controls/profile_requirements/get_form_configuration/');
+          if (configResponse.data) {
+            setAvailableFields(configResponse.data);
+            
+            // NOTE: Personal information fields are NOT controlled by admin configuration
+            // Only medical fields (comorbid illnesses, vaccinations, etc.) are admin-controlled
+            // Keep the hardcoded required fields for personal information
+            
+            // No need to update requiredFieldsByStep - keep the default configuration
+            // The admin controls only affect the medical data options, not form field requirements
+          }
+        } catch (error) {
+          console.log('Profile Requirements API not available, using default configuration');
+          // Keep default field configuration if API fails
+        }
+
         // Load comorbid illnesses
         try {
           const comorbidResponse = await djangoApiClient.get('/user-management/comorbid_illnesses/');
           if (comorbidResponse.data) {
-            setComorbidIllnesses(comorbidResponse.data.filter(illness => illness.is_enabled));
+            console.log('Raw comorbid illnesses from API:', comorbidResponse.data);
+            const enabledIllnesses = comorbidResponse.data.filter(illness => illness.is_enabled);
+            console.log('Filtered enabled comorbid illnesses:', enabledIllnesses);
+            setComorbidIllnesses(enabledIllnesses);
           }
         } catch (error) {
           console.log('Comorbid Illnesses API not available, using fallback data');
@@ -586,7 +837,10 @@ export default function PatientProfileSetupPage() {
         try {
           const vaccinationResponse = await djangoApiClient.get('/user-management/vaccinations/');
           if (vaccinationResponse.data) {
-            setVaccinations(vaccinationResponse.data.filter(vaccination => vaccination.is_enabled));
+            console.log('Raw vaccinations from API:', vaccinationResponse.data);
+            const enabledVaccinations = vaccinationResponse.data.filter(vaccination => vaccination.is_enabled);
+            console.log('Filtered enabled vaccinations:', enabledVaccinations);
+            setVaccinations(enabledVaccinations);
           }
         } catch (error) {
           console.log('Vaccinations API not available, using fallback data');
@@ -603,7 +857,10 @@ export default function PatientProfileSetupPage() {
         try {
           const pastMedicalResponse = await djangoApiClient.get('/user-management/past_medical_histories/');
           if (pastMedicalResponse.data) {
-            setPastMedicalHistories(pastMedicalResponse.data.filter(history => history.is_enabled));
+            console.log('Raw past medical histories from API:', pastMedicalResponse.data);
+            const enabledHistories = pastMedicalResponse.data.filter(history => history.is_enabled);
+            console.log('Filtered enabled past medical histories:', enabledHistories);
+            setPastMedicalHistories(enabledHistories);
           }
         } catch (error) {
           console.log('Past Medical Histories API not available, using fallback data');
@@ -621,7 +878,10 @@ export default function PatientProfileSetupPage() {
         try {
           const familyMedicalResponse = await djangoApiClient.get('/user-management/family_medical_histories/');
           if (familyMedicalResponse.data) {
-            setFamilyMedicalHistories(familyMedicalResponse.data.filter(history => history.is_enabled));
+            console.log('Raw family medical histories from API:', familyMedicalResponse.data);
+            const enabledFamilyHistories = familyMedicalResponse.data.filter(history => history.is_enabled);
+            console.log('Filtered enabled family medical histories:', enabledFamilyHistories);
+            setFamilyMedicalHistories(enabledFamilyHistories);
           }
         } catch (error) {
           console.log('Family Medical Histories API not available, using fallback data');
@@ -655,6 +915,7 @@ export default function PatientProfileSetupPage() {
   }, [currentSchoolYear, currentSemester]);
 
   const handleProfileChange = (field: string, value: any) => {
+    // Handle special date of birth case
     if (field === 'date_of_birth') {
       const birthDate = new Date(value);
       const today = new Date();
@@ -677,8 +938,61 @@ export default function PatientProfileSetupPage() {
       return;
     }
     
+    // Apply input sanitization based on field type
+    let sanitizedValue = value;
+    if (typeof value === 'string') {
+      switch (field) {
+        case 'name':
+        case 'first_name':
+        case 'middle_name':
+        case 'emergency_contact_surname':
+        case 'emergency_contact_first_name':
+        case 'emergency_contact_middle_name':
+          sanitizedValue = sanitizeInput(value, 'name');
+          break;
+        case 'email':
+          sanitizedValue = sanitizeInput(value, 'email');
+          break;
+        case 'contact_number':
+        case 'emergency_contact_number':
+          sanitizedValue = sanitizeInput(value, 'phone');
+          break;
+        case 'employee_id':
+          // Allow alphanumeric, hyphens, and underscores
+          sanitizedValue = value.replace(/[^a-zA-Z0-9\-_]/g, '');
+          break;
+        case 'city_municipality':
+        case 'barangay':
+        case 'street':
+        case 'emergency_contact_barangay':
+        case 'emergency_contact_street':
+          // Allow letters, numbers, spaces, and common punctuation for addresses
+          sanitizedValue = value.replace(/[^a-zA-Z0-9\s\-'.,#\/]/g, '');
+          break;
+        default:
+          sanitizedValue = sanitizeInput(value, 'text');
+          break;
+      }
+    }
+    
     setProfile((prev: any) => {
-      const newProfile = { ...prev, [field]: value };
+      const newProfile = { ...prev, [field]: sanitizedValue };
+      
+      // Real-time validation feedback - clear error for this field if it's now valid
+      const validationError = validateField(field, sanitizedValue);
+      if (!validationError && fieldErrors[field]) {
+        setFieldErrors(prevErrors => {
+          const newErrors = { ...prevErrors };
+          delete newErrors[field];
+          return newErrors;
+        });
+      } else if (validationError) {
+        // Set error immediately for better UX
+        setFieldErrors(prevErrors => ({
+          ...prevErrors,
+          [field]: validationError
+        }));
+      }
       
       // Check for changes
       if (originalProfile) {
@@ -845,6 +1159,21 @@ export default function PatientProfileSetupPage() {
     setLoading(true);
     try {
       const formData = new FormData();
+      
+      // Include all existing profile data to avoid validation errors
+      for (const key in profile) {
+        if (profile[key] !== null && profile[key] !== undefined && key !== 'photo') {
+          if (Array.isArray(profile[key])) {
+            formData.append(key, JSON.stringify(profile[key]));
+          } else if (typeof profile[key] === 'object') {
+            formData.append(key, JSON.stringify(profile[key]));
+          } else {
+            formData.append(key, profile[key].toString());
+          }
+        }
+      }
+      
+      // Add the new photo file
       formData.append('photo', file);
       
       // Add required fields for the update
@@ -858,11 +1187,18 @@ export default function PatientProfileSetupPage() {
         formData.append('semester', currentSemester);
       }
 
-      // Update only the photo
+      // Update the profile with the new photo
       await patientProfileAPI.update(formData);
       
       setFeedbackMessage('Profile photo updated successfully!');
       setFeedbackOpen(true);
+      
+      // Clear any photo-related validation errors
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.photo;
+        return newErrors;
+      });
       
       // Refresh the profile data
       await fetchProfile();
@@ -906,6 +1242,13 @@ export default function PatientProfileSetupPage() {
         return;
       }
 
+      // Clear any photo-related validation errors immediately when a valid photo is selected
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.photo;
+        return newErrors;
+      });
+
       // Set preview immediately
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result as string);
@@ -939,11 +1282,92 @@ export default function PatientProfileSetupPage() {
   };
 
   const handleMedicationChange = (idx: number, key: string, value: string) => {
+    // Sanitize medication input based on field type
+    let sanitizedValue = value;
+    switch (key) {
+      case 'dose':
+        // Only allow numbers and decimal point for dose
+        sanitizedValue = value.replace(/[^0-9.]/g, '');
+        // Ensure only one decimal point
+        const decimalParts = sanitizedValue.split('.');
+        if (decimalParts.length > 2) {
+          sanitizedValue = decimalParts[0] + '.' + decimalParts.slice(1).join('');
+        }
+        break;
+      case 'drug':
+        // Allow letters, numbers, spaces, and basic punctuation for drug names
+        sanitizedValue = value.replace(/[^a-zA-Z0-9\s\-.,()]/g, '');
+        break;
+      default:
+        sanitizedValue = value;
+        break;
+    }
+
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [{}];
-      meds[idx] = { ...meds[idx], [key]: value };
+      meds[idx] = { ...meds[idx], [key]: sanitizedValue };
       
       const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Real-time validation for medication fields
+      const med = meds[idx];
+      const fieldKey = `medication_${idx}_${key}`;
+      
+      // Clear previous errors for this medication field
+      setFieldErrors(prevErrors => {
+        const newErrors = { ...prevErrors };
+        delete newErrors[fieldKey];
+        return newErrors;
+      });
+      
+      // Validate the specific field if it has a value
+      if (sanitizedValue) {
+        let validationError = null;
+        
+        switch (key) {
+          case 'drug':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Drug name is required.`;
+            }
+            break;
+          case 'dose':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Dose is required.`;
+            } else if (!/^\d+(\.\d+)?$/.test(sanitizedValue.toString())) {
+              validationError = `Medication #${idx + 1}: Dose must be a valid number.`;
+            }
+            break;
+          case 'unit':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Unit is required.`;
+            }
+            break;
+          case 'frequency':
+            if (!sanitizedValue.trim() || sanitizedValue === 'Frequency') {
+              validationError = `Medication #${idx + 1}: Frequency is required.`;
+            }
+            break;
+          case 'duration':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Duration is required.`;
+            }
+            break;
+          case 'custom_duration':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Please specify the duration.`;
+            } else if (sanitizedValue.trim().length < 3) {
+              validationError = `Medication #${idx + 1}: Duration specification is too short.`;
+            }
+            break;
+        }
+        
+        if (validationError) {
+          setFieldErrors(prevErrors => ({
+            ...prevErrors,
+            [fieldKey]: validationError
+          }));
+        }
+      }
       
       // Check for changes (medications can be changed independently)
       if (originalProfile) {
@@ -958,7 +1382,7 @@ export default function PatientProfileSetupPage() {
   const handleAddMedication = () => {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
-      meds.push({ drug: '', dose: '', unit: 'mg', frequency: '' });
+      meds.push({ drug: '', dose: '', unit: '', frequency: '', duration: '', duration_type: '', custom_duration: '' });
       
       const newProfile = { ...prev, maintenance_medications: meds };
       
@@ -978,6 +1402,38 @@ export default function PatientProfileSetupPage() {
       meds.splice(idx, 1);
       
       const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Clear all validation errors for this medication
+      setFieldErrors(prevErrors => {
+        const newErrors = { ...prevErrors };
+        Object.keys(newErrors).forEach(key => {
+          if (key.startsWith(`medication_${idx}_`)) {
+            delete newErrors[key];
+          }
+        });
+        
+        // Update medication indices for remaining medications
+        const updatedErrors = {};
+        Object.keys(newErrors).forEach(key => {
+          if (key.startsWith('medication_')) {
+            const parts = key.split('_');
+            const medIndex = parseInt(parts[1]);
+            if (medIndex > idx) {
+              // Shift down the index
+              const newKey = `medication_${medIndex - 1}_${parts.slice(2).join('_')}`;
+              updatedErrors[newKey] = newErrors[key];
+            } else if (medIndex < idx) {
+              // Keep the same index
+              updatedErrors[key] = newErrors[key];
+            }
+          } else {
+            // Non-medication errors remain unchanged
+            updatedErrors[key] = newErrors[key];
+          }
+        });
+        
+        return updatedErrors;
+      });
       
       // Check for changes (medications can be changed independently)
       if (originalProfile) {
@@ -1134,6 +1590,9 @@ export default function PatientProfileSetupPage() {
               )}
             </div>
 
+            {/* Admin Configuration Notification */}
+            {showAdminControlledNotification()}
+
             {/* Photo Upload - Enhanced mobile design - Always enabled */}
             <div className="flex flex-col items-center justify-center mb-8">
               <label className="block text-base sm:text-lg font-medium text-gray-700 mb-4 text-center">
@@ -1204,16 +1663,10 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Surname *</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                        !isEditMode 
-                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                      } ${fieldErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.name ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.name || ''}
                       onChange={e => handleProfileChange('name', e.target.value)}
                       placeholder="Enter surname"
-                      disabled={!isEditMode}
-                      readOnly={!isEditMode}
                     />
                     {fieldErrors.name && <div className="text-red-500 text-xs mt-1">{fieldErrors.name}</div>}
                   </div>
@@ -1221,16 +1674,10 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                        !isEditMode 
-                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                      } ${fieldErrors.first_name ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.first_name ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.first_name || ''}
                       onChange={e => handleProfileChange('first_name', e.target.value)}
                       placeholder="Enter first name"
-                      disabled={!isEditMode}
-                      readOnly={!isEditMode}
                     />
                     {fieldErrors.first_name && <div className="text-red-500 text-xs mt-1">{fieldErrors.first_name}</div>}
                   </div>
@@ -1238,16 +1685,10 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Middle Name</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                        !isEditMode 
-                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                      } ${fieldErrors.middle_name ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.middle_name ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.middle_name || ''}
                       onChange={e => handleProfileChange('middle_name', e.target.value)}
                       placeholder="Enter middle name"
-                      disabled={!isEditMode}
-                      readOnly={!isEditMode}
                     />
                     {fieldErrors.middle_name && <div className="text-red-500 text-xs mt-1">{fieldErrors.middle_name}</div>}
                   </div>
@@ -1255,16 +1696,10 @@ export default function PatientProfileSetupPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Suffix</label>
                     <input
                       type="text"
-                      className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                        !isEditMode 
-                          ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                          : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                      } ${fieldErrors.suffix ? 'border-red-500' : 'border-gray-300'}`}
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.suffix ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.suffix || ''}
                       onChange={e => handleProfileChange('suffix', e.target.value)}
                       placeholder="Jr., Sr., III"
-                      disabled={!isEditMode}
-                      readOnly={!isEditMode}
                     />
                     {fieldErrors.suffix && <div className="text-red-500 text-xs mt-1">{fieldErrors.suffix}</div>}
                   </div>
@@ -1340,30 +1775,19 @@ export default function PatientProfileSetupPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID *</label>
                         <input
                           type="text"
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                            !isEditMode 
-                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                          } ${fieldErrors.employee_id ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.employee_id ? 'border-red-500' : 'border-gray-300'}`}
                           value={profile?.employee_id || ''}
                           onChange={e => handleProfileChange('employee_id', e.target.value)}
                           placeholder="Enter employee ID"
-                          disabled={!isEditMode}
-                          readOnly={!isEditMode}
                         />
                         {fieldErrors.employee_id && <div className="text-red-500 text-xs mt-1">{fieldErrors.employee_id}</div>}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
                         <select
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                            !isEditMode 
-                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                          } ${fieldErrors.department ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.department ? 'border-red-500' : 'border-gray-300'}`}
                           value={profile?.department || ''}
                           onChange={e => handleProfileChange('department', e.target.value)}
-                          disabled={!isEditMode}
                         >
                           <option value="">Select department</option>
                           <option value="Academic Affairs">Academic Affairs</option>
@@ -1397,14 +1821,9 @@ export default function PatientProfileSetupPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Position Type *</label>
                         <select
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                            !isEditMode 
-                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                          } ${fieldErrors.position_type ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.position_type ? 'border-red-500' : 'border-gray-300'}`}
                           value={profile?.position_type || ''}
                           onChange={e => handleProfileChange('position_type', e.target.value)}
-                          disabled={!isEditMode}
                         >
                           <option value="">Select position type</option>
                           <option value="Teaching">Teaching</option>
@@ -1421,14 +1840,9 @@ export default function PatientProfileSetupPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
                         <select
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                            !isEditMode 
-                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                          } ${fieldErrors.course ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.course ? 'border-red-500' : 'border-gray-300'}`}
                           value={profile?.course || ''}
                           onChange={e => handleProfileChange('course', e.target.value)}
-                          disabled={!isEditMode}
                         >
                           <option value="">Select course</option>
                           <option value="BS Business Administration">BS Business Administration</option>
@@ -1448,14 +1862,9 @@ export default function PatientProfileSetupPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
                         <select
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                            !isEditMode 
-                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                          } ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
                           value={profile?.year_level || ''}
                           onChange={e => handleProfileChange('year_level', e.target.value)}
-                          disabled={!isEditMode}
                         >
                           <option value="">Select year level</option>
                           <option value="1st Year">1st Year</option>
@@ -1475,14 +1884,9 @@ export default function PatientProfileSetupPage() {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
                         <select
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                            !isEditMode 
-                              ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                              : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                          } ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
                           value={profile?.year_level || ''}
                           onChange={e => handleProfileChange('year_level', e.target.value)}
-                          disabled={!isEditMode}
                         >
                           <option value="">Select year level</option>
                           {profile?.user_type === 'High School' && (
@@ -1506,14 +1910,9 @@ export default function PatientProfileSetupPage() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">Strand *</label>
                           <select
-                            className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                              !isEditMode 
-                                ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                                : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                            } ${fieldErrors.strand ? 'border-red-500' : 'border-gray-300'}`}
+                            className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.strand ? 'border-red-500' : 'border-gray-300'}`}
                             value={profile?.strand || ''}
                             onChange={e => handleProfileChange('strand', e.target.value)}
-                            disabled={!isEditMode}
                           >
                             <option value="">Select strand</option>
                             <option value="ABM">ABM (Accountancy, Business and Management)</option>
@@ -1535,14 +1934,9 @@ export default function PatientProfileSetupPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
                       <select
-                        className={`w-full border rounded-md shadow-sm py-3 px-4 transition-colors ${
-                          !isEditMode 
-                            ? 'bg-gray-100 text-gray-700 cursor-not-allowed' 
-                            : 'focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500'
-                        } ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                        className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
                         value={profile?.year_level || ''}
                         onChange={e => handleProfileChange('year_level', e.target.value)}
-                        disabled={!isEditMode}
                       >
                         <option value="">Select year level</option>
                         {profile?.user_type === 'Kindergarten' && (
@@ -1831,11 +2225,30 @@ export default function PatientProfileSetupPage() {
               <p className="text-sm text-gray-600">Tell us about your current health conditions and medications</p>
             </div>
 
+            {/* Admin Configuration Notification */}
+            {showAdminControlledNotification()}
+
+            {/* Loading State for Medical Lists */}
+            {medicalListsLoading && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                  <span className="ml-3 text-gray-600">Loading health conditions and options...</span>
+                </div>
+              </div>
+            )}
+
             {/* Comorbid Illnesses */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
                 Current Health Conditions
+                {comorbidIllnesses.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {comorbidIllnesses.length} options available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Check all conditions that you currently have:</p>
               
@@ -1960,6 +2373,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Maintenance Medications */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
@@ -1993,9 +2407,9 @@ export default function PatientProfileSetupPage() {
                     
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Drug Name</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Drug Name *</label>
                         <select
-                          className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                          className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_drug`] ? 'border-red-500' : 'border-gray-300'}`}
                           value={med.drug || ''}
                           onChange={e => handleMedicationChange(idx, 'drug', e.target.value)}
                         >
@@ -2004,40 +2418,113 @@ export default function PatientProfileSetupPage() {
                             <option key={drugName} value={drugName}>{drugName}</option>
                           ))}
                         </select>
+                        {fieldErrors[`medication_${idx}_drug`] && (
+                          <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_drug`]}</div>
+                        )}
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Dose</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Dose *</label>
                           <input
                             type="text"
                             placeholder="e.g., 500"
-                            className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_dose`] ? 'border-red-500' : 'border-gray-300'}`}
                             value={med.dose || ''}
                             onChange={e => handleMedicationChange(idx, 'dose', e.target.value)}
                           />
+                          {fieldErrors[`medication_${idx}_dose`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_dose`]}</div>
+                          )}
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Unit *</label>
                           <select
-                            className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                            value={med.unit || 'mg'}
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_unit`] ? 'border-red-500' : 'border-gray-300'}`}
+                            value={med.unit || ''}
                             onChange={e => handleMedicationChange(idx, 'unit', e.target.value)}
                           >
-                            <option>mg</option>
-                            <option>mcg</option>
-                            <option>g</option>
+                            <option value="">Select</option>
+                            <option value="mg">mg</option>
+                            <option value="mcg">mcg</option>
+                            <option value="g">g</option>
                           </select>
+                          {fieldErrors[`medication_${idx}_unit`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_unit`]}</div>
+                          )}
                         </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Frequency</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Frequency *</label>
                           <select
-                            className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_frequency`] ? 'border-red-500' : 'border-gray-300'}`}
                             value={med.frequency || ''}
                             onChange={e => handleMedicationChange(idx, 'frequency', e.target.value)}
                           >
                             {freqOptions.map(f => <option key={f} value={f}>{f}</option>)}
                           </select>
+                          {fieldErrors[`medication_${idx}_frequency`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_frequency`]}</div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Duration *</label>
+                          <select
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_duration`] ? 'border-red-500' : 'border-gray-300'}`}
+                            value={med.duration_type || med.duration || ''}
+                            onChange={e => {
+                              if (e.target.value === 'specify') {
+                                handleMedicationChange(idx, 'duration_type', 'specify');
+                                handleMedicationChange(idx, 'duration', '');
+                                handleMedicationChange(idx, 'custom_duration', '');
+                              } else {
+                                handleMedicationChange(idx, 'duration_type', '');
+                                handleMedicationChange(idx, 'duration', e.target.value);
+                                handleMedicationChange(idx, 'custom_duration', '');
+                              }
+                            }}
+                          >
+                            <option value="">Select duration</option>
+                            <option value="1 week">1 week</option>
+                            <option value="2 weeks">2 weeks</option>
+                            <option value="3 weeks">3 weeks</option>
+                            <option value="1 month">1 month</option>
+                            <option value="2 months">2 months</option>
+                            <option value="3 months">3 months</option>
+                            <option value="6 months">6 months</option>
+                            <option value="1 year">1 year</option>
+                            <option value="2+ years">2+ years</option>
+                            <option value="Ongoing">Ongoing</option>
+                            <option value="specify">Specify duration</option>
+                          </select>
+                          {fieldErrors[`medication_${idx}_duration`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_duration`]}</div>
+                          )}
+                          
+                          {/* Custom duration input when "Specify" is selected */}
+                          {med.duration_type === 'specify' && (
+                            <div className="mt-2">
+                              <input
+                                type="text"
+                                placeholder="e.g., 5 days, 10 weeks, 8 months"
+                                className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_custom_duration`] ? 'border-red-500' : 'border-gray-300'}`}
+                                value={med.custom_duration || ''}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  handleMedicationChange(idx, 'custom_duration', value);
+                                  // Also set the duration field to the custom value for storage
+                                  if (value.trim()) {
+                                    handleMedicationChange(idx, 'duration', value.trim());
+                                  }
+                                }}
+                              />
+                              {fieldErrors[`medication_${idx}_custom_duration`] && (
+                                <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_custom_duration`]}</div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2068,10 +2555,16 @@ export default function PatientProfileSetupPage() {
             </div>
 
             {/* Vaccination History */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
                 Vaccination Status
+                {vaccinations.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {vaccinations.length} vaccines available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Please indicate your vaccination status for each vaccine:</p>
               
@@ -2162,6 +2655,7 @@ export default function PatientProfileSetupPage() {
                 ))}
               </div>
             </div>
+            )}
           </div>
         );
       case 3:
@@ -2173,11 +2667,30 @@ export default function PatientProfileSetupPage() {
               <p className="text-sm text-gray-600">Tell us about your past medical conditions and family health history</p>
             </div>
 
+            {/* Admin Configuration Notification */}
+            {showAdminControlledNotification()}
+
+            {/* Loading State for Medical Lists */}
+            {medicalListsLoading && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                  <span className="ml-3 text-gray-600">Loading medical history options...</span>
+                </div>
+              </div>
+            )}
+
             {/* Past Medical & Surgical History */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
                 Past Medical & Surgical History
+                {pastMedicalHistories.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {pastMedicalHistories.length} conditions available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Check any conditions you have had in the past:</p>
               
@@ -2257,6 +2770,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Hospital Admission / Surgery */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
@@ -2312,11 +2826,27 @@ export default function PatientProfileSetupPage() {
               </div>
             </div>
 
+            {/* Loading State for Family Medical History */}
+            {medicalListsLoading && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                  <span className="ml-3 text-gray-600">Loading family medical history options...</span>
+                </div>
+              </div>
+            )}
+
             {/* Family Medical History */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
                 Family Medical History
+                {familyMedicalHistories.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {familyMedicalHistories.length} conditions available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Check the known health conditions of your immediate family members (parents, siblings, grandparents):</p>
               
@@ -2453,6 +2983,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         );
       case 4:
@@ -2563,7 +3094,7 @@ export default function PatientProfileSetupPage() {
                   <p className="font-medium text-gray-600 text-xs mb-2">Maintenance Medications</p>
                   <p className="text-gray-900 font-semibold">
                     {Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0
-                      ? profile.maintenance_medications.map(med => `${med.drug} ${med.dose}${med.unit} - ${med.frequency}`).join(', ')
+                      ? profile.maintenance_medications.map(med => `${med.drug} ${med.dose}${med.unit} - ${med.frequency} (${med.duration || 'Duration not specified'})`).join(', ')
                       : 'None specified'}
                   </p>
                 </div>
@@ -2667,8 +3198,8 @@ export default function PatientProfileSetupPage() {
       console.log('About to validate step:', currentStep);
     }
     
-    // If in edit mode and there are changes, require validation
-    if (isEditMode && !validateStep(currentStep)) {
+    // ALWAYS validate current step before proceeding (regardless of edit mode)
+    if (!validateStep(currentStep)) {
       // Get specific error messages for missing fields
       const errorMessages = Object.entries(fieldErrors)
         .filter(([_, message]) => message)
@@ -2713,12 +3244,31 @@ export default function PatientProfileSetupPage() {
             'family_medical_history_allergies': 'Family Medical History Allergies'
           };
           
-          const friendlyName = fieldNames[field] || field;
+          // Handle medication field names
+          let friendlyName = fieldNames[field];
+          if (!friendlyName && field.startsWith('medication_')) {
+            const parts = field.split('_');
+            if (parts.length >= 3) {
+              const medIndex = parseInt(parts[1]) + 1;
+              const fieldType = parts.slice(2).join('_');
+              const medFieldNames: { [key: string]: string } = {
+                'drug': 'Drug Name',
+                'dose': 'Dose',
+                'unit': 'Unit',
+                'frequency': 'Frequency',
+                'duration': 'Duration',
+                'custom_duration': 'Custom Duration'
+              };
+              friendlyName = `Medication #${medIndex} ${medFieldNames[fieldType] || fieldType}`;
+            }
+          }
+          
+          if (!friendlyName) friendlyName = field;
           return `• ${friendlyName}: ${message}`;
         });
       
       const errorMessage = errorMessages.length > 0 
-        ? `Please fix the following issues:\n\n${errorMessages.join('\n')}`
+        ? `Please fix the following issues before proceeding:\n\n${errorMessages.join('\n')}\n\nAll required fields must be completed to continue.`
         : 'Please fill in all required fields before proceeding.';
       
       setFeedbackMessage(errorMessage);

@@ -14,10 +14,76 @@ import FeedbackModal from './feedbackmodal';
  * when appointmentId or patientId is provided.
  */
 
-// Simplified dental chart with full-view modals for accuracy
+// Tooth edit form component for individual tooth data entry
+const ToothEditForm = ({ tooth, initialData, onSave, onCancel }) => {
+  const [treatment, setTreatment] = useState(initialData?.treatment || '');
+  const [status, setStatus] = useState(initialData?.status || '');
+
+  const handleSave = () => {
+    onSave({ tooth, treatment, status });
+  };
+
+  const statusOptions = [
+    '', // Default empty for healthy
+    'Extracted',
+    'Needs Extraction', 
+    'Needs Filling',
+    'Treated'
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Treatment Notes
+        </label>
+        <textarea
+          value={treatment}
+          onChange={(e) => setTreatment(e.target.value)}
+          placeholder="Enter treatment details..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          rows={3}
+        />
+      </div>
+      
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Status
+        </label>
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+        >
+          <option value="">Healthy</option>
+          {statusOptions.slice(1).map(option => (
+            <option key={option} value={option}>{option}</option>
+          ))}
+        </select>
+      </div>
+      
+      <div className="flex space-x-3 pt-4">
+        <button
+          onClick={handleSave}
+          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md transition-colors duration-200"
+        >
+          Save Changes
+        </button>
+        <button
+          onClick={onCancel}
+          className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 py-2 px-4 rounded-md transition-colors duration-200"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Complete dental chart with wholeset.svg and accurate coordinates
 const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus }) => {
-  const [showUpperModal, setShowUpperModal] = useState(false);
-  const [showLowerModal, setShowLowerModal] = useState(false);
+  const [showFullModal, setShowFullModal] = useState(false);
+  const [selectedToothModal, setSelectedToothModal] = useState({ open: false, tooth: null });
 
   const getToothStatus = (toothNumber) => {
     return permanentTeethStatus[toothNumber] || temporaryTeethStatus[toothNumber] || {};
@@ -28,77 +94,103 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
     return status.treatment || status.status;
   };
 
+  const getToothColor = (toothNumber) => {
+    const status = getToothStatus(toothNumber);
+    if (status.status === 'Extracted') return '#ef4444'; // Red
+    if (status.status === 'Needs Extraction') return '#f97316'; // Orange
+    if (status.status === 'Needs Filling') return '#eab308'; // Yellow
+    if (status.status === 'Treated') return '#22c55e'; // Green
+    if (status.treatment || status.status) return '#3b82f6'; // Blue for any data
+    return '#ffffff'; // White for healthy/no data
+  };
+
   const handleAreaClick = (e, toothNumber) => {
     e.preventDefault();
-    onToothClick(parseInt(toothNumber));
+    e.stopPropagation();
+    setSelectedToothModal({ open: true, tooth: parseInt(toothNumber) });
   };
 
-  // Upper jaw tooth coordinates (from updated SVG image map - viewBox 0 0 600 453)
-  const upperToothCoords = {
-    1: "117,342,135,364,108,391,69,374,70,337",
-    2: "119,277,139,288,145,308,134,329,124,334,89,324,73,305,92,273",
-    3: "119,211,156,222,158,243,148,273,100,267,91,251,100,216",
-    4: "143,177,164,191,160,221,113,204,112,179",
-    5: "148,135,175,151,182,167,175,181,126,168,130,144",
-    6: "165,100,185,106,193,119,202,132,196,149,168,143,148,116",
-    7: "206,76,224,97,229,124,216,126,194,107,184,91",
-    8: "231,67,261,66,270,84,268,109,244,123,221,79",
-    9: "292,60,311,67,319,106,297,121,276,110,267,68",
-    10: "338,81,353,84,351,100,331,120,309,124,321,71",
-    11: "352,144,356,151,338,145,334,128,355,106,370,97,382,111,393,127,374,133,360,138,349,151,349,152",
-    12: "399,137,409,152,403,169,375,179,361,162,379,141",
-    13: "417,175,426,203,388,222,374,202,374,183,401,172",
-    14: "448,256,442,241,435,215,403,217,385,230,386,273,404,278,418,269,441,269,443,266",
-    15: "394,306,399,329,419,335,451,328,460,296,451,284,419,276,393,287",
-    16: "463,336,473,362,451,377,420,385,412,359,441,336"
+  const handleToothModalSave = (toothData) => {
+    onToothClick(toothData.tooth, toothData);
+    setSelectedToothModal({ open: false, tooth: null });
   };
 
-  // Generate lower jaw coordinates by flipping upper jaw vertically
-  const generateLowerToothCoords = () => {
-    const lowerCoords = {};
-    const imageHeight = 453; // Height based on the SVG viewBox (0 0 600 453)
-    
-    Object.entries(upperToothCoords).forEach(([toothNum, coords]) => {
-      const coordPairs = coords.split(',');
-      const flippedCoords = [];
-      
-      // Flip Y coordinates and map tooth numbers 1-16 to 17-32
-      for (let i = 0; i < coordPairs.length; i += 2) {
-        const x = parseFloat(coordPairs[i]);
-        const y = imageHeight - parseFloat(coordPairs[i + 1]);
-        flippedCoords.push(x.toString(), y.toString());
-      }
-      
-      const lowerToothNum = parseInt(toothNum) + 16; // Map 1->17, 2->18, etc.
-      lowerCoords[lowerToothNum] = flippedCoords.join(',');
-    });
-    
-    return lowerCoords;
+  // Accurate tooth coordinates from provided SVG map (viewBox 0 0 600 651)
+  const toothCoords = {
+    1: "210,251,215,273,213,289,192,302,169,284,165,265,167,254,178,244,182,248,191,243,203,249",
+    2: "209,210,205,238,206,196,187,196,169,195,158,211,159,226,162,241,202,245",
+    3: "203,194,177,194,164,180,167,156,186,155,212,169,208,185",
+    4: "196,119,215,123,215,136,209,156,169,152,173,125,184,114",
+    5: "205,84,224,91,222,104,210,121,190,110,184,91,196,80",
+    6: "216,53,235,57,236,70,236,87,218,81,203,74,200,59",
+    7: "250,30,260,40,259,53,258,70,245,70,227,49,225,37",
+    8: "294,20,295,43,279,64,259,35,267,21",
+    9: "313,21,341,27,332,42,320,59,305,54,303,41,301,23",
+    10: "366,40,374,51,366,56,357,69,343,74,340,59,340,44,349,33",
+    11: "386,86,375,87,358,84,363,74,367,60,387,55,398,65,388,76",
+    12: "398,79,412,100,404,114,386,117,377,108,377,88",
+    13: "402,161,384,154,381,138,387,121,416,116,423,131,425,150",
+    14: "429,163,430,190,414,198,389,195,384,179,387,165,407,162",
+    15: "389,220,389,230,394,242,410,249,419,244,436,236,438,219,435,209,425,201,394,200",
+    16: "391,249,383,274,388,295,401,303,423,294,426,273,423,253",
+    17: "415,352,425,360,431,379,431,395,411,403,391,394,390,373,389,361,403,348",
+    18: "434,405,442,416,443,439,432,451,415,450,398,443,393,425,400,403",
+    19: "409,493,428,491,436,481,436,465,428,452,398,453,392,468,392,485",
+    20: "394,525,408,532,422,532,425,516,433,504,418,495,397,490,387,497,385,515",
+    21: "382,534,376,551,385,564,402,567,413,558,413,539,394,531",
+    22: "372,558,364,570,368,583,378,593,396,594,400,584,396,568",
+    23: "348,575,340,589,342,603,347,616,361,614,380,606,375,587",
+    24: "317,584,309,598,306,611,308,626,324,626,342,623,336,598",
+    25: "285,587,277,594,272,604,263,619,271,627,286,629,305,628,298,601",
+    26: "264,617,266,589,254,576,246,584,234,590,226,611,249,618,267,618",
+    27: "219,565,206,576,205,592,215,598,236,590,244,573,242,561,238,561",
+    28: "203,534,194,541,193,561,210,569,230,556,223,535",
+    29: "188,495,180,502,176,515,187,536,203,533,223,525,214,493,201,495",
+    30: "176,459,197,454,211,457,216,485,188,498,174,488,170,469",
+    31: "187,409,214,409,207,453,171,452,162,432,171,407",
+    32: "202,351,224,363,217,390,206,405,182,404,167,389,182,356"
   };
-
-  const lowerToothCoords = generateLowerToothCoords();
 
   return (
     <>
       <div className="flex flex-col items-center space-y-8 p-6 bg-white">
         <div className="text-center">
           <h3 className="text-2xl font-bold text-gray-800 mb-2">Interactive Dental Chart</h3>
-          <p className="text-sm text-gray-600">Click on jaw images below to open full-size view for accurate tooth selection</p>
+          <p className="text-sm text-gray-600">Click on the dental chart below to open full-size view for accurate tooth selection</p>
         </div>
         
-        {/* Upper Jaw Preview */}
+        {/* Whole Dental Chart Preview */}
         <div className="mb-12 w-full max-w-4xl">
-          <h4 className="text-lg font-semibold text-gray-700 mb-6 text-center">Upper Jaw (Teeth 1-16)</h4>
+          <h4 className="text-lg font-semibold text-gray-700 mb-6 text-center">Complete Dental Chart (All Teeth)</h4>
           <div 
             className="relative inline-block bg-gray-50 rounded-lg p-4 shadow-md w-full cursor-pointer hover:bg-gray-100 transition-colors duration-200"
-            onClick={() => setShowUpperModal(true)}
+            onClick={() => setShowFullModal(true)}
           >
-            <img 
-              src="/upper jaw.svg" 
-              alt="Upper Jaw Dental Chart - Click to open full view" 
-              className="block w-full h-auto max-w-full opacity-90 hover:opacity-100 transition-opacity duration-200"
-              style={{ maxWidth: '500px', margin: '0 auto', display: 'block' }}
-            />
+            <svg 
+              style={{width:'100%', maxWidth: '500px', margin: '0 auto', display: 'block'}} 
+              xmlns="http://www.w3.org/2000/svg" 
+              xmlnsXlink="http://www.w3.org/1999/xlink" 
+              viewBox="0 0 600 651"
+              className="opacity-90 hover:opacity-100 transition-opacity duration-200"
+            >
+              <image xlinkHref="/wholeset.svg" style={{width: '600px'}} />
+              {/* Overlay colored polygons for tooth status visualization */}
+              {Object.entries(toothCoords).map(([toothNum, coords]) => {
+                const toothNumber = parseInt(toothNum);
+                const color = getToothColor(toothNumber);
+                return (
+                  <polygon
+                    key={toothNumber}
+                    points={coords}
+                    fill={color}
+                    fillOpacity="0.6"
+                    stroke={color === '#ffffff' ? '#e5e7eb' : color}
+                    strokeWidth="1"
+                    className="pointer-events-none"
+                  />
+                );
+              })}
+            </svg>
             <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200">
               <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
                 <span className="text-sm font-medium text-gray-800">🔍 Click to open full view</span>
@@ -106,44 +198,44 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
             </div>
             {/* Stats overlay */}
             <div className="absolute top-2 right-2 bg-blue-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-              {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 1 && parseInt(t) <= 16).length} teeth with data
-            </div>
-          </div>
-        </div>
-
-        {/* Lower Jaw Preview */}
-        <div className="mb-12 w-full max-w-4xl">
-          <h4 className="text-lg font-semibold text-gray-700 mb-6 text-center">Lower Jaw (Teeth 17-32)</h4>
-          <div 
-            className="relative inline-block bg-gray-50 rounded-lg p-4 shadow-md w-full cursor-pointer hover:bg-gray-100 transition-colors duration-200"
-            onClick={() => setShowLowerModal(true)}
-          >
-            <img 
-              src="/upper jaw.svg" 
-              alt="Lower Jaw Dental Chart - Click to open full view" 
-              className="block w-full h-auto max-w-full transform rotate-180 opacity-90 hover:opacity-100 transition-opacity duration-200"
-              style={{ maxWidth: '500px', margin: '0 auto', display: 'block' }}
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-20 rounded-lg opacity-0 hover:opacity-100 transition-opacity duration-200">
-              <div className="bg-white px-4 py-2 rounded-lg shadow-lg">
-                <span className="text-sm font-medium text-gray-800">🔍 Click to open full view</span>
-              </div>
-            </div>
-            {/* Stats overlay */}
-            <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-medium">
-              {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 17 && parseInt(t) <= 32).length} teeth with data
+              {Object.keys(permanentTeethStatus).length + Object.keys(temporaryTeethStatus).length} teeth with data
             </div>
           </div>
         </div>
 
         {/* Enhanced Legend */}
         <div className="mt-8 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl shadow-sm border border-gray-200 w-full max-w-2xl">
-          <h4 className="text-sm font-semibold text-gray-800 mb-3 text-center">How to Use</h4>
-          <div className="space-y-2 text-sm text-gray-600">
-            <p>• Click on either jaw image above to open full-size view</p>
+          <h4 className="text-sm font-semibold text-gray-800 mb-3 text-center">How to Use & Color Legend</h4>
+          <div className="space-y-2 text-sm text-gray-600 mb-4">
+            <p>• Click on the dental chart above to open full-size view</p>
             <p>• In the full view, click directly on individual teeth for precise selection</p>
-            <p>• Teeth with existing data will be highlighted in red</p>
-            <p>• Available teeth will be highlighted in blue</p>
+            <p>• Color coding shows current tooth status at a glance</p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-white border border-gray-300 rounded"></div>
+              <span>Healthy</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-red-500 rounded"></div>
+              <span>Extracted</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-orange-500 rounded"></div>
+              <span>Needs Extraction</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+              <span>Needs Filling</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <span>Treated</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+              <span>Other Data</span>
+            </div>
           </div>
         </div>
 
@@ -153,13 +245,13 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
             <div className="text-lg font-bold text-blue-600">
               {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 1 && parseInt(t) <= 16).length}
             </div>
-            <div className="text-xs text-blue-600">Upper Teeth Data</div>
+            <div className="text-xs text-blue-600">Upper Teeth (1-16)</div>
           </div>
           <div className="bg-green-50 p-3 rounded-lg text-center border border-green-200">
             <div className="text-lg font-bold text-green-600">
               {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 17 && parseInt(t) <= 32).length}
             </div>
-            <div className="text-xs text-green-600">Lower Teeth Data</div>
+            <div className="text-xs text-green-600">Lower Teeth (17-32)</div>
           </div>
           <div className="bg-purple-50 p-3 rounded-lg text-center border border-purple-200">
             <div className="text-lg font-bold text-purple-600">
@@ -176,106 +268,96 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
         </div>
       </div>
 
-      {/* Upper Jaw Full View Modal */}
-      {showUpperModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-6xl max-h-[95vh] overflow-auto relative">
+      {/* Full Dental Chart Modal */}
+      {showFullModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-2">
+          <div className="bg-white rounded-xl shadow-2xl w-[95vw] h-[95vh] max-w-[1400px] overflow-auto relative">
             <button 
               className="absolute top-4 right-4 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-colors duration-200"
-              onClick={() => setShowUpperModal(false)}
+              onClick={() => setShowFullModal(false)}
             >
               ×
             </button>
             <div className="p-6">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Upper Jaw - Full View</h3>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Complete Dental Chart - Full View</h3>
               <p className="text-sm text-gray-600 mb-6 text-center">Click on any tooth to add treatment and status information</p>
-              <div className="relative inline-block">
-                <img 
-                  src="/upper jaw.svg" 
-                  alt="Upper Jaw Dental Chart - Full View" 
-                  useMap="#upper-jaw-modal-map"
-                  className="block max-w-full h-auto"
-                  style={{ width: '100%', maxWidth: '600px' }}
-                />
-                <map name="upper-jaw-modal-map">
-                  {Object.entries(upperToothCoords).map(([toothNum, coords]) => {
+              <div className="relative inline-block w-full flex justify-center">
+                <svg 
+                  style={{width:'100%', maxWidth: '900px', height: 'auto'}} 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  xmlnsXlink="http://www.w3.org/1999/xlink" 
+                  viewBox="0 0 600 651"
+                >
+                  <style>{`
+                    .tooth-area {
+                      fill: rgba(0, 0, 0, 0);
+                      cursor: pointer;
+                    }
+                    .tooth-area:hover {
+                      stroke: #3b82f6;
+                      stroke-width: 3px;
+                      fill: rgba(59, 130, 246, 0.2);
+                    }
+                  `}</style>
+                  
+                  <image xlinkHref="/wholeset.svg" style={{width: '600px'}} />
+                  
+                  {/* Clickable tooth areas with status colors */}
+                  {Object.entries(toothCoords).map(([toothNum, coords]) => {
                     const toothNumber = parseInt(toothNum);
+                    const color = getToothColor(toothNumber);
                     const hasData = hasToothData(toothNumber);
+                    
                     return (
-                      <area
-                        key={toothNumber}
-                        alt={`tooth${toothNumber}`}
-                        title={`Tooth ${toothNumber}${hasData ? ' (Has Data)' : ''} - Click to edit`}
-                        coords={coords as string}
-                        shape="poly"
-                        onClick={(e) => {
-                          handleAreaClick(e, toothNumber);
-                          setShowUpperModal(false);
-                        }}
-                        className="cursor-pointer"
-                        style={{
-                          fill: hasData ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.3)',
-                          stroke: hasData ? '#ef4444' : '#3b82f6',
-                          strokeWidth: '3'
-                        }}
-                      />
+                      <g key={toothNumber}>
+                        {/* Colored background for status */}
+                        <polygon
+                          points={coords}
+                          fill={color}
+                          fillOpacity="0.6"
+                          stroke={color === '#ffffff' ? '#e5e7eb' : color}
+                          strokeWidth="1"
+                          className="pointer-events-none"
+                        />
+                        {/* Clickable area */}
+                        <polygon
+                          className="tooth-area"
+                          points={coords}
+                          onClick={(e) => handleAreaClick(e, toothNumber)}
+                        >
+                          <title>{`Tooth ${toothNumber}${hasData ? ' (Has Data)' : ''} - Click to edit`}</title>
+                        </polygon>
+                      </g>
                     );
                   })}
-                </map>
+                </svg>
               </div>
             </div>
-          </div>
-        </div>
-      )}
 
-      {/* Lower Jaw Full View Modal */}
-      {showLowerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75 p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-6xl max-h-[95vh] overflow-auto relative">
-            <button 
-              className="absolute top-4 right-4 z-10 bg-red-500 hover:bg-red-600 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-colors duration-200"
-              onClick={() => setShowLowerModal(false)}
-            >
-              ×
-            </button>
-            <div className="p-6">
-              <h3 className="text-2xl font-bold text-gray-800 mb-4 text-center">Lower Jaw - Full View</h3>
-              <p className="text-sm text-gray-600 mb-6 text-center">Click on any tooth to add treatment and status information</p>
-              <div className="relative inline-block">
-                <img 
-                  src="/upper jaw.svg" 
-                  alt="Lower Jaw Dental Chart - Full View" 
-                  useMap="#lower-jaw-modal-map"
-                  className="block max-w-full h-auto transform rotate-180"
-                  style={{ width: '100%', maxWidth: '600px' }}
-                />
-                <map name="lower-jaw-modal-map">
-                  {Object.entries(lowerToothCoords).map(([toothNum, coords]) => {
-                    const toothNumber = parseInt(toothNum);
-                    const hasData = hasToothData(toothNumber);
-                    return (
-                      <area
-                        key={toothNumber}
-                        alt={`tooth${toothNumber}`}
-                        title={`Tooth ${toothNumber}${hasData ? ' (Has Data)' : ''} - Click to edit`}
-                        coords={coords as string}
-                        shape="poly"
-                        onClick={(e) => {
-                          handleAreaClick(e, toothNumber);
-                          setShowLowerModal(false);
-                        }}
-                        className="cursor-pointer"
-                        style={{
-                          fill: hasData ? 'rgba(239, 68, 68, 0.4)' : 'rgba(59, 130, 246, 0.3)',
-                          stroke: hasData ? '#ef4444' : '#3b82f6',
-                          strokeWidth: '3'
-                        }}
-                      />
-                    );
-                  })}
-                </map>
+            {/* Individual Tooth Modal (overlaid on full chart) */}
+            {selectedToothModal.open && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 z-20">
+                <div className="bg-white rounded-xl shadow-lg p-8 min-w-[320px] max-w-[90vw] relative">
+                  <button 
+                    className="absolute top-4 right-4 bg-gray-500 hover:bg-gray-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg font-bold transition-colors duration-200"
+                    onClick={() => setSelectedToothModal({ open: false, tooth: null })}
+                  >
+                    ×
+                  </button>
+                  
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">
+                    Tooth #{selectedToothModal.tooth}
+                  </h3>
+                  
+                  <ToothEditForm 
+                    tooth={selectedToothModal.tooth}
+                    initialData={getToothStatus(selectedToothModal.tooth)}
+                    onSave={handleToothModalSave}
+                    onCancel={() => setSelectedToothModal({ open: false, tooth: null })}
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -421,7 +503,6 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [permanentTeethStatus, setPermanentTeethStatus] = useState({});
   const [temporaryTeethStatus, setTemporaryTeethStatus] = useState({});
-  const [toothModal, setToothModal] = useState({ open: false, tooth: null, treatment: '', status: '' });
   
   // Medicine/Inventory tracking states
   const [availableInventory, setAvailableInventory] = useState([]);
@@ -677,67 +758,26 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
     }
   };
   
-  const handleToothClick = (toothNumber) => {
-    setSelectedTooth(toothNumber);
-    // Determine if it's permanent or temporary based on the numbering system
-    const isPermanent = toothNumber >= 11; // Simple logic: teeth 11+ are permanent, 1-10 are temporary
-    const toothData = isPermanent ? permanentTeethStatus[toothNumber] : temporaryTeethStatus[toothNumber];
-    setToothModal({
-      open: true,
-      tooth: toothNumber,
-      treatment: toothData?.treatment || '',
-      status: toothData?.status || '',
-    });
-  };
-
-  const handleToothModalSave = () => {
-    const { tooth, treatment, status } = toothModal;
-    const isPermanent = tooth >= 11; // Simple logic: teeth 11+ are permanent, 1-10 are temporary
-    if (isPermanent) {
-      setPermanentTeethStatus(prev => ({ ...prev, [tooth]: { treatment, status } }));
-    } else {
-      setTemporaryTeethStatus(prev => ({ ...prev, [tooth]: { treatment, status } }));
+  const handleToothClick = (toothNumber, toothData = null) => {
+    if (toothData) {
+      // If toothData is provided, save it directly (from ToothEditForm)
+      const isPermanent = toothData.tooth >= 11;
+      if (isPermanent) {
+        setPermanentTeethStatus(prev => ({ ...prev, [toothData.tooth]: { treatment: toothData.treatment, status: toothData.status } }));
+      } else {
+        setTemporaryTeethStatus(prev => ({ ...prev, [toothData.tooth]: { treatment: toothData.treatment, status: toothData.status } }));
+      }
+      return;
     }
-    setToothModal({ open: false, tooth: null, treatment: '', status: '' });
+    
+    // For the new dental chart system, we don't need to set the old modal
+    // The tooth selection will be handled by the new selectedToothModal in DentalChart
+    setSelectedTooth(toothNumber);
   };
 
   return (
     <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
       <FeedbackModal open={feedbackOpen} message={feedbackMessage} onClose={() => setFeedbackOpen(false)} />
-      {toothModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-          <div className="bg-white rounded-xl shadow-lg p-8 min-w-[320px] max-w-[90vw] relative">
-            <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700" onClick={() => setToothModal({ open: false, tooth: null, treatment: '', status: '' })}>&times;</button>
-            <h2 className="text-xl font-bold mb-4">Tooth {toothModal.tooth}</h2>
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Treatment</label>
-              <input
-                type="text"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={toothModal.treatment}
-                onChange={e => setToothModal(modal => ({ ...modal, treatment: e.target.value }))}
-                placeholder="Enter treatment"
-              />
-            </div>
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Status</label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2"
-                value={toothModal.status}
-                onChange={e => setToothModal(modal => ({ ...modal, status: e.target.value }))}
-              >
-                <option value="">Select status</option>
-                {TOOTH_STATUS_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-            <button className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 rounded-lg" onClick={handleToothModalSave}>
-              Save
-            </button>
-          </div>
-        </div>
-      )}
       <div className="mb-8 text-center">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Dental Examination Form</h1>
         <p className="text-gray-600">Complete the dental examination details below</p>
