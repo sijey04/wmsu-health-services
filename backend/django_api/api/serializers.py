@@ -128,7 +128,7 @@ class PatientSerializer(serializers.ModelSerializer):
             'user_middle_name', 'user_last_name', 'school_year',
             # Menstrual & Obstetric History
             'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
-            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms',
+            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms', 'menstrual_symptoms_other',
             # User type fields
             'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand'
         ]
@@ -287,7 +287,7 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             # Menstrual & Obstetric History (for females)
             'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
-            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms',
+            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms', 'menstrual_symptoms_other',
             # Family medical history
             'family_medical_history', 'allergies',
             # School year
