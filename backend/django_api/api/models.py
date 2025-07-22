@@ -1546,3 +1546,111 @@ class DentalMedicineSupply(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_type_display()})"
+
+
+class UserTypeInformation(models.Model):
+    """
+    Model to store user type configurations for profile setup
+    This controls what fields are required and available options for each user type
+    """
+    name = models.CharField(max_length=100, unique=True, help_text='Name of the user type (e.g., Employee, College, etc.)')
+    enabled = models.BooleanField(default=True, help_text='Whether this user type is available for selection')
+    description = models.TextField(blank=True, null=True, help_text='Description of this user type')
+    
+    # JSON fields to store arrays of strings
+    required_fields = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of field names that are required for this user type'
+    )
+    available_courses = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available courses for this user type (for College/Incoming Freshman)'
+    )
+    available_departments = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available departments for this user type (for Employee)'
+    )
+    available_strands = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available strands for this user type (for Senior High School)'
+    )
+    year_levels = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available year/grade levels for this user type'
+    )
+    position_types = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available position types for this user type (for Employee)'
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='created_user_types'
+    )
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'User Type Information'
+        verbose_name_plural = 'User Type Information'
+    
+    def __str__(self):
+        return self.name
+    
+    def get_required_fields_display(self):
+        """Return a comma-separated string of required fields"""
+        return ', '.join(self.required_fields) if self.required_fields else 'None'
+    
+    def is_field_required(self, field_name):
+        """Check if a specific field is required for this user type"""
+        return field_name in self.required_fields
+    
+    def get_available_options(self, option_type):
+        """Get available options for a specific type (courses, departments, etc.)"""
+        option_map = {
+            'courses': self.available_courses,
+            'departments': self.available_departments,
+            'strands': self.available_strands,
+            'year_levels': self.year_levels,
+            'position_types': self.position_types
+        }
+        return option_map.get(option_type, [])
+    
+    def add_required_field(self, field_name):
+        """Add a field to the required fields list"""
+        if field_name not in self.required_fields:
+            self.required_fields.append(field_name)
+            self.save()
+    
+    def remove_required_field(self, field_name):
+        """Remove a field from the required fields list"""
+        if field_name in self.required_fields:
+            self.required_fields.remove(field_name)
+            self.save()
+    
+    def add_option(self, option_type, option_value):
+        """Add an option to a specific option type"""
+        options = getattr(self, f'available_{option_type}', None)
+        if options is not None and option_value not in options:
+            options.append(option_value)
+            setattr(self, f'available_{option_type}', options)
+            self.save()
+    
+    def remove_option(self, option_type, option_value):
+        """Remove an option from a specific option type"""
+        options = getattr(self, f'available_{option_type}', None)
+        if options is not None and option_value in options:
+            options.remove(option_value)
+            setattr(self, f'available_{option_type}', options)
+            self.save()

@@ -113,6 +113,20 @@ interface DentalMedicine {
   isNew?: boolean;
 }
 
+interface UserTypeInformation {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description: string;
+  required_fields: string[];
+  available_courses?: string[];
+  available_departments?: string[];
+  available_strands?: string[];
+  year_levels?: string[];
+  position_types?: string[];
+  isNew?: boolean;
+}
+
 export default function AdminControls() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
@@ -129,6 +143,7 @@ export default function AdminControls() {
   const [pastMedicalHistories, setPastMedicalHistories] = useState<PastMedicalHistoryItem[]>([]);
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<FamilyMedicalHistoryItem[]>([]);
   const [dentalMedicines, setDentalMedicines] = useState<DentalMedicine[]>([]);
+  const [userTypeInformation, setUserTypeInformation] = useState<UserTypeInformation[]>([]);
 
   const [saving, setSaving] = useState(false);
   
@@ -316,6 +331,128 @@ export default function AdminControls() {
           requires_specification: history.requires_specification || false,
           specification_placeholder: history.specification_placeholder || ''
         })));
+      }
+
+      // Load user type information - using fallback data for now since API might not exist yet
+      try {
+        const userTypeResponse = await djangoApiClient.get('/admin-controls/user-type-information/');
+        if (userTypeResponse.data) {
+          setUserTypeInformation(userTypeResponse.data.map((userType: any) => ({
+            id: userType.id.toString(),
+            name: userType.name,
+            enabled: userType.enabled,
+            description: userType.description,
+            required_fields: userType.required_fields || [],
+            available_courses: userType.available_courses || [],
+            available_departments: userType.available_departments || [],
+            available_strands: userType.available_strands || [],
+            year_levels: userType.year_levels || [],
+            position_types: userType.position_types || []
+          })));
+        }
+      } catch (error) {
+        console.warn('User Type Information API not available, using fallback data');
+        // Set default user types based on what's used in profile-setup.tsx
+        setUserTypeInformation([
+          {
+            id: '1',
+            name: 'Employee',
+            enabled: true,
+            description: 'University employees including teaching and non-teaching staff',
+            required_fields: ['employee_id', 'department', 'position_type'],
+            available_courses: [],
+            available_departments: [
+              'Academic Affairs', 'Administration', 'Admissions', 'Business Administration',
+              'Computer Science', 'Education', 'Engineering', 'Finance', 'Health Sciences',
+              'Human Resources', 'Information Technology', 'Liberal Arts', 'Library Services',
+              'Maintenance', 'Medical Services', 'Nursing', 'Physical Education', 'Psychology',
+              'Registrar', 'Research', 'Science', 'Security', 'Social Sciences', 'Student Affairs'
+            ],
+            available_strands: [],
+            year_levels: [],
+            position_types: ['Teaching', 'Non-Teaching']
+          },
+          {
+            id: '2',
+            name: 'College',
+            enabled: true,
+            description: 'College students enrolled in undergraduate programs',
+            required_fields: ['course', 'year_level'],
+            available_courses: [
+              'BS Business Administration', 'BS Computer Science', 'BS Education', 'BS Engineering',
+              'BS Information Technology', 'BS Nursing', 'BS Psychology', 'BA Communication',
+              'BA Political Science', 'BA Sociology'
+            ],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'],
+            position_types: []
+          },
+          {
+            id: '3',
+            name: 'Incoming Freshman',
+            enabled: true,
+            description: 'New students entering college for the first time',
+            required_fields: ['course'],
+            available_courses: [
+              'BS Business Administration', 'BS Computer Science', 'BS Education', 'BS Engineering',
+              'BS Information Technology', 'BS Nursing', 'BS Psychology', 'BA Communication',
+              'BA Political Science', 'BA Sociology'
+            ],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['1st Year'],
+            position_types: []
+          },
+          {
+            id: '4',
+            name: 'Senior High School',
+            enabled: true,
+            description: 'Students in grades 11-12 following K-12 curriculum',
+            required_fields: ['strand', 'grade_level'],
+            available_courses: [],
+            available_departments: [],
+            available_strands: ['STEM', 'ABM', 'HUMSS', 'GAS', 'TVL'],
+            year_levels: ['Grade 11', 'Grade 12'],
+            position_types: []
+          },
+          {
+            id: '5',
+            name: 'High School',
+            enabled: true,
+            description: 'Students in grades 7-10 following traditional high school curriculum',
+            required_fields: ['grade_level'],
+            available_courses: [],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'],
+            position_types: []
+          },
+          {
+            id: '6',
+            name: 'Elementary',
+            enabled: true,
+            description: 'Students in grades 1-6',
+            required_fields: ['grade_level'],
+            available_courses: [],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'],
+            position_types: []
+          },
+          {
+            id: '7',
+            name: 'Kindergarten',
+            enabled: true,
+            description: 'Pre-school students preparing for elementary education',
+            required_fields: [],
+            available_courses: [],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['Kindergarten'],
+            position_types: []
+          }
+        ]);
       }
 
       // Load dental medicines if the endpoint is available
@@ -635,6 +772,44 @@ export default function AdminControls() {
         // In a real implementation, we might want to show a warning that school year data wasn't saved
       }
 
+      // Save user type information if API is available
+      try {
+        const newUserTypes = userTypeInformation.filter(userType => userType.isNew);
+        const existingUserTypes = userTypeInformation.filter(userType => !userType.isNew);
+        
+        // Save new user types
+        for (const newUserType of newUserTypes) {
+          await djangoApiClient.post('/admin-controls/user-type-information/', {
+            name: newUserType.name,
+            enabled: newUserType.enabled,
+            description: newUserType.description,
+            required_fields: newUserType.required_fields,
+            available_courses: newUserType.available_courses,
+            available_departments: newUserType.available_departments,
+            available_strands: newUserType.available_strands,
+            year_levels: newUserType.year_levels,
+            position_types: newUserType.position_types
+          });
+        }
+        
+        // Update existing user types
+        for (const userType of existingUserTypes) {
+          await djangoApiClient.put(`/admin-controls/user-type-information/${userType.id}/`, {
+            name: userType.name,
+            enabled: userType.enabled,
+            description: userType.description,
+            required_fields: userType.required_fields,
+            available_courses: userType.available_courses,
+            available_departments: userType.available_departments,
+            available_strands: userType.available_strands,
+            year_levels: userType.year_levels,
+            position_types: userType.position_types
+          });
+        }
+      } catch (userTypeError) {
+        console.log('User Type Information endpoint not available yet, user type data not saved');
+      }
+
       // Save dental medicines if any new ones were added
       const newDentalMedicines = dentalMedicines.filter(medicine => medicine.isNew);
       if (newDentalMedicines.length > 0) {
@@ -786,6 +961,7 @@ export default function AdminControls() {
       tabs: [
         { id: 'profile', name: 'Profile Requirements', icon: '👤' },
         { id: 'documents', name: 'Document Requirements', icon: '📄' },
+        { id: 'usertypes', name: 'User Type Information', icon: '👥' },
         { id: 'campus', name: 'Campus Schedules', icon: '🏢' },
         { id: 'dentist', name: 'Dentist Schedules', icon: '🦷' },
         { id: 'schoolyears', name: 'Academic Years', icon: '🗓️' }
@@ -1022,6 +1198,109 @@ export default function AdminControls() {
     }
   };
 
+  // Helper functions for User Type Information
+  const addUserTypeInformation = () => {
+    const newItem: UserTypeInformation = {
+      id: Date.now().toString(),
+      name: '',
+      enabled: true,
+      description: '',
+      required_fields: [],
+      available_courses: [],
+      available_departments: [],
+      available_strands: [],
+      year_levels: [],
+      position_types: [],
+      isNew: true
+    };
+    setUserTypeInformation(prev => [...prev, newItem]);
+  };
+
+  const updateUserTypeInformation = (id: string, field: keyof UserTypeInformation, value: any) => {
+    setUserTypeInformation(prev => 
+      prev.map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  const removeUserTypeInformation = async (id: string) => {
+    try {
+      // If it's not a new item, delete it from the backend
+      const item = userTypeInformation.find(item => item.id === id);
+      if (item && !item.isNew) {
+        await djangoApiClient.delete('/admin-controls/delete_user_type_information/', { 
+          data: { id: parseInt(id) } 
+        });
+      }
+      setUserTypeInformation(prev => prev.filter(item => item.id !== id));
+      showAlert('success', 'User type removed successfully');
+    } catch (error) {
+      console.error('Error removing user type:', error);
+      showAlert('error', 'Failed to remove user type');
+    }
+  };
+
+  const updateUserTypeField = (id: string, field: string, value: string, checked: boolean) => {
+    setUserTypeInformation(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const fieldKey = field as keyof UserTypeInformation;
+          if (fieldKey === 'required_fields') {
+            const currentFields = item.required_fields || [];
+            if (checked) {
+              return { ...item, required_fields: [...currentFields, value] };
+            } else {
+              return { ...item, required_fields: currentFields.filter(f => f !== value) };
+            }
+          } else if (Array.isArray(item[fieldKey])) {
+            const currentArray = item[fieldKey] as string[] || [];
+            if (checked) {
+              return { ...item, [fieldKey]: [...currentArray, value] };
+            } else {
+              return { ...item, [fieldKey]: currentArray.filter(f => f !== value) };
+            }
+          }
+        }
+        return item;
+      })
+    );
+  };
+
+  const addUserTypeOption = (id: string, field: string, value: string) => {
+    if (!value.trim()) return;
+    
+    setUserTypeInformation(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const fieldKey = field as keyof UserTypeInformation;
+          if (Array.isArray(item[fieldKey])) {
+            const currentArray = item[fieldKey] as string[] || [];
+            if (!currentArray.includes(value)) {
+              return { ...item, [fieldKey]: [...currentArray, value] };
+            }
+          }
+        }
+        return item;
+      })
+    );
+  };
+
+  const removeUserTypeOption = (id: string, field: string, value: string) => {
+    setUserTypeInformation(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const fieldKey = field as keyof UserTypeInformation;
+          if (Array.isArray(item[fieldKey])) {
+            const currentArray = item[fieldKey] as string[] || [];
+            return { ...item, [fieldKey]: currentArray.filter(f => f !== value) };
+          }
+        }
+        return item;
+      })
+    );
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -1180,6 +1459,386 @@ export default function AdminControls() {
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                             min="1"
                           />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* User Type Information Tab */}
+            {activeTab === 'usertypes' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">User Type Information</h3>
+                    <p className="text-sm text-gray-500">Configure user types and their required fields for profile setup</p>
+                  </div>
+                  <button
+                    onClick={addUserTypeInformation}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#8B1538] hover:bg-[#7a1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                  >
+                    Add User Type
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {userTypeInformation.map((userType) => (
+                    <div key={userType.id} className="border border-gray-200 rounded-lg p-6 bg-white">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            checked={userType.enabled}
+                            onChange={(e) => updateUserTypeInformation(userType.id, 'enabled', e.target.checked)}
+                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded mt-1"
+                          />
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={userType.name}
+                              onChange={(e) => updateUserTypeInformation(userType.id, 'name', e.target.value)}
+                              className="text-lg font-medium text-gray-900 border-none bg-transparent focus:outline-none focus:ring-0 p-0"
+                              placeholder="User Type Name"
+                            />
+                            <input
+                              type="text"
+                              value={userType.description}
+                              onChange={(e) => updateUserTypeInformation(userType.id, 'description', e.target.value)}
+                              className="text-sm text-gray-500 mt-1 block w-full border-none bg-transparent focus:outline-none focus:ring-0 p-0"
+                              placeholder="Description"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            userType.enabled 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {userType.enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                          <button
+                            onClick={() => removeUserTypeInformation(userType.id)}
+                            className="text-red-600 hover:text-red-900 p-1"
+                            title="Remove user type"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Required Fields */}
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900 mb-3">Required Fields</h4>
+                          <div className="space-y-2">
+                            {[
+                              'student_id', 'employee_id', 'department', 'position_type', 'course', 
+                              'year_level', 'grade_level', 'strand', 'section'
+                            ].map((field) => (
+                              <label key={field} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={userType.required_fields?.includes(field) || false}
+                                  onChange={(e) => updateUserTypeField(userType.id, 'required_fields', field, e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700 capitalize">
+                                  {field.replace(/_/g, ' ')}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Available Options */}
+                        <div className="space-y-4">
+                          {/* Courses */}
+                          {userType.name === 'College' || userType.name === 'Incoming Freshman' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Courses</h4>
+                              <div className="space-y-2">
+                                {userType.available_courses?.map((course, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={course}
+                                      onChange={(e) => {
+                                        const newCourses = [...(userType.available_courses || [])];
+                                        newCourses[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'available_courses', newCourses);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'available_courses', course)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new course"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'available_courses', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'available_courses', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Departments */}
+                          {userType.name === 'Employee' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Departments</h4>
+                              <div className="space-y-2 max-h-40 overflow-y-auto">
+                                {userType.available_departments?.map((department, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={department}
+                                      onChange={(e) => {
+                                        const newDepartments = [...(userType.available_departments || [])];
+                                        newDepartments[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'available_departments', newDepartments);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'available_departments', department)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new department"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'available_departments', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'available_departments', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Strands */}
+                          {userType.name === 'Senior High School' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Strands</h4>
+                              <div className="space-y-2">
+                                {userType.available_strands?.map((strand, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={strand}
+                                      onChange={(e) => {
+                                        const newStrands = [...(userType.available_strands || [])];
+                                        newStrands[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'available_strands', newStrands);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'available_strands', strand)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new strand"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'available_strands', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'available_strands', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Year Levels */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900 mb-2">Available Year/Grade Levels</h4>
+                            <div className="space-y-2">
+                              {userType.year_levels?.map((level, index) => (
+                                <div key={index} className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    value={level}
+                                    onChange={(e) => {
+                                      const newLevels = [...(userType.year_levels || [])];
+                                      newLevels[index] = e.target.value;
+                                      updateUserTypeInformation(userType.id, 'year_levels', newLevels);
+                                    }}
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                  />
+                                  <button
+                                    onClick={() => removeUserTypeOption(userType.id, 'year_levels', level)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  placeholder="Add new level"
+                                  className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const target = e.target as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'year_levels', target.value);
+                                      target.value = '';
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                    addUserTypeOption(userType.id, 'year_levels', input.value);
+                                    input.value = '';
+                                  }}
+                                  className="text-green-600 hover:text-green-900"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Position Types */}
+                          {userType.name === 'Employee' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Position Types</h4>
+                              <div className="space-y-2">
+                                {userType.position_types?.map((position, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={position}
+                                      onChange={(e) => {
+                                        const newPositions = [...(userType.position_types || [])];
+                                        newPositions[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'position_types', newPositions);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'position_types', position)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new position type"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'position_types', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'position_types', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>

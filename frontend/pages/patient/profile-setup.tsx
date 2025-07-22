@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { patientProfileAPI, djangoApiClient } from '../../utils/api';
 import FeedbackModal from '../../components/feedbackmodal';
+import axios from 'axios';
 
 const steps = [
   { id: 1, title: 'Personal Information' },
@@ -39,6 +40,8 @@ export default function PatientProfileSetupPage() {
 
   // Admin controls state
   const [profileRequirements, setProfileRequirements] = useState<any[]>([]);
+  const [userTypeInformations, setUserTypeInformations] = useState<any[]>([]);
+  const [currentUserTypeConfig, setCurrentUserTypeConfig] = useState<any>(null);
   const [availableFields, setAvailableFields] = useState<any>({
     personal: [],
     health: [],
@@ -68,22 +71,44 @@ export default function PatientProfileSetupPage() {
 
   // Helper function to check if a field should be shown based on admin configuration
   const isFieldEnabled = (category: string, fieldName: string) => {
+    // First check UserTypeInformation configuration
+    if (currentUserTypeConfig && currentUserTypeConfig.required_fields) {
+      const isInUserTypeConfig = currentUserTypeConfig.required_fields.includes(fieldName) ||
+                                currentUserTypeConfig.required_fields.includes(fieldName.toLowerCase()) ||
+                                currentUserTypeConfig.required_fields.some((field: string) => 
+                                  field.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+                                );
+      if (isInUserTypeConfig) return true;
+    }
+    
+    // Fallback to legacy availableFields configuration
     if (!availableFields[category] || availableFields[category].length === 0) {
       return true; // Show all fields by default if no configuration is loaded
     }
     
-    return availableFields[category].some(field => 
+    return availableFields[category].some((field: any) => 
       field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
     );
   };
 
   // Helper function to check if a field is required based on admin configuration
   const isFieldRequired = (category: string, fieldName: string) => {
+    // First check UserTypeInformation configuration
+    if (currentUserTypeConfig && currentUserTypeConfig.required_fields) {
+      const isRequiredInUserType = currentUserTypeConfig.required_fields.includes(fieldName) ||
+                                  currentUserTypeConfig.required_fields.includes(fieldName.toLowerCase()) ||
+                                  currentUserTypeConfig.required_fields.some((field: string) => 
+                                    field.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+                                  );
+      if (isRequiredInUserType) return true;
+    }
+    
+    // Fallback to step-based requirements and legacy configuration
     if (!availableFields[category] || availableFields[category].length === 0) {
       return requiredFieldsByStep[currentStep]?.includes(fieldName) || false;
     }
     
-    const configField = availableFields[category].find(field => 
+    const configField = availableFields[category].find((field: any) => 
       field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
     );
     
@@ -92,32 +117,86 @@ export default function PatientProfileSetupPage() {
 
   // Helper function to get field description from admin configuration
   const getFieldDescription = (category: string, fieldName: string) => {
+    // The current model doesn't have custom_fields, so return null for now
+    // This can be extended when custom fields functionality is added
+    
+    // Fallback to legacy availableFields configuration
     if (!availableFields[category] || availableFields[category].length === 0) {
       return null;
     }
     
-    const configField = availableFields[category].find(field => 
+    const configField = availableFields[category].find((field: any) => 
       field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
     );
     
     return configField ? configField.description : null;
   };
 
+  // Get available options for user type specific fields
+  const getUserTypeOptions = (optionType: 'courses' | 'departments' | 'year_levels' | 'strands' | 'position_types') => {
+    if (!currentUserTypeConfig) return [];
+    
+    switch (optionType) {
+      case 'courses':
+        return currentUserTypeConfig.available_courses || [];
+      case 'departments':
+        return currentUserTypeConfig.available_departments || [];
+      case 'year_levels':
+        return currentUserTypeConfig.year_levels || [];
+      case 'strands':
+        return currentUserTypeConfig.available_strands || [];
+      case 'position_types':
+        return currentUserTypeConfig.position_types || [];
+      default:
+        return [];
+    }
+  };
+
+  // Check if user type allows specific services
+  const isServiceAllowed = (serviceType: 'medical' | 'dental' | 'certificate') => {
+    // Since the current model doesn't have allowed_services field, allow all services by default
+    return true;
+  };
+
   // Show notification about admin-controlled fields
   const showAdminControlledNotification = () => {
+    const hasUserTypeConfig = currentUserTypeConfig && currentUserTypeConfig.required_fields && currentUserTypeConfig.required_fields.length > 0;
     const hasConfiguredFields = Object.values(availableFields).some(category => 
       Array.isArray(category) && category.length > 0
     );
     
-    if (hasConfiguredFields) {
+    if (hasUserTypeConfig || hasConfiguredFields) {
       return (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center">
-            <span className="text-blue-600 text-sm mr-2">ⓘ</span>
-            <p className="text-blue-800 text-sm">
-              <strong>Field Configuration:</strong> Some form fields are controlled by administrator settings. 
-              Required fields are marked with an asterisk (*).
-            </p>
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Profile Configuration Active
+              </h3>
+              <div className="mt-2 text-sm text-blue-700">
+                {hasUserTypeConfig && (
+                  <p className="mb-2">
+                    <strong>User Type:</strong> {currentUserTypeConfig.name}
+                    {currentUserTypeConfig.description && (
+                      <span className="ml-2 text-blue-600">- {currentUserTypeConfig.description}</span>
+                    )}
+                  </p>
+                )}
+                {hasUserTypeConfig && (
+                  <p className="mb-2">
+                    <strong>Required Fields:</strong> {currentUserTypeConfig.required_fields.length} fields configured
+                  </p>
+                )}
+                <p className="text-xs text-blue-600">
+                  Form fields and requirements are controlled by system administrators to ensure proper data collection for your user type.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       );
@@ -878,6 +957,76 @@ export default function PatientProfileSetupPage() {
       }
     }
 
+    // Load UserTypeInformation configurations
+    const loadUserTypeInformations = async () => {
+      try {
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/admin-controls/user-type-information/`, 
+          { 
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10000
+          }
+        );
+        
+        setUserTypeInformations(response.data);
+        
+        // Set current user type configuration based on user's type
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          const userTypeConfig = response.data.find((uti: any) => 
+            uti.name === user.user_type || 
+            uti.name.toLowerCase() === user.user_type?.toLowerCase()
+          );
+          if (userTypeConfig && userTypeConfig.enabled) {
+            setCurrentUserTypeConfig(userTypeConfig);
+            
+            // Update required fields based on user type configuration
+            if (userTypeConfig.required_fields && userTypeConfig.required_fields.length > 0) {
+              setRequiredFieldsByStep(prev => ({
+                ...prev,
+                1: Array.from(new Set([...prev[1], ...userTypeConfig.required_fields])) // Merge with existing requirements
+              }));
+            }
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('UserTypeInformation config loaded for user type:', user.user_type);
+              console.log('Configuration:', userTypeConfig);
+              console.log('Required fields:', userTypeConfig.required_fields);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch user type information:', err);
+        // Use fallback demo data for development
+        if (process.env.NODE_ENV === 'development') {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            const demoConfig = {
+              id: 1,
+              user_type: user.user_type || 'College',
+              display_name: `${user.user_type || 'College'} Students`,
+              description: 'Demo configuration for development',
+              required_fields: ['name', 'first_name', 'date_of_birth', 'email', 'contact_number'],
+              available_courses: ['Computer Science', 'Engineering', 'Business', 'Education'],
+              available_departments: ['CCS', 'Engineering', 'Business', 'Education'],
+              available_year_levels: ['1st Year', '2nd Year', '3rd Year', '4th Year'],
+              is_active: true,
+              requires_approval: false,
+              allowed_services: ['medical', 'dental', 'certificate'],
+              custom_fields: {},
+            };
+            setCurrentUserTypeConfig(demoConfig);
+            setUserTypeInformations([demoConfig]);
+          }
+        }
+      }
+    };
+
     // Load medical lists from API
     const loadMedicalLists = async () => {
       setMedicalListsLoading(true);
@@ -1040,6 +1189,7 @@ export default function PatientProfileSetupPage() {
     };
 
     loadCurrentSchoolYear();
+    loadUserTypeInformations();
     loadMedicalLists();
   }, []);
 
@@ -1964,31 +2114,40 @@ export default function PatientProfileSetupPage() {
                           onChange={e => handleProfileChange('department', e.target.value)}
                         >
                           <option value="">Select department</option>
-                          <option value="Academic Affairs">Academic Affairs</option>
-                          <option value="Administration">Administration</option>
-                          <option value="Admissions">Admissions</option>
-                          <option value="Business Administration">Business Administration</option>
-                          <option value="Computer Science">Computer Science</option>
-                          <option value="Education">Education</option>
-                          <option value="Engineering">Engineering</option>
-                          <option value="Finance">Finance</option>
-                          <option value="Health Sciences">Health Sciences</option>
-                          <option value="Human Resources">Human Resources</option>
-                          <option value="Information Technology">Information Technology</option>
-                          <option value="Liberal Arts">Liberal Arts</option>
-                          <option value="Library Services">Library Services</option>
-                          <option value="Maintenance">Maintenance</option>
-                          <option value="Medical Services">Medical Services</option>
-                          <option value="Nursing">Nursing</option>
-                          <option value="Physical Education">Physical Education</option>
-                          <option value="Psychology">Psychology</option>
-                          <option value="Registrar">Registrar</option>
-                          <option value="Research">Research</option>
-                          <option value="Science">Science</option>
-                          <option value="Security">Security</option>
-                          <option value="Social Sciences">Social Sciences</option>
-                          <option value="Student Affairs">Student Affairs</option>
-                          <option value="Other">Other</option>
+                          {getUserTypeOptions('departments').length > 0 ? (
+                            getUserTypeOptions('departments').map((dept: string) => (
+                              <option key={dept} value={dept}>{dept}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="Academic Affairs">Academic Affairs</option>
+                              <option value="Administration">Administration</option>
+                              <option value="Admissions">Admissions</option>
+                              <option value="Business Administration">Business Administration</option>
+                              <option value="Computer Science">Computer Science</option>
+                              <option value="Education">Education</option>
+                              <option value="Engineering">Engineering</option>
+                              <option value="Finance">Finance</option>
+                              <option value="Health Sciences">Health Sciences</option>
+                              <option value="Human Resources">Human Resources</option>
+                              <option value="Information Technology">Information Technology</option>
+                              <option value="Liberal Arts">Liberal Arts</option>
+                              <option value="Library Services">Library Services</option>
+                              <option value="Maintenance">Maintenance</option>
+                              <option value="Medical Services">Medical Services</option>
+                              <option value="Nursing">Nursing</option>
+                              <option value="Physical Education">Physical Education</option>
+                              <option value="Psychology">Psychology</option>
+                              <option value="Registrar">Registrar</option>
+                              <option value="Research">Research</option>
+                              <option value="Science">Science</option>
+                              <option value="Security">Security</option>
+                              <option value="Social Sciences">Social Sciences</option>
+                              <option value="Student Affairs">Student Affairs</option>
+                              <option value="Other">Other</option>
+                            </>
+                          )}
                         </select>
                         {fieldErrors.department && <div className="text-red-500 text-xs mt-1">{fieldErrors.department}</div>}
                       </div>
@@ -2000,8 +2159,17 @@ export default function PatientProfileSetupPage() {
                           onChange={e => handleProfileChange('position_type', e.target.value)}
                         >
                           <option value="">Select position type</option>
-                          <option value="Teaching">Teaching</option>
-                          <option value="Non-Teaching">Non-Teaching</option>
+                          {getUserTypeOptions('position_types').length > 0 ? (
+                            getUserTypeOptions('position_types').map((posType: string) => (
+                              <option key={posType} value={posType}>{posType}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="Teaching">Teaching</option>
+                              <option value="Non-Teaching">Non-Teaching</option>
+                            </>
+                          )}
                         </select>
                         {fieldErrors.position_type && <div className="text-red-500 text-xs mt-1">{fieldErrors.position_type}</div>}
                       </div>
@@ -2019,17 +2187,25 @@ export default function PatientProfileSetupPage() {
                           onChange={e => handleProfileChange('course', e.target.value)}
                         >
                           <option value="">Select course</option>
-                          <option value="BS Business Administration">BS Business Administration</option>
-                          <option value="BS Computer Science">BS Computer Science</option>
-                          <option value="BS Education">BS Education</option>
-                          <option value="BS Engineering">BS Engineering</option>
-                          <option value="BS Information Technology">BS Information Technology</option>
-                          <option value="BS Nursing">BS Nursing</option>
-                          <option value="BS Psychology">BS Psychology</option>
-                          <option value="BA Communication">BA Communication</option>
-                          <option value="BA Political Science">BA Political Science</option>
-                          <option value="BA Sociology">BA Sociology</option>
-                          <option value="Other">Other</option>
+                          {getUserTypeOptions('courses').length > 0 ? (
+                            getUserTypeOptions('courses').map((course: string) => (
+                              <option key={course} value={course}>{course}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="BS Business Administration">BS Business Administration</option>
+                              <option value="BS Computer Science">BS Computer Science</option>
+                              <option value="BS Education">BS Education</option>
+                              <option value="BS Engineering">BS Engineering</option>
+                              <option value="BS Information Technology">BS Information Technology</option>
+                              <option value="BS Nursing">BS Nursing</option>
+                              <option value="BS Psychology">BS Psychology</option>
+                              <option value="BA Communication">BA Communication</option>
+                              <option value="BA Political Science">BA Political Science</option>
+                              <option value="BA Sociology">BA Sociology</option>
+                            </>
+                          )}
                         </select>
                         {fieldErrors.course && <div className="text-red-500 text-xs mt-1">{fieldErrors.course}</div>}
                       </div>
@@ -2041,11 +2217,20 @@ export default function PatientProfileSetupPage() {
                           onChange={e => handleProfileChange('year_level', e.target.value)}
                         >
                           <option value="">Select year level</option>
-                          <option value="1st Year">1st Year</option>
-                          <option value="2nd Year">2nd Year</option>
-                          <option value="3rd Year">3rd Year</option>
-                          <option value="4th Year">4th Year</option>
-                          <option value="5th Year">5th Year</option>
+                          {getUserTypeOptions('year_levels').length > 0 ? (
+                            getUserTypeOptions('year_levels').map((level: string) => (
+                              <option key={level} value={level}>{level}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="1st Year">1st Year</option>
+                              <option value="2nd Year">2nd Year</option>
+                              <option value="3rd Year">3rd Year</option>
+                              <option value="4th Year">4th Year</option>
+                              <option value="5th Year">5th Year</option>
+                            </>
+                          )}
                         </select>
                         {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
                       </div>
@@ -2063,18 +2248,27 @@ export default function PatientProfileSetupPage() {
                           onChange={e => handleProfileChange('year_level', e.target.value)}
                         >
                           <option value="">Select year level</option>
-                          {profile?.user_type === 'High School' && (
+                          {getUserTypeOptions('year_levels').length > 0 ? (
+                            getUserTypeOptions('year_levels').map((level: string) => (
+                              <option key={level} value={level}>{level}</option>
+                            ))
+                          ) : (
+                            // Fallback options based on user type if no UserTypeInformation configuration
                             <>
-                              <option value="Grade 7">Grade 7</option>
-                              <option value="Grade 8">Grade 8</option>
-                              <option value="Grade 9">Grade 9</option>
-                              <option value="Grade 10">Grade 10</option>
-                            </>
-                          )}
-                          {profile?.user_type === 'Senior High School' && (
-                            <>
-                              <option value="Grade 11">Grade 11</option>
-                              <option value="Grade 12">Grade 12</option>
+                              {profile?.user_type === 'High School' && (
+                                <>
+                                  <option value="Grade 7">Grade 7</option>
+                                  <option value="Grade 8">Grade 8</option>
+                                  <option value="Grade 9">Grade 9</option>
+                                  <option value="Grade 10">Grade 10</option>
+                                </>
+                              )}
+                              {profile?.user_type === 'Senior High School' && (
+                                <>
+                                  <option value="Grade 11">Grade 11</option>
+                                  <option value="Grade 12">Grade 12</option>
+                                </>
+                              )}
                             </>
                           )}
                         </select>
@@ -2089,13 +2283,22 @@ export default function PatientProfileSetupPage() {
                             onChange={e => handleProfileChange('strand', e.target.value)}
                           >
                             <option value="">Select strand</option>
-                            <option value="ABM">ABM (Accountancy, Business and Management)</option>
-                            <option value="HUMSS">HUMSS (Humanities and Social Sciences)</option>
-                            <option value="STEM">STEM (Science, Technology, Engineering and Mathematics)</option>
-                            <option value="GAS">GAS (General Academic Strand)</option>
-                            <option value="TVL">TVL (Technical-Vocational-Livelihood)</option>
-                            <option value="Arts and Design">Arts and Design</option>
-                            <option value="Sports">Sports</option>
+                            {getUserTypeOptions('strands').length > 0 ? (
+                              getUserTypeOptions('strands').map((strand: string) => (
+                                <option key={strand} value={strand}>{strand}</option>
+                              ))
+                            ) : (
+                              // Fallback options if no UserTypeInformation configuration
+                              <>
+                                <option value="ABM">ABM (Accountancy, Business and Management)</option>
+                                <option value="HUMSS">HUMSS (Humanities and Social Sciences)</option>
+                                <option value="STEM">STEM (Science, Technology, Engineering and Mathematics)</option>
+                                <option value="GAS">GAS (General Academic Strand)</option>
+                                <option value="TVL">TVL (Technical-Vocational-Livelihood)</option>
+                                <option value="Arts and Design">Arts and Design</option>
+                                <option value="Sports">Sports</option>
+                              </>
+                            )}
                           </select>
                           {fieldErrors.strand && <div className="text-red-500 text-xs mt-1">{fieldErrors.strand}</div>}
                         </div>
@@ -2113,17 +2316,26 @@ export default function PatientProfileSetupPage() {
                         onChange={e => handleProfileChange('year_level', e.target.value)}
                       >
                         <option value="">Select year level</option>
-                        {profile?.user_type === 'Kindergarten' && (
-                          <option value="Kindergarten">Kindergarten</option>
-                        )}
-                        {profile?.user_type === 'Elementary' && (
+                        {getUserTypeOptions('year_levels').length > 0 ? (
+                          getUserTypeOptions('year_levels').map((level: string) => (
+                            <option key={level} value={level}>{level}</option>
+                          ))
+                        ) : (
+                          // Fallback options based on user type if no UserTypeInformation configuration
                           <>
-                            <option value="Grade 1">Grade 1</option>
-                            <option value="Grade 2">Grade 2</option>
-                            <option value="Grade 3">Grade 3</option>
-                            <option value="Grade 4">Grade 4</option>
-                            <option value="Grade 5">Grade 5</option>
-                            <option value="Grade 6">Grade 6</option>
+                            {profile?.user_type === 'Kindergarten' && (
+                              <option value="Kindergarten">Kindergarten</option>
+                            )}
+                            {profile?.user_type === 'Elementary' && (
+                              <>
+                                <option value="Grade 1">Grade 1</option>
+                                <option value="Grade 2">Grade 2</option>
+                                <option value="Grade 3">Grade 3</option>
+                                <option value="Grade 4">Grade 4</option>
+                                <option value="Grade 5">Grade 5</option>
+                                <option value="Grade 6">Grade 6</option>
+                              </>
+                            )}
                           </>
                         )}
                       </select>

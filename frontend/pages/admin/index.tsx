@@ -5,6 +5,7 @@ import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
 import { BarChart, LineChart, DoughnutChart, MiniBarChart, MiniLineChart } from '../../components/Charts';
 import { generatePDFReport, generateEnhancedCSV, generateServiceSpecificCSV, generateServiceSpecificPDFReport, downloadFile } from '../../utils/reportExport';
+import UserTypeDetailsModal from '../../components/UserTypeDetailsModal';
 import {
   ArrowPathIcon,
   UserGroupIcon,
@@ -17,6 +18,21 @@ import {
   ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
+interface UserTypeInformation {
+  id: number;
+  name: string; // Changed from user_type
+  enabled: boolean; // Changed from is_active
+  description?: string;
+  required_fields: string[];
+  available_courses: string[];
+  available_departments: string[];
+  available_strands: string[];
+  year_levels: string[]; // Changed from available_year_levels
+  position_types: string[];
+  created_at: string;
+  updated_at: string;
+}
+
 interface StatisticsData {
   semester: { id: number | null; name: string };
   medical: { total: number; completed: number; pending: number; rejected: number };
@@ -24,6 +40,7 @@ interface StatisticsData {
   documents: { total: number; issued: number; pending: number };
   patients: { total: number; verified: number; unverified: number };
   user_type_breakdown: any;
+  detailed_demographics: any;
   monthly_trends: any[];
   completion_rates: { medical: number; dental: number; documents: number; overall: number };
 }
@@ -49,15 +66,19 @@ function AdminDashboard() {
     documents: { total: 0, issued: 0, pending: 0 },
     patients: { total: 0, verified: 0, unverified: 0 },
     user_type_breakdown: {},
+    detailed_demographics: {},
     monthly_trends: [],
     completion_rates: { medical: 0, dental: 0, documents: 0, overall: 0 },
   });
+  const [userTypeInformations, setUserTypeInformations] = useState<UserTypeInformation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [activeTab, setActiveTab] = useState<'medical' | 'dental' | 'certificates'>('medical');
   const [navigating, setNavigating] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedUserType, setSelectedUserType] = useState<string | null>(null);
   const router = useRouter();
 
   // Quick action handlers
@@ -106,6 +127,63 @@ function AdminDashboard() {
     }
   };
 
+  // User type details modal handler
+  const handleUserTypeClick = (userType: string) => {
+    setSelectedUserType(userType);
+    setShowDetailsModal(true);
+  };
+
+  // Fetch UserTypeInformation configurations
+  const fetchUserTypeInformations = async () => {
+    try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await axios.get(
+        `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/admin-controls/user-type-information/`, 
+        { 
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 10000
+        }
+      );
+      
+      setUserTypeInformations(response.data);
+    } catch (err: any) {
+      console.error('Failed to fetch user type information:', err);
+      // Use fallback demo data
+      setUserTypeInformations([
+        {
+          id: 1,
+          name: 'College',
+          enabled: true,
+          description: 'Undergraduate college students',
+          required_fields: ['student_id', 'year_level', 'course', 'department'],
+          available_courses: ['Computer Science', 'Engineering', 'Business', 'Education'],
+          available_departments: ['CCS', 'Engineering', 'Business', 'Education'],
+          available_strands: [],
+          year_levels: ['1st Year', '2nd Year', '3rd Year', '4th Year'],
+          position_types: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: 2,
+          name: 'High School',
+          enabled: true,
+          description: 'Junior high school students',
+          required_fields: ['student_id', 'grade_level', 'section'],
+          available_courses: [],
+          available_departments: ['Junior High'],
+          available_strands: [],
+          year_levels: ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'],
+          position_types: [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ]);
+    }
+  };
+
   const fetchStatistics = async () => {
     try {
       setLoading(true);
@@ -119,15 +197,21 @@ function AdminDashboard() {
         return;
       }
       
-      const response = await axios.get(
-        `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/admin-controls/system_configuration/dashboard_statistics/`, 
-        { 
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 10000
-        }
-      );
+      // Fetch both statistics and user type configurations
+      await Promise.all([
+        (async () => {
+          const response = await axios.get(
+            `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/admin-controls/system_configuration/dashboard_statistics/`, 
+            { 
+              headers: { Authorization: `Bearer ${token}` },
+              timeout: 10000
+            }
+          );
+          setStats(response.data);
+        })(),
+        fetchUserTypeInformations()
+      ]);
       
-      setStats(response.data);
       setLastUpdated(new Date());
       setLoading(false);
     } catch (err: any) {
@@ -141,18 +225,9 @@ function AdminDashboard() {
         return;
       }
       
-      if (err.response?.status === 403) {
-        setError('You do not have permission to view this dashboard.');
-      } else if (err.code === 'ECONNABORTED') {
-        setError('Request timed out. Please try again.');
-      } else {
-        setError('Failed to load statistics. Please try again later.');
-      }
-      setLoading(false);
-      
       // Fallback to demo data with enhanced user type breakdown
-      setStats({
-        semester: { id: null, name: "Demo Data" },
+      const demoStats = {
+        semester: { id: null, name: "Demo Data - API Connection Failed" },
         medical: { total: 120, completed: 90, pending: 20, rejected: 10 },
         dental: { total: 80, completed: 60, pending: 15, rejected: 5 },
         documents: { total: 200, issued: 180, pending: 20 },
@@ -189,6 +264,30 @@ function AdminDashboard() {
             patients: { total: 15, verified: 3, unverified: 12 }
           }
         },
+        detailed_demographics: {
+          'College': {
+            total: 150,
+            details: {
+              by_year_level: { '1st Year': 40, '2nd Year': 35, '3rd Year': 40, '4th Year': 35 },
+              by_course: { 'Computer Science': 50, 'Engineering': 40, 'Business': 35, 'Education': 25 },
+              by_department: { 'CCS': 50, 'Engineering': 40, 'Business': 35, 'Education': 25 }
+            }
+          },
+          'Employee': {
+            total: 15,
+            details: {
+              by_position_type: { 'Teaching': 10, 'Non-Teaching': 5 },
+              by_department: { 'Academic': 10, 'Administrative': 5 }
+            }
+          },
+          'High School': {
+            total: 100,
+            details: {
+              by_grade_level: { 'Grade 7': 25, 'Grade 8': 25, 'Grade 9': 25, 'Grade 10': 25 },
+              by_department: { 'Main Campus': 100 }
+            }
+          }
+        },
         monthly_trends: [
           { month: 'Jan', medical: 15, dental: 10, documents: 25 },
           { month: 'Feb', medical: 18, dental: 12, documents: 30 },
@@ -198,8 +297,19 @@ function AdminDashboard() {
           { month: 'Jun', medical: 20, dental: 10, documents: 35 }
         ],
         completion_rates: { medical: 75, dental: 75, documents: 90, overall: 80 },
-      });
+      };
+      
+      setStats(demoStats);
       setLastUpdated(new Date());
+      
+      if (err.response?.status === 403) {
+        setError('You do not have permission to view this dashboard.');
+      } else if (err.code === 'ECONNABORTED') {
+        setError('Request timed out. Please try again.');
+      } else {
+        setError('Failed to load statistics. Using demo data for preview.');
+      }
+      setLoading(false);
     }
   };
   
@@ -350,6 +460,9 @@ function AdminDashboard() {
       const totalTransactions = (data?.medical?.total || 0) + (data?.dental?.total || 0) + (data?.documents?.total || 0);
       const completedTransactions = (data?.medical?.completed || 0) + (data?.dental?.completed || 0) + (data?.documents?.issued || 0);
       
+      // Find corresponding UserTypeInformation configuration
+      const configuration = userTypeInformations.find(uti => uti.name === userType);
+      
       return {
         userType,
         totalTransactions,
@@ -361,7 +474,31 @@ function AdminDashboard() {
         medical: data?.medical || { total: 0, completed: 0, pending: 0, rejected: 0 },
         dental: data?.dental || { total: 0, completed: 0, pending: 0, rejected: 0 },
         documents: data?.documents || { total: 0, issued: 0, pending: 0 },
-        patients: data?.patients || { total: 0, verified: 0, unverified: 0 }
+        patients: data?.patients || { total: 0, verified: 0, unverified: 0 },
+        // Add configuration data for enhanced reporting
+        configuration: configuration ? {
+          enabled: configuration.enabled,
+          description: configuration.description,
+          required_fields: configuration.required_fields,
+          available_options: {
+            courses: configuration.available_courses,
+            departments: configuration.available_departments,
+            strands: configuration.available_strands,
+            year_levels: configuration.year_levels,
+            position_types: configuration.position_types
+          }
+        } : {
+          enabled: true,
+          description: undefined,
+          required_fields: [],
+          available_options: {
+            courses: [],
+            departments: [],
+            strands: [],
+            year_levels: [],
+            position_types: []
+          }
+        }
       };
     }).sort((a, b) => b.totalTransactions - a.totalTransactions);
   };
@@ -391,9 +528,37 @@ function AdminDashboard() {
   };
 
   // Service-specific export functions
-  const handleServiceSpecificCSVExport = (serviceType: 'medical' | 'dental' | 'certificates', reportType: 'weekly' | 'monthly' | 'yearly') => {
+  const handleServiceSpecificCSVExport = async (serviceType: 'medical' | 'dental' | 'certificates', reportType: 'weekly' | 'monthly' | 'yearly') => {
     try {
-      const csvContent = generateServiceSpecificCSV(stats, getUserTypeData(), serviceType, reportType);
+      let medicalInventory: Array<{ item_name: string; quantity_used: number; unit?: string; total_cost?: number; }> | undefined;
+      
+      // Fetch dental inventory data if needed
+      if (serviceType === 'dental') {
+        try {
+          const response = await fetch(`/api/patients/dental_inventory_usage/?type=${reportType}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            medicalInventory = data.inventory_usage;
+          }
+        } catch (error) {
+          console.warn('Could not fetch dental inventory data:', error);
+        }
+      }
+      
+      // Normalize inventory data for CSV as well
+      const normalizedInventoryForCSV = medicalInventory?.map(item => ({
+        item_name: item.item_name,
+        quantity_used: item.quantity_used,
+        unit: item.unit || 'pcs',
+        total_cost: item.total_cost
+      }));
+      
+      const csvContent = generateServiceSpecificCSV(stats, getUserTypeData(), serviceType, reportType, normalizedInventoryForCSV);
       const filename = `wmsu-health-${serviceType}-${reportType}-demographic-report-${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${new Date().getDate().toString().padStart(2, '0')}.csv`;
       downloadFile(filename, csvContent, 'csv');
     } catch (error) {
@@ -404,7 +569,36 @@ function AdminDashboard() {
 
   const handleServiceSpecificPDFExport = async (serviceType: 'medical' | 'dental' | 'certificates', reportType: 'weekly' | 'monthly' | 'yearly') => {
     try {
-      await generateServiceSpecificPDFReport(stats, getUserTypeData(), serviceType, reportType);
+      let medicalInventory: Array<{ item_name: string; quantity_used: number; unit?: string; total_cost?: number; }> | undefined;
+      
+      // Fetch dental inventory data if needed
+      if (serviceType === 'dental') {
+        try {
+          const response = await fetch(`/api/patients/dental_inventory_usage/?type=${reportType}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            medicalInventory = data.inventory_usage;
+          }
+        } catch (error) {
+          console.warn('Could not fetch dental inventory data:', error);
+        }
+      }
+      
+      // Ensure medical inventory items have required unit field
+      const normalizedInventory = medicalInventory?.map(item => ({
+        item_name: item.item_name,
+        quantity_used: item.quantity_used,
+        unit: item.unit || 'pcs', // Default unit if not provided
+        total_cost: item.total_cost,
+        usage_date: new Date().toISOString() // Add required usage_date
+      }));
+      
+      await generateServiceSpecificPDFReport(stats, getUserTypeData(), serviceType, reportType, normalizedInventory);
       alert(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} demographics ${reportType} PDF report generated successfully!`);
     } catch (error) {
       console.error('Error generating service-specific PDF:', error);
@@ -612,13 +806,89 @@ function AdminDashboard() {
               </div>
             </div>
 
+            {/* User Type Configuration Status */}
+            <div className="rounded-xl border bg-white shadow">
+              <div className="p-6 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                  <UserGroupIcon className="w-5 h-5 mr-2 text-[#800000]" />
+                  User Type Configuration Status
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  System configuration overview and user type management
+                </p>
+              </div>
+              <div className="p-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  {/* Total Configurations */}
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-blue-900">Total User Types</span>
+                      <UserGroupIcon className="w-4 h-4 text-blue-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-blue-600">{userTypeInformations.length}</div>
+                    <p className="text-xs text-blue-700">
+                      {userTypeInformations.filter(uti => uti.enabled).length} active configurations
+                    </p>
+                  </div>
+
+                  {/* Service Coverage */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-green-900">Service Coverage</span>
+                      <CheckCircleIcon className="w-4 h-4 text-green-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {userTypeInformations.filter(uti => 
+                        uti.enabled
+                      ).length}
+                    </div>
+                    <p className="text-xs text-green-700">
+                      User types with service access
+                    </p>
+                  </div>
+
+                  {/* Configuration Health */}
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-purple-900">Avg. Required Fields</span>
+                      <DocumentTextIcon className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {userTypeInformations.length > 0 
+                        ? (userTypeInformations.reduce((sum, uti) => sum + (uti.required_fields?.length || 0), 0) / userTypeInformations.length).toFixed(1)
+                        : '0'
+                      }
+                    </div>
+                    <p className="text-xs text-purple-700">
+                      Fields per user type
+                    </p>
+                  </div>
+                </div>
+                
+                {userTypeInformations.length === 0 && (
+                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <div className="flex items-center">
+                      <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mr-2" />
+                      <span className="text-sm text-yellow-800">
+                        No user type configurations found. Consider setting up user types through the Controls panel.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Tab Content with User Type Organization */}
             {activeTab === 'medical' && (
               <div className="space-y-6">
                 {/* Medical Overview by User Type */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {getUserTypeData().slice(0, 6).map((userType, index) => (
-                    <div key={userType.userType} className="rounded-xl border bg-white shadow p-6">
+                    <div 
+                      key={userType.userType} 
+                      className="rounded-xl border bg-white shadow p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
+                      onClick={() => handleUserTypeClick(userType.userType)}
+                    >
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-gray-900">{userType.userType}</h3>
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#800000] to-[#a83232] flex items-center justify-center">
@@ -693,7 +963,11 @@ function AdminDashboard() {
                 {/* Dental Overview by User Type */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {getUserTypeData().slice(0, 6).map((userType, index) => (
-                    <div key={userType.userType} className="rounded-xl border bg-white shadow p-6">
+                    <div 
+                      key={userType.userType} 
+                      className="rounded-xl border bg-white shadow p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
+                      onClick={() => handleUserTypeClick(userType.userType)}
+                    >
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-gray-900">{userType.userType}</h3>
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#800000] to-[#a83232] flex items-center justify-center">
@@ -768,7 +1042,11 @@ function AdminDashboard() {
                 {/* Certificate Overview by User Type */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {getUserTypeData().slice(0, 6).map((userType, index) => (
-                    <div key={userType.userType} className="rounded-xl border bg-white shadow p-6">
+                    <div 
+                      key={userType.userType} 
+                      className="rounded-xl border bg-white shadow p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
+                      onClick={() => handleUserTypeClick(userType.userType)}
+                    >
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="font-semibold text-gray-900">{userType.userType}</h3>
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#800000] to-[#a83232] flex items-center justify-center">
@@ -857,7 +1135,7 @@ function AdminDashboard() {
                   </div>
                   
                   <div className="h-[280px]" id="monthly-trends-chart">
-                    {stats.monthly_trends && stats.monthly_trends.length > 0 ? (
+                    {stats.monthly_trends && Array.isArray(stats.monthly_trends) && stats.monthly_trends.length > 0 ? (
                       <BarChart
                         data={{
                           labels: stats.monthly_trends.map(item => item.month),
@@ -885,7 +1163,9 @@ function AdminDashboard() {
                         <div className="text-center">
                           <ChartBarIcon className="w-12 h-12 mx-auto mb-2 text-slate-300" />
                           <p className="text-sm">No chart data available</p>
-                          <p className="text-xs text-slate-400 mt-1">Data will appear when available</p>
+                          <p className="text-xs text-slate-400 mt-1">
+                            {loading ? "Loading data..." : "Data will appear when available"}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -898,35 +1178,35 @@ function AdminDashboard() {
                 <div className="p-6">
                   <h3 className="text-lg font-semibold text-slate-900 mb-4">User Type Activity</h3>
                   <div className="space-y-4 max-h-80 overflow-y-auto">
-                    {getUserTypeData().map((user, index) => (
-                      <div key={user.userType} className="flex items-center p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center mr-4 flex-shrink-0">
-                          <span className="text-sm font-bold text-white">
-                            {user.userType.charAt(0)}
-                          </span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-slate-900 truncate">{user.userType}</p>
-                          <p className="text-xs text-slate-600">
-                            {user.totalTransactions} total • {user.completedTransactions} completed
-                          </p>
-                          <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
-                            <div 
-                              className="bg-gradient-to-r from-slate-700 to-slate-900 h-1.5 rounded-full transition-all duration-500"
-                              style={{ width: `${user.completionRate}%` }}
-                            ></div>
+                    {getUserTypeData() && getUserTypeData().length > 0 ? (
+                      getUserTypeData().map((user, index) => (
+                        <div key={user.userType} className="flex items-center p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center mr-4 flex-shrink-0">
+                            <span className="text-sm font-bold text-white">
+                              {user.userType.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-900 truncate">{user.userType}</p>
+                            <p className="text-xs text-slate-600">
+                              {user.totalTransactions} total • {user.completedTransactions} completed
+                            </p>
+                            <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-gradient-to-r from-slate-700 to-slate-900 h-1.5 rounded-full transition-all duration-500"
+                                style={{ width: `${user.completionRate}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="text-right ml-4 flex-shrink-0">
+                            <div className="text-sm font-bold text-slate-900">
+                              {user.completionRate.toFixed(0)}%
+                            </div>
+                            <div className="text-xs text-slate-500">completion</div>
                           </div>
                         </div>
-                        <div className="text-right ml-4 flex-shrink-0">
-                          <div className="text-sm font-bold text-slate-900">
-                            {user.completionRate.toFixed(0)}%
-                          </div>
-                          <div className="text-xs text-slate-500">completion</div>
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {getUserTypeData().length === 0 && (
+                      ))
+                    ) : (
                       <div className="text-center py-8 text-slate-500">
                         <UserGroupIcon className="w-12 h-12 mx-auto mb-2 text-slate-300" />
                         <p className="text-sm">No user activity data</p>
@@ -1544,6 +1824,20 @@ function AdminDashboard() {
           </>
         )}
       </div>
+
+      {/* User Type Details Modal */}
+      {showDetailsModal && selectedUserType && (
+        <UserTypeDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedUserType(null);
+          }}
+          userType={selectedUserType}
+          userTypeData={stats.user_type_breakdown?.[selectedUserType] || {}}
+          detailedBreakdown={stats.detailed_demographics?.[selectedUserType] || {}}
+        />
+      )}
     </AdminLayout>
   );
 }

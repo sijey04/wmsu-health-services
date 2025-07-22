@@ -14,7 +14,8 @@ from .models import (
     MedicalDocument, DentalFormData, MedicalFormData, StaffDetails,
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
-    ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem
+    ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
+    UserTypeInformation
 )
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
@@ -26,7 +27,7 @@ from .serializers import (
     DocumentRequirementSerializer, CampusScheduleSerializer, DentistScheduleSerializer,
     AcademicSchoolYearSerializer, UserManagementSerializer, UserBlockSerializer,
     ComorbidIllnessSerializer, VaccinationSerializer, PastMedicalHistoryItemSerializer,
-    FamilyMedicalHistoryItemSerializer
+    FamilyMedicalHistoryItemSerializer, UserTypeInformationSerializer
 )
 from rest_framework.views import APIView
 from django.db.models import Q, Count
@@ -2635,7 +2636,7 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def dashboard_statistics(self, request):
-        """Get dashboard statistics for admin panel"""
+        """Get comprehensive dashboard statistics for admin panel with user type breakdown"""
         user = request.user
         
         # Check if user has admin permissions
@@ -2644,9 +2645,11 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
         
         try:
             from .models import (
-                Appointment, MedicalDocument, 
+                Appointment, MedicalDocument, Patient,
                 CustomUser, AcademicSchoolYear
             )
+            from django.db.models import Count, Q
+            from datetime import datetime, timedelta
             
             # Get current academic year
             current_semester = None
@@ -2654,6 +2657,32 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
                 current_semester = AcademicSchoolYear.objects.filter(is_current=True).first()
             except:
                 pass
+            
+            # Define comprehensive user type mapping for proper categorization
+            user_type_mapping = {
+                'employee': 'Employee',
+                'staff': 'Employee',
+                'college': 'College',
+                'high_school': 'High School',
+                'senior_high_school': 'Senior High School',
+                'senior high school': 'Senior High School',
+                'elementary': 'Elementary',
+                'kindergarten': 'Kindergarten',
+                'incoming_freshman': 'Incoming Freshman',
+                'incoming freshman': 'Incoming Freshman',
+                'student': 'College',  # Default fallback
+            }
+            
+            # Define all possible user types that should be tracked
+            all_user_types = [
+                'Kindergarten',
+                'Elementary', 
+                'High School',
+                'Senior High School',
+                'College',
+                'Incoming Freshman',
+                'Employee'
+            ]
             
             # Medical consultations statistics (using Appointment with type='medical')
             medical_total = Appointment.objects.filter(type='medical').count()
@@ -2676,6 +2705,366 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
             patients_total = CustomUser.objects.filter(user_type='student').count()
             patients_verified = CustomUser.objects.filter(user_type='student', is_email_verified=True).count()
             patients_unverified = CustomUser.objects.filter(user_type='student', is_email_verified=False).count()
+            
+            # Enhanced User Type Breakdown with Detailed Demographics
+            user_type_breakdown = {}
+            
+            # Get detailed patient demographics with comprehensive breakdown
+            def get_comprehensive_demographics():
+                """Get detailed breakdown of demographics by user type with specific fields"""
+                detailed_demographics = {}
+                
+                # For each user type, get detailed breakdown
+                for user_type in all_user_types:
+                    # Get patients of this user type
+                    patients_of_type = Patient.objects.filter(user_type=user_type).select_related('user')
+                    
+                    if not patients_of_type.exists():
+                        continue
+                    
+                    breakdown = {
+                        'total': patients_of_type.count(),
+                        'details': {}
+                    }
+                    
+                    if user_type == 'College':
+                        # College: Group by year level and course
+                        breakdown['details'] = {
+                            'by_year_level': {},
+                            'by_course': {},
+                            'by_department': {},
+                            'by_year_and_course': {}
+                        }
+                        
+                        for patient in patients_of_type:
+                            # Extract year level
+                            year_level = patient.year_level
+                            if not year_level and patient.user and hasattr(patient.user, 'education_year'):
+                                year_level = f"{patient.user.education_year} Year" if patient.user.education_year else None
+                            
+                            # Extract course
+                            course = patient.course
+                            if not course and patient.user and hasattr(patient.user, 'education_program'):
+                                course = patient.user.education_program
+                            
+                            # Extract department
+                            department = patient.department
+                            if not department and patient.user and hasattr(patient.user, 'department_college'):
+                                department = patient.user.department_college
+                            
+                            # Only count if we have valid data (exclude None, empty strings, and "Unknown")
+                            if year_level and year_level.strip() and year_level.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_year_level'][year_level] = breakdown['details']['by_year_level'].get(year_level, 0) + 1
+                            
+                            if course and course.strip() and course.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_course'][course] = breakdown['details']['by_course'].get(course, 0) + 1
+                            
+                            if department and department.strip() and department.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_department'][department] = breakdown['details']['by_department'].get(department, 0) + 1
+                            
+                            # Combined year and course only if both are valid
+                            if (year_level and year_level.strip() and year_level.lower() not in ['unknown', 'none', ''] and 
+                                course and course.strip() and course.lower() not in ['unknown', 'none', '']):
+                                breakdown['details']['by_year_and_course'][f"{year_level} - {course}"] = breakdown['details']['by_year_and_course'].get(f"{year_level} - {course}", 0) + 1
+                    
+                    elif user_type in ['High School', 'Senior High School']:
+                        # High School: Group by grade level and strand (for Senior High)
+                        breakdown['details'] = {
+                            'by_grade_level': {},
+                            'by_strand': {},
+                            'by_department': {}
+                        }
+                        
+                        for patient in patients_of_type:
+                            # Extract grade level
+                            grade_level = patient.year_level
+                            if not grade_level and patient.user and hasattr(patient.user, 'grade_level'):
+                                grade_level = patient.user.grade_level
+                            
+                            # Extract strand (for Senior High School)
+                            strand = patient.strand
+                            
+                            # Extract department/school
+                            department = patient.department
+                            
+                            # Only count if we have valid data (exclude None, empty strings, and "Unknown")
+                            if grade_level and grade_level.strip() and grade_level.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_grade_level'][grade_level] = breakdown['details']['by_grade_level'].get(grade_level, 0) + 1
+                            
+                            if strand and strand.strip() and strand.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_strand'][strand] = breakdown['details']['by_strand'].get(strand, 0) + 1
+                            
+                            if department and department.strip() and department.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_department'][department] = breakdown['details']['by_department'].get(department, 0) + 1
+                    
+                    elif user_type == 'Elementary':
+                        # Elementary: Group by grade level
+                        breakdown['details'] = {
+                            'by_grade_level': {},
+                            'by_department': {}
+                        }
+                        
+                        for patient in patients_of_type:
+                            grade_level = patient.year_level
+                            if not grade_level and patient.user and hasattr(patient.user, 'grade_level'):
+                                grade_level = patient.user.grade_level
+                            
+                            department = patient.department
+                            
+                            # Only count if we have valid data (exclude None, empty strings, and "Unknown")
+                            if grade_level and grade_level.strip() and grade_level.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_grade_level'][grade_level] = breakdown['details']['by_grade_level'].get(grade_level, 0) + 1
+                            
+                            if department and department.strip() and department.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_department'][department] = breakdown['details']['by_department'].get(department, 0) + 1
+                    
+                    elif user_type == 'Kindergarten':
+                        # Kindergarten: Group by section/class
+                        breakdown['details'] = {
+                            'by_section': {},
+                            'by_department': {}
+                        }
+                        
+                        for patient in patients_of_type:
+                            section = patient.year_level  # Using year_level as section
+                            department = patient.department
+                            
+                            # Only count if we have valid data (exclude None, empty strings, and "Unknown")
+                            if section and section.strip() and section.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_section'][section] = breakdown['details']['by_section'].get(section, 0) + 1
+                            
+                            if department and department.strip() and department.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_department'][department] = breakdown['details']['by_department'].get(department, 0) + 1
+                    
+                    elif user_type == 'Employee':
+                        # Employee: Group by position type, department, and teaching/non-teaching classification
+                        breakdown['details'] = {
+                            'by_position_type': {},
+                            'by_department': {},
+                            'by_teaching_status': {'Teaching Staff': 0, 'Non-Teaching Staff': 0},
+                            'by_position_and_department': {}
+                        }
+                        
+                        for patient in patients_of_type:
+                            # Extract position type
+                            position_type = patient.position_type
+                            if not position_type and patient.user and hasattr(patient.user, 'employee_position'):
+                                position_type = patient.user.employee_position
+                            
+                            # Extract department
+                            department = patient.department
+                            if not department and patient.user and hasattr(patient.user, 'department_college'):
+                                department = patient.user.department_college
+                            
+                            # Determine if teaching or non-teaching staff
+                            teaching_keywords = ['teacher', 'instructor', 'professor', 'faculty', 'lecturer', 'aide']
+                            is_teaching = False
+                            if position_type:
+                                is_teaching = any(keyword in position_type.lower() for keyword in teaching_keywords)
+                            
+                            # Only count if we have valid data (exclude None, empty strings, and "Unknown")
+                            if position_type and position_type.strip() and position_type.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_position_type'][position_type] = breakdown['details']['by_position_type'].get(position_type, 0) + 1
+                            
+                            if department and department.strip() and department.lower() not in ['unknown', 'none', '']:
+                                breakdown['details']['by_department'][department] = breakdown['details']['by_department'].get(department, 0) + 1
+                            
+                            # Count teaching vs non-teaching
+                            if is_teaching:
+                                breakdown['details']['by_teaching_status']['Teaching Staff'] += 1
+                            else:
+                                breakdown['details']['by_teaching_status']['Non-Teaching Staff'] += 1
+                            
+                            # Combined position and department only if both are valid
+                            if (position_type and position_type.strip() and position_type.lower() not in ['unknown', 'none', ''] and 
+                                department and department.strip() and department.lower() not in ['unknown', 'none', '']):
+                                breakdown['details']['by_position_and_department'][f"{position_type} - {department}"] = breakdown['details']['by_position_and_department'].get(f"{position_type} - {department}", 0) + 1
+                    
+                    elif user_type == 'Incoming Freshman':
+                        # Incoming Freshman: Group by intended course/program
+                        breakdown['details'] = {
+                            'by_intended_course': {},
+                            'by_department': {}
+                        }
+                        
+                        for patient in patients_of_type:
+                            intended_course = patient.course or 'Unknown'
+                            if not intended_course or intended_course == 'Unknown':
+                                if patient.user and hasattr(patient.user, 'education_program'):
+                                    intended_course = patient.user.education_program or 'Unknown'
+                            
+                            department = patient.department or 'Unknown'
+                            
+                            breakdown['details']['by_intended_course'][intended_course] = breakdown['details']['by_intended_course'].get(intended_course, 0) + 1
+                            breakdown['details']['by_department'][department] = breakdown['details']['by_department'].get(department, 0) + 1
+                    
+                    detailed_demographics[user_type] = breakdown
+                
+                return detailed_demographics
+            
+            # Get comprehensive demographics
+            detailed_demographics = get_comprehensive_demographics()
+            
+            # Now create user_type_breakdown for all user types
+            # First, let's get all existing user types from the database
+            existing_user_types = Patient.objects.values_list('user_type', flat=True).distinct().exclude(user_type__isnull=True).exclude(user_type='')
+            
+            # Enhanced user type mapping and organization
+            user_type_remapping = {
+                'Faculty': 'Employee',
+                'Postgraduate': 'College', 
+                'Undergraduate': 'College',
+                'Doctoral': 'College',
+                'Graduate': 'College',
+                'Grade 1': 'Elementary',
+                'Grade 2': 'Elementary', 
+                'Grade 3': 'Elementary',
+                'Grade 4': 'Elementary',
+                'Grade 5': 'Elementary', 
+                'Grade 6': 'Elementary',
+                'Grade 7': 'High School',
+                'Grade 8': 'High School',
+                'Grade 9': 'High School', 
+                'Grade 10': 'High School',
+                'Grade 11': 'Senior High School',
+                'Grade 12': 'Senior High School',
+            }
+            
+            # Create a consolidated user type breakdown
+            consolidated_breakdown = {}
+            
+            for user_type in all_user_types:
+                consolidated_breakdown[user_type] = {
+                    'medical': {'total': 0, 'completed': 0, 'pending': 0, 'rejected': 0},
+                    'dental': {'total': 0, 'completed': 0, 'pending': 0, 'rejected': 0},
+                    'documents': {'total': 0, 'issued': 0, 'pending': 0},
+                    'patients': {'total': 0, 'verified': 0, 'unverified': 0},
+                    'detailed_breakdown': {}
+                }
+            
+            # Process each existing user type in the database
+            for existing_type in existing_user_types:
+                # Map to standardized user type
+                standardized_type = user_type_remapping.get(existing_type, existing_type)
+                
+                # If the standardized type is not in our all_user_types, add it to College by default
+                if standardized_type not in all_user_types:
+                    standardized_type = 'College'
+                
+                # Get patients of this existing type
+                patients_of_type = Patient.objects.filter(user_type=existing_type)
+                
+                if patients_of_type.exists():
+                    # Medical stats for this user type
+                    user_medical_appointments = Appointment.objects.filter(
+                        type='medical',
+                        patient__in=patients_of_type
+                    )
+                    medical_stats = {
+                        'total': user_medical_appointments.count(),
+                        'completed': user_medical_appointments.filter(status='completed').count(),
+                        'pending': user_medical_appointments.filter(status='pending').count(),
+                        'rejected': user_medical_appointments.filter(status='cancelled').count()
+                    }
+                    
+                    # Dental stats for this user type
+                    user_dental_appointments = Appointment.objects.filter(
+                        type='dental',
+                        patient__in=patients_of_type
+                    )
+                    dental_stats = {
+                        'total': user_dental_appointments.count(),
+                        'completed': user_dental_appointments.filter(status='completed').count(),
+                        'pending': user_dental_appointments.filter(status='pending').count(),
+                        'rejected': user_dental_appointments.filter(status='cancelled').count()
+                    }
+                    
+                    # Document stats for this user type
+                    user_documents = MedicalDocument.objects.filter(
+                        patient__in=patients_of_type
+                    )
+                    documents_stats = {
+                        'total': user_documents.count(),
+                        'issued': user_documents.filter(status='issued').count(),
+                        'pending': user_documents.filter(status='pending').count()
+                    }
+                    
+                    # Patient stats for this user type
+                    patient_count = patients_of_type.count()
+                    verified_count = patients_of_type.filter(user__is_email_verified=True).count()
+                    unverified_count = patient_count - verified_count
+                    
+                    # Aggregate into consolidated breakdown
+                    consolidated_breakdown[standardized_type]['medical']['total'] += medical_stats['total']
+                    consolidated_breakdown[standardized_type]['medical']['completed'] += medical_stats['completed']
+                    consolidated_breakdown[standardized_type]['medical']['pending'] += medical_stats['pending']
+                    consolidated_breakdown[standardized_type]['medical']['rejected'] += medical_stats['rejected']
+                    
+                    consolidated_breakdown[standardized_type]['dental']['total'] += dental_stats['total']
+                    consolidated_breakdown[standardized_type]['dental']['completed'] += dental_stats['completed']
+                    consolidated_breakdown[standardized_type]['dental']['pending'] += dental_stats['pending']
+                    consolidated_breakdown[standardized_type]['dental']['rejected'] += dental_stats['rejected']
+                    
+                    consolidated_breakdown[standardized_type]['documents']['total'] += documents_stats['total']
+                    consolidated_breakdown[standardized_type]['documents']['issued'] += documents_stats['issued']
+                    consolidated_breakdown[standardized_type]['documents']['pending'] += documents_stats['pending']
+                    
+                    consolidated_breakdown[standardized_type]['patients']['total'] += patient_count
+                    consolidated_breakdown[standardized_type]['patients']['verified'] += verified_count
+                    consolidated_breakdown[standardized_type]['patients']['unverified'] += unverified_count
+                    
+                    # Add detailed breakdown info
+                    if 'sub_types' not in consolidated_breakdown[standardized_type]['detailed_breakdown']:
+                        consolidated_breakdown[standardized_type]['detailed_breakdown']['sub_types'] = {}
+                    
+                    consolidated_breakdown[standardized_type]['detailed_breakdown']['sub_types'][existing_type] = {
+                        'total': patient_count,
+                        'medical': medical_stats,
+                        'dental': dental_stats,
+                        'documents': documents_stats
+                    }
+            
+            user_type_breakdown = consolidated_breakdown
+            
+            # Monthly trends (last 6 months)
+            monthly_trends = []
+            current_date = datetime.now()
+            
+            for i in range(5, -1, -1):  # Last 6 months
+                month_date = current_date - timedelta(days=30 * i)
+                month_name = month_date.strftime('%b')
+                
+                # Get appointments for this month
+                month_medical = Appointment.objects.filter(
+                    type='medical',
+                    appointment_date__year=month_date.year,
+                    appointment_date__month=month_date.month
+                ).count()
+                
+                month_dental = Appointment.objects.filter(
+                    type='dental',
+                    appointment_date__year=month_date.year,
+                    appointment_date__month=month_date.month
+                ).count()
+                
+                month_documents = MedicalDocument.objects.filter(
+                    uploaded_at__year=month_date.year,
+                    uploaded_at__month=month_date.month
+                ).count()
+                
+                monthly_trends.append({
+                    'month': month_name,
+                    'medical': month_medical,
+                    'dental': month_dental,
+                    'documents': month_documents
+                })
+            
+            # Calculate completion rates
+            medical_rate = (medical_completed / medical_total * 100) if medical_total > 0 else 0
+            dental_rate = (dental_completed / dental_total * 100) if dental_total > 0 else 0
+            documents_rate = (documents_issued / documents_total * 100) if documents_total > 0 else 0
+            overall_rate = ((medical_completed + dental_completed + documents_issued) / 
+                          (medical_total + dental_total + documents_total) * 100) if (medical_total + dental_total + documents_total) > 0 else 0
             
             statistics = {
                 'semester': {
@@ -2703,14 +3092,154 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
                     'total': patients_total,
                     'verified': patients_verified,
                     'unverified': patients_unverified
+                },
+                'user_type_breakdown': user_type_breakdown,
+                'detailed_demographics': detailed_demographics,
+                'monthly_trends': monthly_trends,
+                'completion_rates': {
+                    'medical': round(medical_rate, 1),
+                    'dental': round(dental_rate, 1),
+                    'documents': round(documents_rate, 1),
+                    'overall': round(overall_rate, 1)
                 }
             }
             
             return Response(statistics, status=status.HTTP_200_OK)
             
         except Exception as e:
+            import traceback
             return Response({
-                'error': f'Failed to fetch dashboard statistics: {str(e)}'
+                'error': f'Failed to fetch dashboard statistics: {str(e)}',
+                'traceback': traceback.format_exc()
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['get'])
+    def dental_inventory_usage(self, request):
+        """Get dental medication/inventory usage data for reports"""
+        user = request.user
+        
+        # Check if user has admin permissions
+        if not (user.is_staff or user.user_type in ['staff', 'admin']):
+            raise PermissionDenied("You don't have permission to view inventory data.")
+        
+        try:
+            from .models import DentalFormData, AcademicSchoolYear
+            from django.db.models import Q
+            from datetime import datetime, timedelta
+            import json
+            
+            # Get parameters
+            report_type = request.GET.get('type', 'monthly')  # weekly, monthly, yearly
+            start_date = request.GET.get('start_date')
+            end_date = request.GET.get('end_date')
+            
+            # Calculate date range based on report type
+            current_date = datetime.now()
+            if report_type == 'weekly':
+                start = current_date - timedelta(days=7)
+                end = current_date
+            elif report_type == 'monthly':
+                start = current_date.replace(day=1)
+                end = current_date
+            elif report_type == 'yearly':
+                start = current_date.replace(month=1, day=1)
+                end = current_date
+            else:
+                start = current_date - timedelta(days=30)
+                end = current_date
+            
+            # Override with custom dates if provided
+            if start_date:
+                start = datetime.strptime(start_date, '%Y-%m-%d')
+            if end_date:
+                end = datetime.strptime(end_date, '%Y-%m-%d')
+            
+            # Get dental form data with used medicines in the date range
+            dental_forms = DentalFormData.objects.filter(
+                date__range=[start.date(), end.date()],
+                used_medicines__isnull=False
+            ).exclude(used_medicines='[]').exclude(used_medicines='')
+            
+            # Aggregate medication usage
+            medication_usage = {}
+            total_usage_count = 0
+            
+            for form in dental_forms:
+                try:
+                    if form.used_medicines:
+                        # Parse JSON if it's a string, otherwise use directly
+                        if isinstance(form.used_medicines, str):
+                            medicines = json.loads(form.used_medicines)
+                        else:
+                            medicines = form.used_medicines
+                        
+                        # Process each medicine entry
+                        for medicine in medicines:
+                            # Handle different JSON structures
+                            if isinstance(medicine, dict):
+                                name = medicine.get('name', medicine.get('medicine_name', 'Unknown'))
+                                quantity = medicine.get('quantity', medicine.get('quantity_used', 1))
+                                unit = medicine.get('unit', 'pcs')
+                                cost = medicine.get('cost', medicine.get('total_cost', 0))
+                            elif isinstance(medicine, str):
+                                # Simple string format
+                                name = medicine
+                                quantity = 1
+                                unit = 'pcs'
+                                cost = 0
+                            else:
+                                continue
+                            
+                            # Aggregate usage
+                            if name not in medication_usage:
+                                medication_usage[name] = {
+                                    'item_name': name,
+                                    'quantity_used': 0,
+                                    'unit': unit,
+                                    'total_cost': 0,
+                                    'usage_count': 0  # Number of times used
+                                }
+                            
+                            medication_usage[name]['quantity_used'] += int(quantity) if quantity else 1
+                            medication_usage[name]['total_cost'] += float(cost) if cost else 0
+                            medication_usage[name]['usage_count'] += 1
+                            total_usage_count += 1
+                            
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    # Skip malformed data
+                    continue
+            
+            # Convert to list and sort by usage
+            inventory_data = list(medication_usage.values())
+            inventory_data.sort(key=lambda x: x['quantity_used'], reverse=True)
+            
+            # Add summary statistics
+            total_items = len(inventory_data)
+            total_quantity = sum(item['quantity_used'] for item in inventory_data)
+            total_cost = sum(item['total_cost'] for item in inventory_data)
+            
+            response_data = {
+                'inventory_usage': inventory_data,
+                'summary': {
+                    'report_type': report_type,
+                    'date_range': {
+                        'start': start.strftime('%Y-%m-%d'),
+                        'end': end.strftime('%Y-%m-%d')
+                    },
+                    'total_items': total_items,
+                    'total_quantity': total_quantity,
+                    'total_cost': round(total_cost, 2),
+                    'total_usage_events': total_usage_count
+                }
+            }
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            import traceback
+            return Response({
+                'error': f'Failed to fetch dental inventory usage: {str(e)}',
+                'traceback': traceback.format_exc()
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -2907,6 +3436,227 @@ class DocumentRequirementViewSet(viewsets.ModelViewSet):
                     continue
         
         return Response({'message': 'Document requirements updated successfully'})
+
+
+class UserTypeInformationViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing user type information configuration"""
+    queryset = UserTypeInformation.objects.all()
+    serializer_class = UserTypeInformationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Only allow admin users to modify user type information"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated]
+            return [permission() for permission in permission_classes]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        """Return all user type information, ordered by name"""
+        return UserTypeInformation.objects.all().order_by('name')
+    
+    def perform_create(self, serializer):
+        """Set the created_by field when creating a new user type"""
+        if not (self.request.user.is_staff or self.request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can create user types")
+        
+        serializer.save(created_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Only admin users can update user types"""
+        if not (self.request.user.is_staff or self.request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can update user types")
+        
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Only admin users can delete user types"""
+        if not (self.request.user.is_staff or self.request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can delete user types")
+        
+        # Check if this user type is being used by any patients
+        from .models import Patient
+        patients_using_type = Patient.objects.filter(user_type=instance.name).count()
+        if patients_using_type > 0:
+            raise serializers.ValidationError(
+                f"Cannot delete user type '{instance.name}' because it is currently used by {patients_using_type} patient(s)"
+            )
+        
+        instance.delete()
+    
+    @action(detail=False, methods=['get'])
+    def active_only(self, request):
+        """Get only active/enabled user types"""
+        active_types = UserTypeInformation.objects.filter(enabled=True).order_by('name')
+        serializer = self.get_serializer(active_types, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def toggle_enabled(self, request, pk=None):
+        """Toggle the enabled status of a user type"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can toggle user type status")
+        
+        user_type = self.get_object()
+        user_type.enabled = not user_type.enabled
+        user_type.save()
+        
+        return Response({
+            'message': f'User type "{user_type.name}" has been {"enabled" if user_type.enabled else "disabled"}',
+            'enabled': user_type.enabled
+        })
+    
+    @action(detail=True, methods=['post'])
+    def add_required_field(self, request, pk=None):
+        """Add a field to the required fields list"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can modify required fields")
+        
+        user_type = self.get_object()
+        field_name = request.data.get('field_name')
+        
+        if not field_name:
+            return Response({'error': 'field_name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_type.add_required_field(field_name)
+        return Response({
+            'message': f'Field "{field_name}" added to required fields for "{user_type.name}"',
+            'required_fields': user_type.required_fields
+        })
+    
+    @action(detail=True, methods=['post'])
+    def remove_required_field(self, request, pk=None):
+        """Remove a field from the required fields list"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can modify required fields")
+        
+        user_type = self.get_object()
+        field_name = request.data.get('field_name')
+        
+        if not field_name:
+            return Response({'error': 'field_name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_type.remove_required_field(field_name)
+        return Response({
+            'message': f'Field "{field_name}" removed from required fields for "{user_type.name}"',
+            'required_fields': user_type.required_fields
+        })
+    
+    @action(detail=True, methods=['post'])
+    def add_option(self, request, pk=None):
+        """Add an option to a specific option type (courses, departments, etc.)"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can modify options")
+        
+        user_type = self.get_object()
+        option_type = request.data.get('option_type')
+        option_value = request.data.get('option_value')
+        
+        if not option_type or not option_value:
+            return Response({'error': 'option_type and option_value are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        valid_types = ['courses', 'departments', 'strands', 'year_levels', 'position_types']
+        if option_type not in valid_types:
+            return Response({'error': f'option_type must be one of: {valid_types}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_type.add_option(option_type, option_value)
+        return Response({
+            'message': f'Option "{option_value}" added to {option_type} for "{user_type.name}"',
+            option_type: getattr(user_type, f'available_{option_type}')
+        })
+    
+    @action(detail=True, methods=['post'])
+    def remove_option(self, request, pk=None):
+        """Remove an option from a specific option type"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can modify options")
+        
+        user_type = self.get_object()
+        option_type = request.data.get('option_type')
+        option_value = request.data.get('option_value')
+        
+        if not option_type or not option_value:
+            return Response({'error': 'option_type and option_value are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        valid_types = ['courses', 'departments', 'strands', 'year_levels', 'position_types']
+        if option_type not in valid_types:
+            return Response({'error': f'option_type must be one of: {valid_types}'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_type.remove_option(option_type, option_value)
+        return Response({
+            'message': f'Option "{option_value}" removed from {option_type} for "{user_type.name}"',
+            option_type: getattr(user_type, f'available_{option_type}')
+        })
+    
+    @action(detail=False, methods=['post'])
+    def bulk_update(self, request):
+        """Bulk update multiple user types"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can bulk update user types")
+        
+        user_types_data = request.data.get('user_types', [])
+        updated_count = 0
+        
+        for user_type_data in user_types_data:
+            user_type_id = user_type_data.get('id')
+            if user_type_id:
+                try:
+                    user_type = UserTypeInformation.objects.get(id=user_type_id)
+                    
+                    # Update fields if provided
+                    if 'name' in user_type_data:
+                        user_type.name = user_type_data['name']
+                    if 'enabled' in user_type_data:
+                        user_type.enabled = user_type_data['enabled']
+                    if 'description' in user_type_data:
+                        user_type.description = user_type_data['description']
+                    if 'required_fields' in user_type_data:
+                        user_type.required_fields = user_type_data['required_fields']
+                    if 'available_courses' in user_type_data:
+                        user_type.available_courses = user_type_data['available_courses']
+                    if 'available_departments' in user_type_data:
+                        user_type.available_departments = user_type_data['available_departments']
+                    if 'available_strands' in user_type_data:
+                        user_type.available_strands = user_type_data['available_strands']
+                    if 'year_levels' in user_type_data:
+                        user_type.year_levels = user_type_data['year_levels']
+                    if 'position_types' in user_type_data:
+                        user_type.position_types = user_type_data['position_types']
+                    
+                    user_type.save()
+                    updated_count += 1
+                except UserTypeInformation.DoesNotExist:
+                    continue
+        
+        return Response({'message': f'{updated_count} user types updated successfully'})
+    
+    @action(detail=False, methods=['delete'])
+    def delete_user_type_information(self, request):
+        """Delete a user type information"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can delete user types")
+        
+        user_type_id = request.data.get('id')
+        if not user_type_id:
+            return Response({'error': 'User type ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user_type = UserTypeInformation.objects.get(id=user_type_id)
+            
+            # Check if this user type is being used
+            from .models import Patient
+            patients_using_type = Patient.objects.filter(user_type=user_type.name).count()
+            if patients_using_type > 0:
+                return Response({
+                    'error': f"Cannot delete user type '{user_type.name}' because it is currently used by {patients_using_type} patient(s)"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            user_type_name = user_type.name
+            user_type.delete()
+            
+            return Response({'message': f'User type "{user_type_name}" deleted successfully'})
+        except UserTypeInformation.DoesNotExist:
+            return Response({'error': 'User type not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
 class CampusScheduleViewSet(viewsets.ModelViewSet):

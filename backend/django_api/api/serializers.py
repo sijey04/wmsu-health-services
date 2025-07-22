@@ -7,7 +7,7 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, DentalMedicineSupply
+    DentalInformationRecord, DentalMedicineSupply, UserTypeInformation
 )
 
 
@@ -945,4 +945,86 @@ class DentalInformationRecordSerializer(serializers.ModelSerializer):
         if patient and not validated_data.get('patient_name'):
             validated_data['patient_name'] = patient.name or f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.username
         
+        return super().create(validated_data)
+
+
+class UserTypeInformationSerializer(serializers.ModelSerializer):
+    """Serializer for user type information configuration"""
+    required_fields_display = serializers.CharField(source='get_required_fields_display', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    
+    class Meta:
+        model = UserTypeInformation
+        fields = [
+            'id', 'name', 'enabled', 'description',
+            'required_fields', 'required_fields_display',
+            'available_courses', 'available_departments', 'available_strands',
+            'year_levels', 'position_types',
+            'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'created_by_name', 'required_fields_display']
+    
+    def validate_name(self, value):
+        """Validate that the user type name is unique"""
+        instance = getattr(self, 'instance', None)
+        if UserTypeInformation.objects.filter(name=value).exclude(pk=instance.pk if instance else None).exists():
+            raise serializers.ValidationError("A user type with this name already exists.")
+        return value
+    
+    def validate_required_fields(self, value):
+        """Validate that required fields are a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Required fields must be a list.")
+        
+        # Define valid field names
+        valid_fields = [
+            'student_id', 'employee_id', 'department', 'position_type', 'course',
+            'year_level', 'grade_level', 'strand', 'section', 'name', 'first_name',
+            'middle_name', 'suffix', 'date_of_birth', 'age', 'gender', 'contact_number',
+            'email', 'address', 'blood_type', 'religion', 'nationality', 'civil_status',
+            'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_number',
+            'emergency_contact_relationship', 'emergency_contact_barangay', 'emergency_contact_street'
+        ]
+        
+        for field in value:
+            if field not in valid_fields:
+                raise serializers.ValidationError(f"'{field}' is not a valid field name.")
+        
+        return value
+    
+    def validate_available_courses(self, value):
+        """Validate that available courses is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Available courses must be a list.")
+        return [str(course).strip() for course in value if str(course).strip()]
+    
+    def validate_available_departments(self, value):
+        """Validate that available departments is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Available departments must be a list.")
+        return [str(dept).strip() for dept in value if str(dept).strip()]
+    
+    def validate_available_strands(self, value):
+        """Validate that available strands is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Available strands must be a list.")
+        return [str(strand).strip() for strand in value if str(strand).strip()]
+    
+    def validate_year_levels(self, value):
+        """Validate that year levels is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Year levels must be a list.")
+        return [str(level).strip() for level in value if str(level).strip()]
+    
+    def validate_position_types(self, value):
+        """Validate that position types is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Position types must be a list.")
+        return [str(position).strip() for position in value if str(position).strip()]
+    
+    def create(self, validated_data):
+        """Set the created_by field to the current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
         return super().create(validated_data)
