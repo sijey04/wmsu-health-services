@@ -14,6 +14,31 @@ import FeedbackModal from './feedbackmodal';
  * when appointmentId or patientId is provided.
  */
 
+// Helper functions to calculate teeth counts based on dental chart status
+const calculateTeethCounts = (permanentTeethStatus, temporaryTeethStatus) => {
+  const allTeethStatus = { ...permanentTeethStatus, ...temporaryTeethStatus };
+  
+  let missingCount = 0;
+  let decayedCount = 0;
+  let filledCount = 0;
+  
+  Object.values(allTeethStatus).forEach((tooth: any) => {
+    if (tooth.status === 'Missing' || tooth.status === 'Extracted') {
+      missingCount++;
+    } else if (tooth.status === 'Decayed') {
+      decayedCount++;
+    } else if (tooth.status === 'Filled') {
+      filledCount++;
+    }
+  });
+  
+  return {
+    missing: missingCount,
+    decayed: decayedCount,
+    filled: filledCount
+  };
+};
+
 // Tooth edit form component for individual tooth data entry
 const ToothEditForm = ({ tooth, initialData, onSave, onCancel }) => {
   const [treatment, setTreatment] = useState(initialData?.treatment || '');
@@ -25,6 +50,9 @@ const ToothEditForm = ({ tooth, initialData, onSave, onCancel }) => {
 
   const statusOptions = [
     '', // Default empty for healthy
+    'Missing',
+    'Decayed',
+    'Filled',
     'Extracted',
     'Needs Extraction', 
     'Needs Filling',
@@ -96,6 +124,9 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
 
   const getToothColor = (toothNumber) => {
     const status = getToothStatus(toothNumber);
+    if (status.status === 'Missing') return '#6b7280'; // Gray for missing
+    if (status.status === 'Decayed') return '#dc2626'; // Dark red for decayed
+    if (status.status === 'Filled') return '#059669'; // Green for filled
     if (status.status === 'Extracted') return '#ef4444'; // Red
     if (status.status === 'Needs Extraction') return '#f97316'; // Orange
     if (status.status === 'Needs Filling') return '#eab308'; // Yellow
@@ -217,6 +248,18 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
               <span>Healthy</span>
             </div>
             <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-gray-500 rounded"></div>
+              <span>Missing</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-red-600 rounded"></div>
+              <span>Decayed</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="w-4 h-4 bg-emerald-600 rounded"></div>
+              <span>Filled</span>
+            </div>
+            <div className="flex items-center space-x-2">
               <div className="w-4 h-4 bg-red-500 rounded"></div>
               <span>Extracted</span>
             </div>
@@ -240,7 +283,7 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
         </div>
 
         {/* Quick Stats */}
-        <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-2xl">
+        <div className="mt-6 grid grid-cols-2 md:grid-cols-5 gap-4 w-full max-w-4xl">
           <div className="bg-blue-50 p-3 rounded-lg text-center border border-blue-200">
             <div className="text-lg font-bold text-blue-600">
               {Object.keys(permanentTeethStatus).filter(t => parseInt(t) >= 1 && parseInt(t) <= 16).length}
@@ -258,6 +301,15 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
               {Object.keys(temporaryTeethStatus).length}
             </div>
             <div className="text-xs text-purple-600">Temporary Teeth</div>
+          </div>
+          <div className="bg-red-50 p-3 rounded-lg text-center border border-red-200">
+            <div className="text-lg font-bold text-red-600">
+              {(() => {
+                const counts = calculateTeethCounts(permanentTeethStatus, temporaryTeethStatus);
+                return counts.missing + counts.decayed;
+              })()}
+            </div>
+            <div className="text-xs text-red-600">Problem Teeth</div>
           </div>
           <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
             <div className="text-lg font-bold text-gray-600">
@@ -453,6 +505,9 @@ const TextAreaField = ({ label, name, value, onChange, placeholder, rows = 4, re
 );
 
 const TOOTH_STATUS_OPTIONS = [
+  'Missing',
+  'Decayed',
+  'Filled',
   'Extracted',
   'Needs Extraction',
   'Needs Filling',
@@ -555,6 +610,17 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
     // Load inventory when component mounts
     loadInventory();
   }, []);
+
+  // Auto-calculate teeth counts based on dental chart status
+  useEffect(() => {
+    const counts = calculateTeethCounts(permanentTeethStatus, temporaryTeethStatus);
+    setFormData(prev => ({
+      ...prev,
+      missingTeeth: counts.missing.toString(),
+      decayedTeeth: counts.decayed.toString(),
+      filledTeeth: counts.filled.toString()
+    }));
+  }, [permanentTeethStatus, temporaryTeethStatus]);
 
   useEffect(() => {
     const fetchPatientData = async () => {
@@ -867,9 +933,53 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
               temporaryTeethStatus={temporaryTeethStatus}
             />
           </div>
+          
+          {/* Real-time Summary of Teeth Status */}
+          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+            <h4 className="text-lg font-semibold text-gray-800 mb-4 text-center">
+              Current Dental Chart Summary
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {(() => {
+                    const counts = calculateTeethCounts(permanentTeethStatus, temporaryTeethStatus);
+                    return counts.missing;
+                  })()}
+                </div>
+                <div className="text-sm text-gray-600 font-medium">Missing/Extracted Teeth</div>
+                <div className="text-xs text-gray-500 mt-1">Includes extracted teeth</div>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
+                <div className="text-2xl font-bold text-red-600">
+                  {(() => {
+                    const counts = calculateTeethCounts(permanentTeethStatus, temporaryTeethStatus);
+                    return counts.decayed;
+                  })()}
+                </div>
+                <div className="text-sm text-gray-600 font-medium">Decayed Teeth</div>
+                <div className="text-xs text-gray-500 mt-1">Need immediate attention</div>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 text-center">
+                <div className="text-2xl font-bold text-emerald-600">
+                  {(() => {
+                    const counts = calculateTeethCounts(permanentTeethStatus, temporaryTeethStatus);
+                    return counts.filled;
+                  })()}
+                </div>
+                <div className="text-sm text-gray-600 font-medium">Filled Teeth</div>
+                <div className="text-xs text-gray-500 mt-1">Previously treated</div>
+              </div>
+            </div>
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600">
+                These counts automatically update the Summary section below and will be saved with the form.
+              </p>
+            </div>
+          </div>
         </FormSection>
 
-        <FormSection title="Summary of Status of Oral Health">
+        <FormSection title="Summary of Status of Oral Health (Based on Dental Chart)">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                 <RadioGroup title="Dentition:" name="dentition" options={['Satisfactory', 'Fair', 'Poor']} value={formData.dentition} onChange={handleInputChange} />
                 <RadioGroup title="Periodontal:" name="periodontal" options={['Satisfactory', 'Fair', 'Poor']} value={formData.periodontal} onChange={handleInputChange} />
@@ -878,30 +988,48 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 mt-8">
-                <InputField 
-                  label="Decayed Teeth Count" 
-                  name="decayedTeeth" 
-                  type="number"
-                  value={formData.decayedTeeth || ''} 
-                  onChange={handleInputChange}
-                  placeholder="Number of decayed teeth"
-                />
-                <InputField 
-                  label="Missing Teeth Count" 
-                  name="missingTeeth" 
-                  type="number"
-                  value={formData.missingTeeth || ''} 
-                  onChange={handleInputChange}
-                  placeholder="Number of missing teeth"
-                />
-                <InputField 
-                  label="Filled Teeth Count" 
-                  name="filledTeeth" 
-                  type="number"
-                  value={formData.filledTeeth || ''} 
-                  onChange={handleInputChange}
-                  placeholder="Number of filled teeth"
-                />
+                <div className="space-y-2">
+                  <InputField 
+                    label="Decayed Teeth Count" 
+                    name="decayedTeeth" 
+                    type="number"
+                    value={formData.decayedTeeth || ''} 
+                    onChange={handleInputChange}
+                    placeholder="Auto-calculated from dental chart"
+                    disabled={true}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Automatically calculated from dental chart data
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <InputField 
+                    label="Missing Teeth Count" 
+                    name="missingTeeth" 
+                    type="number"
+                    value={formData.missingTeeth || ''} 
+                    onChange={handleInputChange}
+                    placeholder="Auto-calculated from dental chart"
+                    disabled={true}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Automatically calculated from dental chart data
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <InputField 
+                    label="Filled Teeth Count" 
+                    name="filledTeeth" 
+                    type="number"
+                    value={formData.filledTeeth || ''} 
+                    onChange={handleInputChange}
+                    placeholder="Auto-calculated from dental chart"
+                    disabled={true}
+                  />
+                  <p className="text-sm text-gray-500">
+                    Automatically calculated from dental chart data
+                  </p>
+                </div>
                 <RadioGroup title="Oral Hygiene:" name="oralHygiene" options={['Good', 'Fair', 'Poor']} value={formData.oralHygiene || ''} onChange={handleInputChange} />
             </div>
           

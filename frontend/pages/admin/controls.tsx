@@ -66,6 +66,10 @@ interface ComorbidIllness {
   id: string;
   label: string;
   enabled: boolean;
+  has_sub_options?: boolean;
+  sub_options?: string[];
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   isNew?: boolean;
 }
 
@@ -143,7 +147,7 @@ export default function AdminControls() {
   // Sub-options modal state
   const [showSubOptionsModal, setShowSubOptionsModal] = useState(false);
   const [editingSubOptions, setEditingSubOptions] = useState<any>(null);
-  const [subOptionsType, setSubOptionsType] = useState<'past' | 'family'>('past');
+  const [subOptionsType, setSubOptionsType] = useState<'past' | 'family' | 'comorbid'>('past');
   const [tempSubOptions, setTempSubOptions] = useState<string[]>([]);
 
   const loadSettings = useCallback(async () => {
@@ -274,7 +278,11 @@ export default function AdminControls() {
         setComorbidIllnesses(comorbidResponse.data.map((illness: any) => ({
           id: illness.id.toString(),
           label: illness.label,
-          enabled: illness.is_enabled
+          enabled: illness.is_enabled,
+          has_sub_options: illness.has_sub_options || false,
+          sub_options: illness.sub_options || [],
+          requires_specification: illness.requires_specification || false,
+          specification_placeholder: illness.specification_placeholder || ''
         })));
       }
 
@@ -364,7 +372,7 @@ export default function AdminControls() {
   };
 
   // Sub-options modal functions
-  const openSubOptionsModal = (item: any, type: 'past' | 'family') => {
+  const openSubOptionsModal = (item: any, type: 'past' | 'family' | 'comorbid') => {
     setEditingSubOptions(item);
     setSubOptionsType(type);
     setTempSubOptions([...(item.sub_options || [])]);
@@ -396,8 +404,10 @@ export default function AdminControls() {
     const filteredOptions = tempSubOptions.filter(option => option.trim() !== '');
     if (subOptionsType === 'past') {
       updatePastMedicalHistory(editingSubOptions.id, 'sub_options', filteredOptions);
-    } else {
+    } else if (subOptionsType === 'family') {
       updateFamilyMedicalHistory(editingSubOptions.id, 'sub_options', filteredOptions);
+    } else if (subOptionsType === 'comorbid') {
+      updateComorbidIllness(editingSubOptions.id, 'sub_options', filteredOptions);
     }
     closeSubOptionsModal();
   };
@@ -457,14 +467,22 @@ export default function AdminControls() {
           savePromises.push(
             djangoApiClient.post('/user-management/comorbid_illnesses/create_comorbid_illness/', {
               label: illness.label,
-              is_enabled: illness.enabled
+              is_enabled: illness.enabled,
+              has_sub_options: illness.has_sub_options || false,
+              sub_options: illness.sub_options || [],
+              requires_specification: illness.requires_specification || false,
+              specification_placeholder: illness.specification_placeholder || ''
             })
           );
         } else {
           savePromises.push(
             djangoApiClient.put('/user-management/comorbid_illnesses/update_comorbid_illness/', {
               id: parseInt(illness.id),
-              is_enabled: illness.enabled
+              is_enabled: illness.enabled,
+              has_sub_options: illness.has_sub_options || false,
+              sub_options: illness.sub_options || [],
+              requires_specification: illness.requires_specification || false,
+              specification_placeholder: illness.specification_placeholder || ''
             })
           );
         }
@@ -796,6 +814,10 @@ export default function AdminControls() {
       id: Date.now().toString(),
       label: '',
       enabled: true,
+      has_sub_options: false,
+      sub_options: [],
+      requires_specification: false,
+      specification_placeholder: '',
       isNew: true
     };
     setComorbidIllnesses(prev => [...prev, newItem]);
@@ -1582,32 +1604,103 @@ export default function AdminControls() {
                   <ul className="divide-y divide-gray-200">
                     {comorbidIllnesses.map((illness) => (
                       <li key={illness.id} className={`px-4 py-4 ${illness.isNew ? 'bg-green-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 mr-4">
-                            <input
-                              type="text"
-                              value={illness.label}
-                              onChange={(e) => updateComorbidIllness(illness.id, 'label', e.target.value)}
-                              placeholder="Enter illness name"
-                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <label className="flex items-center">
+                        <div className="space-y-4">
+                          {/* Main illness configuration */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0 mr-4">
                               <input
-                                type="checkbox"
-                                checked={illness.enabled}
-                                onChange={(e) => updateComorbidIllness(illness.id, 'enabled', e.target.checked)}
-                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                type="text"
+                                value={illness.label}
+                                onChange={(e) => updateComorbidIllness(illness.id, 'label', e.target.value)}
+                                placeholder="Enter illness name"
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                               />
-                              <span className="ml-2 text-sm text-gray-700">Enabled</span>
-                            </label>
-                            <button
-                              onClick={() => removeComorbidIllness(illness.id)}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={illness.enabled}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'enabled', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                              </label>
+                              <button
+                                onClick={() => removeComorbidIllness(illness.id)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-options configuration */}
+                          <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                            <div className="flex items-center space-x-4">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={illness.has_sub_options || false}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'has_sub_options', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Has sub-options (checkboxes)</span>
+                              </label>
+                              
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={illness.requires_specification || false}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'requires_specification', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Requires text specification</span>
+                              </label>
+                            </div>
+
+                            {/* Sub-options list */}
+                            {illness.has_sub_options && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Sub-options:
+                                  </label>
+                                  <button
+                                    onClick={() => openSubOptionsModal(illness, 'comorbid')}
+                                    className="px-3 py-1 bg-[#8B1538] text-white text-xs rounded hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                                  >
+                                    Configure Sub-options
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {(illness.sub_options || []).length > 0 ? (
+                                    <span>{(illness.sub_options || []).length} sub-option(s) configured: {(illness.sub_options || []).slice(0, 3).join(', ')}{(illness.sub_options || []).length > 3 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-400">No sub-options configured yet</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Specification placeholder */}
+                            {illness.requires_specification && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Specification placeholder text:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={illness.specification_placeholder || ''}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'specification_placeholder', e.target.value)}
+                                  placeholder="e.g., Please specify the condition details..."
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  💡 This text will appear as placeholder in the text input field for patients to specify details.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -2106,7 +2199,7 @@ export default function AdminControls() {
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">
-                  Configure Sub-options for "{editingSubOptions?.name}"
+                  Configure Sub-options for "{editingSubOptions?.name || editingSubOptions?.label}"
                 </h3>
                 <button
                   onClick={closeSubOptionsModal}

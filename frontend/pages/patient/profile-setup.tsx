@@ -200,6 +200,20 @@ export default function PatientProfileSetupPage() {
       }
       setProfile(profileData);
       
+      // Debug enhanced comorbid illness fields
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== PROFILE LOADED DEBUG ===');
+        console.log('Full profile data:', profileData);
+        console.log('Comorbid illnesses:', profileData.comorbid_illnesses);
+        
+        // Check for enhanced comorbid illness fields
+        Object.keys(profileData).forEach(key => {
+          if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
+            console.log(`Enhanced field ${key}:`, profileData[key]);
+          }
+        });
+      }
+      
       // Store original profile for change detection
       setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
       
@@ -265,6 +279,37 @@ export default function PatientProfileSetupPage() {
             }
           });
           
+          // Process enhanced ComorbidIllness details if available
+          if (autofillData.comorbid_illness_details && typeof autofillData.comorbid_illness_details === 'object') {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Processing enhanced ComorbidIllness details:', autofillData.comorbid_illness_details);
+            }
+            
+            // Map the enhanced details to the dynamic field structure
+            Object.keys(autofillData.comorbid_illness_details).forEach(illnessKey => {
+              const details = autofillData.comorbid_illness_details[illnessKey];
+              if (details && typeof details === 'object') {
+                // Process sub-options
+                if (details.sub_options && Array.isArray(details.sub_options)) {
+                  const subFieldName = `comorbid_${illnessKey}_sub`;
+                  defaultProfile[subFieldName] = details.sub_options;
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`Autofilled ${subFieldName}:`, details.sub_options);
+                  }
+                }
+                
+                // Process specifications
+                if (details.specification && typeof details.specification === 'string') {
+                  const specFieldName = `comorbid_${illnessKey}_spec`;
+                  defaultProfile[specFieldName] = details.specification;
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`Autofilled ${specFieldName}:`, details.specification);
+                  }
+                }
+              }
+            });
+          }
+          
           // Mark as auto-filled if we have previous data
           if (autofillData.has_previous_data && autofillData.autofilled_from_year) {
             setIsAutoFilled(true);
@@ -279,6 +324,21 @@ export default function PatientProfileSetupPage() {
           }
           
           setProfile(defaultProfile);
+          
+          // Debug enhanced comorbid illness fields in autofill
+          if (process.env.NODE_ENV === 'development') {
+            console.log('=== AUTOFILL DEBUG ===');
+            console.log('Autofill data received:', autofillData);
+            console.log('Default profile created:', defaultProfile);
+            console.log('Comorbid illnesses in autofill:', defaultProfile.comorbid_illnesses);
+            
+            // Check for enhanced comorbid illness fields
+            Object.keys(defaultProfile).forEach(key => {
+              if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
+                console.log(`Enhanced autofill field ${key}:`, defaultProfile[key]);
+              }
+            });
+          }
           
           // Store original profile for change detection
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
@@ -590,14 +650,35 @@ export default function PatientProfileSetupPage() {
       if (process.env.NODE_ENV === 'development') {
         console.log('=== STEP 2 VALIDATION ===');
         console.log('Comorbid illnesses:', profile?.comorbid_illnesses);
+        console.log('Available comorbid illness options:', comorbidIllnesses);
       }
       
-      // Food allergies validation - only if "Food Allergies" is selected
+      // Enhanced ComorbidIllness validation - check each selected illness for specification requirements
+      if (Array.isArray(profile?.comorbid_illnesses) && Array.isArray(comorbidIllnesses)) {
+        profile.comorbid_illnesses.forEach(selectedIllness => {
+          const illnessConfig = comorbidIllnesses.find(illness => illness.label === selectedIllness);
+          if (illnessConfig && illnessConfig.requires_specification) {
+            const fieldName = `comorbid_${selectedIllness.toLowerCase().replace(/\s+/g, '_')}_spec`;
+            if (!profile?.[fieldName] || profile[fieldName].trim() === '') {
+              errors[fieldName] = `Please specify details for ${selectedIllness}.`;
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`${selectedIllness} requires specification but field ${fieldName} is empty`);
+              }
+            }
+          }
+        });
+      }
+      
+      // Backward compatibility: Food allergies validation - only if "Food Allergies" is selected and NOT using dynamic specification
+      const foodAllergiesConfig = comorbidIllnesses.find(illness => illness.label === 'Food Allergies');
       if (Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Food Allergies')) {
-        if (!profile?.food_allergy_specify || profile.food_allergy_specify.trim() === '') {
-          errors.food_allergy_specify = 'Please specify the food allergies.';
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Food allergies requires specification');
+        // If Food Allergies doesn't have dynamic specification enabled, use legacy validation
+        if (!foodAllergiesConfig?.requires_specification) {
+          if (!profile?.food_allergy_specify || profile.food_allergy_specify.trim() === '') {
+            errors.food_allergy_specify = 'Please specify the food allergies.';
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Food allergies requires specification (legacy)');
+            }
           }
         }
       }
@@ -831,12 +912,60 @@ export default function PatientProfileSetupPage() {
         } catch (error) {
           console.log('Comorbid Illnesses API not available, using fallback data');
           setComorbidIllnesses([
-            { id: 1, label: 'Bronchial Asthma ("Hika")', is_enabled: true },
-            { id: 2, label: 'Food Allergies', is_enabled: true },
-            { id: 3, label: 'Allergic Rhinitis', is_enabled: true },
-            { id: 4, label: 'Hyperthyroidism', is_enabled: true },
-            { id: 5, label: 'Hypothyroidism/Goiter', is_enabled: true },
-            { id: 6, label: 'Anemia', is_enabled: true }
+            { 
+              id: 1, 
+              label: 'Bronchial Asthma ("Hika")', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 2, 
+              label: 'Food Allergies', 
+              is_enabled: true,
+              has_sub_options: true,
+              sub_options: ['Shellfish', 'Nuts', 'Dairy', 'Eggs', 'Wheat/Gluten', 'Soy', 'Fish', 'Other'],
+              requires_specification: true,
+              specification_placeholder: 'Specify severity of reactions or other details'
+            },
+            { 
+              id: 3, 
+              label: 'Allergic Rhinitis', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 4, 
+              label: 'Hyperthyroidism', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 5, 
+              label: 'Hypothyroidism/Goiter', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 6, 
+              label: 'Anemia', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            }
           ]);
         }
 
@@ -1016,16 +1145,54 @@ export default function PatientProfileSetupPage() {
     setError('');
     setSuccess(false);
     try {
+      // Collect enhanced ComorbidIllness details
+      const comorbidIllnessDetails: any = {};
+      
+      // Process all comorbid illness related fields
+      Object.keys(profile).forEach(key => {
+        if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
+          // Extract the illness name from the field name
+          let illnessKey = '';
+          if (key.includes('_sub')) {
+            illnessKey = key.replace('comorbid_', '').replace('_sub', '');
+          } else if (key.includes('_spec')) {
+            illnessKey = key.replace('comorbid_', '').replace('_spec', '');
+          }
+          
+          if (illnessKey && profile[key]) {
+            if (!comorbidIllnessDetails[illnessKey]) {
+              comorbidIllnessDetails[illnessKey] = {};
+            }
+            
+            if (key.includes('_sub') && Array.isArray(profile[key]) && profile[key].length > 0) {
+              comorbidIllnessDetails[illnessKey].sub_options = profile[key];
+            } else if (key.includes('_spec') && typeof profile[key] === 'string' && profile[key].trim()) {
+              comorbidIllnessDetails[illnessKey].specification = profile[key].trim();
+            }
+          }
+        }
+      });
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Collected ComorbidIllness details for save:', comorbidIllnessDetails);
+      }
+      
+      // Add the enhanced details to the profile
+      const enhancedProfile = {
+        ...profile,
+        comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null
+      };
+      
       // Prepare the form data
       const formData = new FormData();
-      for (const key in profile) {
-        if (profile[key] !== undefined && profile[key] !== null) {
-          if (key === 'photo' && profile[key] instanceof File) {
-            formData.append('photo', profile[key]);
-          } else if (typeof profile[key] === 'object' && !(profile[key] instanceof File)) {
-            formData.append(key, JSON.stringify(profile[key]));
+      for (const key in enhancedProfile) {
+        if (enhancedProfile[key] !== undefined && enhancedProfile[key] !== null) {
+          if (key === 'photo' && enhancedProfile[key] instanceof File) {
+            formData.append('photo', enhancedProfile[key]);
+          } else if (typeof enhancedProfile[key] === 'object' && !(enhancedProfile[key] instanceof File)) {
+            formData.append(key, JSON.stringify(enhancedProfile[key]));
           } else if (key !== 'photo') {
-            formData.append(key, profile[key]);
+            formData.append(key, enhancedProfile[key]);
           }
         }
       }
@@ -2273,8 +2440,49 @@ export default function PatientProfileSetupPage() {
                       />
                       <label htmlFor={`comorbid-${item.id}`} className="ml-3 text-sm font-medium text-gray-900 cursor-pointer">{item.label}</label>
                     </div>
-                    {/* Food allergy specify */}
-                    {item.label === 'Food Allergies' && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Food Allergies') && (
+                    
+                    {/* Dynamic sub-options */}
+                    {item.has_sub_options && Array.isArray(item.sub_options) && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes(item.label) && (
+                      <div className="mt-3 ml-7 space-y-2">
+                        {item.sub_options.map(subOption => (
+                          <div key={subOption} className="flex items-start">
+                            <input
+                              type="checkbox"
+                              id={`comorbid-${item.id}-sub-${subOption}`}
+                              className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
+                              checked={Array.isArray(profile?.[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`]) && 
+                                       profile[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`].includes(subOption)}
+                              onChange={e => {
+                                const fieldName = `comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`;
+                                handleCheckboxArrayChange(fieldName, subOption, e.target.checked);
+                              }}
+                            />
+                            <label htmlFor={`comorbid-${item.id}-sub-${subOption}`} className="ml-2 text-sm text-gray-700 cursor-pointer">{subOption}</label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Dynamic text specification */}
+                    {item.requires_specification && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes(item.label) && (
+                      <div className="mt-3 ml-7">
+                        <input
+                          type="text"
+                          placeholder={item.specification_placeholder || `Specify ${item.label.toLowerCase()}`}
+                          className="w-full border rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
+                          value={profile?.[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`] || ''}
+                          onChange={e => {
+                            const fieldName = `comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`;
+                            handleProfileChange(fieldName, e.target.value);
+                          }}
+                        />
+                        {fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`] && 
+                         <div className="text-red-500 text-xs mt-1">{fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`]}</div>}
+                      </div>
+                    )}
+                    
+                    {/* Backward compatibility for Food Allergies */}
+                    {item.label === 'Food Allergies' && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Food Allergies') && !item.requires_specification && (
                       <div className="mt-3 ml-7">
                         <input
                           type="text"
@@ -2289,38 +2497,6 @@ export default function PatientProfileSetupPage() {
                   </div>
                 ))}
                 
-                {/* Psychiatric Illness Section */}
-                <div className="bg-white p-3 rounded-lg border border-gray-200">
-                  <div className="flex items-start">
-                    <input
-                      type="checkbox"
-                      id="psychiatric"
-                      className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
-                      checked={Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Psychiatric Illness')}
-                      onChange={e => handleCheckboxArrayChange('comorbid_illnesses', 'Psychiatric Illness', e.target.checked)}
-                    />
-                    <label htmlFor="psychiatric" className="ml-3 text-sm font-bold text-gray-900 cursor-pointer">Psychiatric Illness</label>
-                  </div>
-                  
-                  {/* Psychiatric sub-options */}
-                  {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Psychiatric Illness') && (
-                    <div className="mt-3 ml-7 space-y-2">
-                      {['Major Depressive Disorder', 'Bipolar Disorder', 'Generalized Anxiety Disorder', 'Panic Disorder', 'Posttraumatic Stress Disorder', 'Schizophrenia'].map(psychItem => (
-                        <div key={psychItem} className="flex items-start">
-                          <input
-                            type="checkbox"
-                            id={`psych-${psychItem}`}
-                            className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
-                            checked={Array.isArray(profile?.psychiatric_illnesses) && profile.psychiatric_illnesses.includes(psychItem)}
-                            onChange={e => handleCheckboxArrayChange('psychiatric_illnesses', psychItem, e.target.checked)}
-                          />
-                          <label htmlFor={`psych-${psychItem}`} className="ml-2 text-sm text-gray-700 cursor-pointer">{psychItem}</label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {/* Other Condition */}
                 <div className="bg-white p-3 rounded-lg border border-gray-200">
                   <div className="flex items-start">
@@ -2999,16 +3175,16 @@ export default function PatientProfileSetupPage() {
                           <input
                             type="checkbox"
                             className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
-                            checked={profile?.menstrual_symptoms?.includes(symptom) || false}
+                            checked={Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes(symptom)}
                             onChange={e => {
-                              const symptoms = profile?.menstrual_symptoms?.split(', ') || [];
+                              const symptoms = Array.isArray(profile?.menstrual_symptoms) ? [...profile.menstrual_symptoms] : [];
                               if (e.target.checked) {
-                                symptoms.push(symptom);
+                                if (!symptoms.includes(symptom)) symptoms.push(symptom);
                               } else {
                                 const index = symptoms.indexOf(symptom);
                                 if (index > -1) symptoms.splice(index, 1);
                               }
-                              handleProfileChange('menstrual_symptoms', symptoms.join(', '));
+                              handleProfileChange('menstrual_symptoms', symptoms);
                             }}
                           />
                           <span className="ml-2 text-sm text-gray-900">{symptom}</span>
@@ -3017,19 +3193,14 @@ export default function PatientProfileSetupPage() {
                     </div>
                     
                     {/* Other symptoms specification */}
-                    {profile?.menstrual_symptoms?.includes('Other') && (
+                    {Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes('Other') && (
                       <div className="mt-3">
                         <input
                           type="text"
                           className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
                           placeholder="Please specify other menstrual symptoms..."
-                          value={profile?.menstrual_symptoms?.replace(/Dysmenorrhea \(cramps\),?\s?|Migraine,?\s?|Loss of consciousness,?\s?|Other,?\s?/g, '') || ''}
-                          onChange={e => {
-                            const baseSymptoms = (profile?.menstrual_symptoms?.match(/Dysmenorrhea \(cramps\)|Migraine|Loss of consciousness|Other/g) || []).join(', ');
-                            const otherText = e.target.value.trim();
-                            const newSymptoms = otherText ? `${baseSymptoms}, ${otherText}` : baseSymptoms;
-                            handleProfileChange('menstrual_symptoms', newSymptoms);
-                          }}
+                          value={profile?.menstrual_symptoms_other || ''}
+                          onChange={e => handleProfileChange('menstrual_symptoms_other', e.target.value)}
                         />
                       </div>
                     )}
@@ -3392,11 +3563,38 @@ export default function PatientProfileSetupPage() {
                 {/* Current Health Conditions */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Current Health Conditions</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.length > 0 
-                      ? profile.comorbid_illnesses.join(', ') 
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.length > 0 ? (
+                      <div className="space-y-2">
+                        {profile.comorbid_illnesses.map((condition: string, index: number) => {
+                          const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+                          const subOptions = profile?.[`comorbid_${conditionKey}_sub`];
+                          const specification = profile?.[`comorbid_${conditionKey}_spec`];
+                          
+                          return (
+                            <div key={index} className="text-sm">
+                              <span className="font-semibold">{condition}</span>
+                              {Array.isArray(subOptions) && subOptions.length > 0 && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Selected: </span>
+                                  <span className="text-xs text-gray-800">{subOptions.join(', ')}</span>
+                                </div>
+                              )}
+                              {specification && specification.trim() && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Details: </span>
+                                  <span className="text-xs text-gray-800">{specification}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
+                  {/* Backward compatibility for existing fields */}
                   {profile?.food_allergy_specify && (
                     <p className="text-gray-700 mt-1 text-xs">Food Allergies: {profile.food_allergy_specify}</p>
                   )}
@@ -3531,16 +3729,19 @@ export default function PatientProfileSetupPage() {
                         </div>
                       )}
                       
-                      {profile?.menstrual_symptoms && profile.menstrual_symptoms.trim() && (
+                      {Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.length > 0 && (
                         <div>
                           <span className="font-medium text-gray-700">Menstrual symptoms:</span>
-                          <span className="ml-2 text-gray-900">{profile.menstrual_symptoms}</span>
+                          <span className="ml-2 text-gray-900">{profile.menstrual_symptoms.join(', ')}</span>
+                          {profile?.menstrual_symptoms_other && (
+                            <span className="ml-1 text-gray-900">- {profile.menstrual_symptoms_other}</span>
+                          )}
                         </div>
                       )}
                       
                       {!profile?.menstruation_age_began && !profile?.menstruation_regular && !profile?.menstruation_irregular && 
                        profile?.number_of_pregnancies === undefined && profile?.number_of_live_children === undefined && 
-                       (!profile?.menstrual_symptoms || !profile.menstrual_symptoms.trim()) && (
+                       (!Array.isArray(profile?.menstrual_symptoms) || profile.menstrual_symptoms.length === 0) && (
                         <p className="text-gray-500 text-xs">No menstrual or obstetric history provided</p>
                       )}
                     </div>
@@ -3673,7 +3874,8 @@ export default function PatientProfileSetupPage() {
             'food_allergy_specify': 'Food Allergies Specification',
             'other_comorbid_specify': 'Other Comorbid Illness Specification',
             'family_medical_history_other': 'Family Medical History (Other)',
-            'family_medical_history_allergies': 'Family Medical History Allergies'
+            'family_medical_history_allergies': 'Family Medical History Allergies',
+            'menstrual_symptoms_other': 'Menstrual Symptoms (Other)'
           };
           
           // Handle medication field names

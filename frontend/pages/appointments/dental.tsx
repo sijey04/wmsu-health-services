@@ -568,14 +568,16 @@ export default function DentalAppointmentPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Concern/Purpose *
                       </label>
-                      <textarea
+                      <select
                         value={concern}
                         onChange={(e) => setConcern(e.target.value)}
-                        placeholder="Please describe your dental concern or the purpose of your visit"
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
-                        rows={4}
                         required
-                      />
+                      >
+                        <option value="">Select the purpose of your visit</option>
+                        <option value="Teeth Extraction">Teeth Extraction</option>
+                        <option value="Consultation">Consultation</option>
+                      </select>
                     </div>
 
                     {error && (
