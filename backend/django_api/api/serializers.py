@@ -122,7 +122,7 @@ class PatientSerializer(serializers.ModelSerializer):
             'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship',
             'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street', 
-            'comorbid_illnesses', 'maintenance_medications', 'vaccination_history', 'past_medical_history', 
+            'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'vaccination_history', 'past_medical_history', 
             'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             'family_medical_history', 'allergies', 'created_at', 'updated_at', 'user_email', 'user_name', 'user_first_name', 
             'user_middle_name', 'user_last_name', 'school_year',
@@ -282,7 +282,7 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street',
             # Health history
-            'comorbid_illnesses', 'maintenance_medications', 'vaccination_history',
+            'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'vaccination_history',
             # Past medical/surgical history
             'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             # Menstrual & Obstetric History (for females)
@@ -869,7 +869,9 @@ class ComorbidIllnessSerializer(serializers.ModelSerializer):
     """Serializer for comorbid illnesses configuration"""
     class Meta:
         model = ComorbidIllness
-        fields = ['id', 'label', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
+        fields = ['id', 'label', 'description', 'is_enabled', 'display_order', 
+                 'has_sub_options', 'sub_options', 'requires_specification', 'specification_placeholder',
+                 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
@@ -910,8 +912,9 @@ class DentalInformationRecordSerializer(serializers.ModelSerializer):
         model = DentalInformationRecord
         fields = [
             'id', 'patient', 'school_year', 'school_year_display', 'semester', 'semester_display',
-            'patient_name', 'age', 'sex', 'year_section', 'date',
+            'patient_name', 'year_section', 'date',
             'name_of_previous_dentist', 'last_dental_visit', 'date_of_last_cleaning',
+            'has_family_dentist', 'family_dentist_name', 'family_dentist_address', 'family_dentist_phone',
             'oral_hygiene_instructions', 'gums_bleed_brushing', 'teeth_sensitive_hot_cold',
             'feel_pain_teeth', 'difficult_extractions_past', 'orthodontic_treatment',
             'prolonged_bleeding_extractions', 'frequent_headaches', 'clench_grind_teeth',
@@ -934,21 +937,12 @@ class DentalInformationRecordSerializer(serializers.ModelSerializer):
             'other_conditions', 'patient_signature', 'signature_date',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'patient']
     
     def create(self, validated_data):
-        # Automatically set patient from the request user
-        request = self.context.get('request')
-        if request and request.user.is_authenticated:
-            # Get or create patient profile for current user
-            user = request.user
-            patient = user.get_current_patient_profile()
-            if patient:
-                validated_data['patient'] = patient
-            else:
-                # If no patient profile exists, we need to handle this
-                raise serializers.ValidationError({
-                    'patient': 'No patient profile found. Please create your profile first.'
-                })
+        # Auto-populate patient_name from patient if not provided
+        patient = validated_data.get('patient')
+        if patient and not validated_data.get('patient_name'):
+            validated_data['patient_name'] = patient.name or f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.username
         
         return super().create(validated_data)

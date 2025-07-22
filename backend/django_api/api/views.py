@@ -820,6 +820,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 
                 # Health History
                 'comorbid_illnesses': source_profile.comorbid_illnesses or [],
+                'comorbid_illness_details': source_profile.comorbid_illness_details or {},
                 'past_medical_history': source_profile.past_medical_history or [],
                 'vaccinations': source_profile.vaccinations or [],
                 'medications': source_profile.medications or [],
@@ -2242,13 +2243,21 @@ class ComorbidIllnessViewSet(viewsets.ModelViewSet):
         try:
             label = request.data.get('label')
             is_enabled = request.data.get('is_enabled', True)
+            has_sub_options = request.data.get('has_sub_options', False)
+            sub_options = request.data.get('sub_options', [])
+            requires_specification = request.data.get('requires_specification', False)
+            specification_placeholder = request.data.get('specification_placeholder', '')
             
             if not label:
                 return Response({'error': 'Label is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             illness = ComorbidIllness.objects.create(
                 label=label,
-                is_enabled=is_enabled
+                is_enabled=is_enabled,
+                has_sub_options=has_sub_options,
+                sub_options=sub_options,
+                requires_specification=requires_specification,
+                specification_placeholder=specification_placeholder
             )
             
             serializer = self.get_serializer(illness)
@@ -2262,12 +2271,20 @@ class ComorbidIllnessViewSet(viewsets.ModelViewSet):
         try:
             illness_id = request.data.get('id')
             is_enabled = request.data.get('is_enabled', True)
+            has_sub_options = request.data.get('has_sub_options', False)
+            sub_options = request.data.get('sub_options', [])
+            requires_specification = request.data.get('requires_specification', False)
+            specification_placeholder = request.data.get('specification_placeholder', '')
             
             if not illness_id:
                 return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
             
             illness = ComorbidIllness.objects.get(id=illness_id)
             illness.is_enabled = is_enabled
+            illness.has_sub_options = has_sub_options
+            illness.sub_options = sub_options
+            illness.requires_specification = requires_specification
+            illness.specification_placeholder = specification_placeholder
             illness.save()
             
             serializer = self.get_serializer(illness)

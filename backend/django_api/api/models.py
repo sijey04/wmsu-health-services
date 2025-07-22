@@ -224,6 +224,9 @@ class Patient(models.Model):
     
     # Health History
     comorbid_illnesses = models.JSONField(blank=True, null=True, help_text='List of comorbid illnesses')
+    # Enhanced ComorbidIllness fields - stores sub-options and specifications dynamically
+    # Format: {'illness_name_sub': ['selected_sub_option1', 'selected_sub_option2'], 'illness_name_spec': 'specification_text'}
+    comorbid_illness_details = models.JSONField(blank=True, null=True, help_text='Enhanced comorbid illness sub-options and specifications')
     maintenance_medications = models.JSONField(blank=True, null=True, help_text='List of maintenance medications')
     vaccination_history = models.JSONField(blank=True, null=True, help_text='Vaccination history for all vaccines')
     
@@ -1269,6 +1272,12 @@ class ComorbidIllness(models.Model):
     is_enabled = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
     
+    # Sub-options and specification features
+    has_sub_options = models.BooleanField(default=False, help_text='Whether this illness has sub-options (checkboxes)')
+    sub_options = models.JSONField(blank=True, null=True, help_text='List of sub-options for this illness')
+    requires_specification = models.BooleanField(default=False, help_text='Whether this illness requires text specification')
+    specification_placeholder = models.CharField(max_length=200, blank=True, null=True, help_text='Placeholder text for specification field')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1370,8 +1379,8 @@ class DentalInformationRecord(models.Model):
     
     # Personal Information
     patient_name = models.CharField(max_length=255)
-    age = models.IntegerField()
-    sex = models.CharField(max_length=20)  # Changed from gender to sex
+    age = models.IntegerField(null=True, blank=True)
+    sex = models.CharField(max_length=20, null=True, blank=True)  # Changed from gender to sex
     
     # Education Information
     education_level = models.CharField(
@@ -1398,6 +1407,12 @@ class DentalInformationRecord(models.Model):
     name_of_previous_dentist = models.CharField(max_length=255, blank=True, null=True)
     last_dental_visit = models.CharField(max_length=255, blank=True, null=True)
     date_of_last_cleaning = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Family Dentist Information
+    has_family_dentist = models.BooleanField(null=True, blank=True)
+    family_dentist_name = models.CharField(max_length=255, blank=True, null=True)
+    family_dentist_address = models.TextField(blank=True, null=True)
+    family_dentist_phone = models.CharField(max_length=50, blank=True, null=True)
     
     # Medical History - Yes/No Questions
     oral_hygiene_instructions = models.BooleanField(null=True, blank=True)
