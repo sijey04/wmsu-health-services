@@ -808,6 +808,22 @@ class DentalFormData(models.Model):
     # Medicine Usage (JSON field to store medicine usage data)
     used_medicines = models.JSONField(blank=True, null=True, help_text='List of medicines used during the appointment')
     
+    # Consultation tracking fields (required by database schema)
+    consultations_record = models.JSONField(blank=True, null=True, help_text='Record of all consultations')
+    current_consultation_date = models.DateField(blank=True, null=True)
+    current_signs_symptoms = models.TextField(blank=True, null=True)
+    current_hr = models.CharField(max_length=10, blank=True, null=True, help_text='Heart Rate')
+    current_rr = models.CharField(max_length=10, blank=True, null=True, help_text='Respiratory Rate')
+    current_temp = models.CharField(max_length=10, blank=True, null=True, help_text='Temperature')
+    current_o2_sat = models.CharField(max_length=10, blank=True, null=True, help_text='Oxygen Saturation')
+    current_bp = models.CharField(max_length=15, blank=True, null=True, help_text='Blood Pressure')
+    current_test_results = models.TextField(blank=True, null=True)
+    current_diagnosis = models.TextField(blank=True, null=True)
+    current_management = models.TextField(blank=True, null=True)
+    current_nurse_physician = models.CharField(max_length=100, blank=True, null=True)
+    total_consultations = models.IntegerField(default=1, help_text='Total number of consultations')
+    consultation_template_compliant = models.BooleanField(default=True, help_text='Whether the consultation follows template')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

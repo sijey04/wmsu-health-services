@@ -124,14 +124,14 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
 
   const getToothColor = (toothNumber) => {
     const status = getToothStatus(toothNumber);
-    if (status.status === 'Missing') return '#6b7280'; // Gray for missing
-    if (status.status === 'Decayed') return '#dc2626'; // Dark red for decayed
-    if (status.status === 'Filled') return '#059669'; // Green for filled
-    if (status.status === 'Extracted') return '#ef4444'; // Red
-    if (status.status === 'Needs Extraction') return '#f97316'; // Orange
-    if (status.status === 'Needs Filling') return '#eab308'; // Yellow
-    if (status.status === 'Treated') return '#22c55e'; // Green
-    if (status.treatment || status.status) return '#3b82f6'; // Blue for any data
+    if (status.status === 'Missing') return '#374151'; // Dark gray for missing
+    if (status.status === 'Decayed') return '#b91c1c'; // Deep red for decayed
+    if (status.status === 'Filled') return '#059669'; // Emerald green for filled
+    if (status.status === 'Extracted') return '#dc2626'; // Bright red for extracted
+    if (status.status === 'Needs Extraction') return '#ea580c'; // Orange-red for needs extraction
+    if (status.status === 'Needs Filling') return '#ca8a04'; // Gold yellow for needs filling
+    if (status.status === 'Treated') return '#16a34a'; // Forest green for treated
+    if (status.treatment || status.status) return '#2563eb'; // Blue for any other data
     return '#ffffff'; // White for healthy/no data
   };
 
@@ -248,35 +248,35 @@ const DentalChart = ({ onToothClick, permanentTeethStatus, temporaryTeethStatus 
               <span>Healthy</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-gray-500 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#374151'}}></div>
               <span>Missing</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-red-600 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#b91c1c'}}></div>
               <span>Decayed</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-emerald-600 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#059669'}}></div>
               <span>Filled</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-red-500 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#dc2626'}}></div>
               <span>Extracted</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-orange-500 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#ea580c'}}></div>
               <span>Needs Extraction</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-yellow-500 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#ca8a04'}}></div>
               <span>Needs Filling</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-green-500 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#16a34a'}}></div>
               <span>Treated</span>
             </div>
             <div className="flex items-center space-x-2">
-              <div className="w-4 h-4 bg-blue-500 rounded"></div>
+              <div className="w-4 h-4 rounded" style={{backgroundColor: '#2563eb'}}></div>
               <span>Other Data</span>
             </div>
           </div>
