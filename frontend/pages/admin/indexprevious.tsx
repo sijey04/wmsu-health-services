@@ -165,7 +165,7 @@ function AdminDashboard() {
   
   useEffect(() => {
     fetchStatistics();
-  }, []);
+  }, []); // Remove fetchStatistics dependency to avoid infinite loop
 
   // Reset navigation state if the route doesn't change within a reasonable time
   useEffect(() => {

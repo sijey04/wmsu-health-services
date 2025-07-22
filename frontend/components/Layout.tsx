@@ -1,6 +1,7 @@
 import React, { ReactNode, useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 
 type LayoutProps = {
@@ -78,10 +79,10 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     if (user?.photo) {
       // If the photo is a relative path, prepend the backend URL if needed
       const photoUrl = user.photo.startsWith('http') ? user.photo : `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000'}${user.photo}`;
-      return <img className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
+      return <Image className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" width={32} height={32} />;
     }
     if (user?.profile_picture) {
-      return <img className="h-8 w-8 rounded-full object-cover" src={user.profile_picture} alt="Profile" />;
+      return <Image className="h-8 w-8 rounded-full object-cover" src={user.profile_picture} alt="Profile" width={32} height={32} />;
     }
     const letter = user?.first_name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?';
     return (
@@ -313,7 +314,7 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
                   {user ? (
                     getAvatar()
                   ) : (
-                    <img className="h-10 w-10 rounded-full" src={'https://ui-avatars.com/api/?name=Admin&color=7F9CF5&background=EBF4FF'} alt="" />
+                    <Image className="h-10 w-10 rounded-full" src={'https://ui-avatars.com/api/?name=Admin&color=7F9CF5&background=EBF4FF'} alt="" width={40} height={40} />
                   )}
                 </div>
                 <div className="ml-3">

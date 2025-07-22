@@ -1051,7 +1051,7 @@ export default function DentalInformationRecordPage() {
                 </div>
               </div>
               <p className="text-blue-700 text-center text-sm sm:text-base">
-                Please review all the information you've provided above. Once you submit, you'll be able to proceed with your dental appointment booking.
+                Please review all the information you&apos;ve provided above. Once you submit, you&apos;ll be able to proceed with your dental appointment booking.
               </p>
               <p className="text-blue-600 text-center text-xs mt-2">
                 You can go back to any previous step to make changes before submitting.

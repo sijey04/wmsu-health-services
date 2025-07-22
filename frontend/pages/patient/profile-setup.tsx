@@ -4020,7 +4020,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
               <p className="text-gray-700 text-center text-sm sm:text-base">
-                Please review all the information you've provided above. Once you submit, you'll be able to proceed with your <span className="font-semibold text-[#800000]">{option}</span>.
+                Please review all the information you&apos;ve provided above. Once you submit, you&apos;ll be able to proceed with your <span className="font-semibold text-[#800000]">{option}</span>.
               </p>
               <p className="text-gray-500 text-center text-xs mt-2">
                 You can go back to any previous step to make changes before submitting.

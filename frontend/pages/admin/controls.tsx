@@ -2858,7 +2858,7 @@ export default function AdminControls() {
             <div className="mt-3">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">
-                  Configure Sub-options for "{editingSubOptions?.name || editingSubOptions?.label}"
+                  Configure Sub-options for &ldquo;{editingSubOptions?.name || editingSubOptions?.label}&rdquo;
                 </h3>
                 <button
                   onClick={closeSubOptionsModal}

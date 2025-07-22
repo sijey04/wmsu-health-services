@@ -1,9 +1,10 @@
 import { ReactNode, useRef } from 'react';
 
 export default function Modal({ isOpen, onClose, children, maxWidthClass = 'max-w-md' }: { isOpen: boolean, onClose: () => void, children: ReactNode, maxWidthClass?: string }) {
+  const modalRef = useRef<HTMLDivElement>(null);
+  
   if (!isOpen) return null;
 
-  const modalRef = useRef<HTMLDivElement>(null);
   const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
     // Only close if the click is directly on the overlay, not on child elements
     if (e.target === e.currentTarget) {

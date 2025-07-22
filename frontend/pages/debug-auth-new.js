@@ -171,8 +171,8 @@ export default function DebugAuth() {
         <h3>Instructions:</h3>
         <ol>
           <li>Check localStorage values above - you should see access_token if logged in</li>
-          <li>Run "Test Direct Fetch" - should get 401 if no token, 200 if valid token</li>
-          <li>Run "Test waiversAPI.checkStatus" - this is the failing call from dental.tsx</li>
+          <li>Run &ldquo;Test Direct Fetch&rdquo; - should get 401 if no token, 200 if valid token</li>
+          <li>Run &ldquo;Test waiversAPI.checkStatus&rdquo; - this is the failing call from dental.tsx</li>
           <li>Check the Console tab for additional debugging info</li>
           <li>Compare the URLs and responses between the different methods</li>
         </ol>

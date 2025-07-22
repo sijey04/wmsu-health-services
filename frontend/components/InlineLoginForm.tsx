@@ -158,7 +158,7 @@ export default function InlineLoginForm({ onLogin, showSwitchLink = false, onSwi
       {showSwitchLink && (
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <button
               type="button"
               onClick={onSwitchToSignup}

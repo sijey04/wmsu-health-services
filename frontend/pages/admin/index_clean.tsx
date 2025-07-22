@@ -117,7 +117,7 @@ function AdminDashboard() {
   
   useEffect(() => {
     fetchStatistics();
-  }, []);
+  }, []); // Remove fetchStatistics dependency to avoid infinite loop
 
   // Calculate percentages
   const medicalCompletionRate = stats.medical.total > 0 ? (stats.medical.completed / stats.medical.total) * 100 : 0;

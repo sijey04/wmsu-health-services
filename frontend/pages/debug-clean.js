@@ -251,7 +251,7 @@ export default function DebugAuthClean() {
           <ul style={{ marginTop: '5px', marginBottom: '0' }}>
             <li>Direct Fetch: 401 (no token) or 200 (with token)</li>
             <li>waiversAPI: Same as Direct Fetch if working correctly</li>
-            <li>If getting 404 instead of 401/200, there's a routing issue</li>
+            <li>If getting 404 instead of 401/200, there&apos;s a routing issue</li>
           </ul>
         </div>
       </div>

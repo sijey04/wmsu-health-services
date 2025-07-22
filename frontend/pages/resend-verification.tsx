@@ -69,7 +69,7 @@ const ResendVerificationPage = () => {
               </div>
               <h2 className="text-2xl font-bold text-[#800000] mb-2">Resend Verification</h2>
               <p className="text-gray-600 text-sm">
-                Enter your email address and we'll send you a new verification link.
+                Enter your email address and we&apos;ll send you a new verification link.
               </p>
             </div>
 
@@ -143,7 +143,7 @@ const ResendVerificationPage = () => {
               <div className="text-center space-y-4">
                 <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-md text-sm">
                   <p className="font-medium">Check your email!</p>
-                  <p>We've sent a verification link to <strong>{email}</strong></p>
+                  <p>We&apos;ve sent a verification link to <strong>{email}</strong></p>
                   <p className="mt-2">Click the link in the email to verify your account.</p>
                 </div>
                 <Link 

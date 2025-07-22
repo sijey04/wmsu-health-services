@@ -96,7 +96,7 @@ export default function DentalMedicinesTest() {
 
       {medicines.length === 0 && !loading && (
         <div className="text-center text-gray-500 mt-8">
-          No dental medicines found. Click "Populate Sample Data" to add some.
+          No dental medicines found. Click &ldquo;Populate Sample Data&rdquo; to add some.
         </div>
       )}
     </div>

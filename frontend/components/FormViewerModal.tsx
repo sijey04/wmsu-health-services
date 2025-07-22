@@ -69,7 +69,6 @@ interface FormData {
   next_appointment?: string;
   treatment_priority?: string;
   remarks?: string;
-  examined_by?: string;
   examiner_position?: string;
   examiner_license?: string;
   examiner_ptr?: string;

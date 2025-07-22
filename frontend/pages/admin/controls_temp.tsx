@@ -86,7 +86,7 @@ export default function AdminControls() {
     }
 
     loadSettings();
-  }, [router]);
+  }, [router]); // Remove loadSettings dependency to avoid circular reference
 
   const loadSettings = async () => {
     try {

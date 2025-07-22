@@ -338,13 +338,13 @@ function DentalMedicinesAdmin() {
     if (activeTab === 'usage' || activeTab === 'reports') {
       loadUsageData();
     }
-  }, [activeTab]);
+  }, [activeTab]); // Remove loadUsageData dependency to avoid infinite loop
 
   useEffect(() => {
     if (usageData.length > 0) {
       generateUsageReport();
     }
-  }, [usageData, reportPeriod]);
+  }, [usageData, reportPeriod]); // Remove generateUsageReport dependency to avoid infinite loop
 
   return (
     <AdminLayout>

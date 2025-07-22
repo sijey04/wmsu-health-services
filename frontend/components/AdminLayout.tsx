@@ -36,10 +36,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     // Use uploaded profile photo if available
     if (user?.photo) {
       const photoUrl = user.photo.startsWith('http') ? user.photo : `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000'}${user.photo}`;
-      return <img className="w-8 h-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
+      return <Image className="w-8 h-8 rounded-full object-cover" src={photoUrl} alt="Profile" width={32} height={32} />;
     }
     if (user?.profile_picture) {
-      return <img className="w-8 h-8 rounded-full object-cover" src={user.profile_picture} alt="Profile" />;
+      return <Image className="w-8 h-8 rounded-full object-cover" src={user.profile_picture} alt="Profile" width={32} height={32} />;
     }
     const letter = user?.first_name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || 'A';
     return (
