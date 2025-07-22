@@ -2,14 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
-    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'http',
@@ -27,6 +20,14 @@ const nextConfig = {
   },
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: 'http://localhost:8000/api/:path*',
+      },
+    ];
   },
 }
 
