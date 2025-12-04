@@ -2,6 +2,7 @@
 import AdminLayout from '../../components/AdminLayout';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { djangoApiClient, patientsAPI, academicSemestersAPI } from '../../utils/api';
 import PatientProfileModal from '../../components/PatientProfileModal';
 import PatientProfileEditor from '../../components/PatientProfileEditor';
@@ -41,7 +42,7 @@ export default function AdminPatientProfile() {
 
   useEffect(() => {
     fetchPatients();
-  }, [searchTerm, userTypeFilter, selectedSemester, selectedAcademicYear]);
+  }, [searchTerm, userTypeFilter, selectedSemester, selectedAcademicYear]); // Remove fetchPatients dependency to avoid infinite loop
 
   const fetchSemesters = async () => {
     try {
@@ -455,7 +456,7 @@ export default function AdminPatientProfile() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {searchTerm && (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Search: "{searchTerm}"
+                    Search: &ldquo;{searchTerm}&rdquo;
                     <button 
                       onClick={() => setSearchTerm('')}
                       className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 hover:bg-blue-300"
@@ -553,7 +554,7 @@ export default function AdminPatientProfile() {
                               <UserGroupIcon className="w-12 h-12 text-gray-300 mb-4" />
                               <div className="text-lg font-medium text-gray-900 mb-2">No patients found</div>
                               <div className="text-sm text-gray-600">
-                                {searchTerm ? `Try adjusting your search for "${searchTerm}"` : 'No patient records match the current filters'}
+                                {searchTerm ? `Try adjusting your search for &ldquo;{searchTerm}&rdquo;` : 'No patient records match the current filters'}
                               </div>
                             </div>
                           </td>
@@ -566,9 +567,11 @@ export default function AdminPatientProfile() {
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-12 w-12">
                                   {patient.photo ? (
-                                    <img 
+                                    <Image 
                                       src={patient.photo} 
                                       alt={patient.name} 
+                                      width={48}
+                                      height={48}
                                       className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
                                     />
                                   ) : (
@@ -715,7 +718,10 @@ export default function AdminPatientProfile() {
       <PatientProfileModal 
         open={viewModalOpen} 
         patient={selectedPatient} 
+<<<<<<< HEAD
         allPatientProfiles={allPatientProfiles}
+=======
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         onClose={() => setViewModalOpen(false)} 
       />
       

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { patientProfileAPI, djangoApiClient } from '../../utils/api';
 import FeedbackModal from '../../components/feedbackmodal';
+import axios from 'axios';
 
 const steps = [
   { id: 1, title: 'Personal Information' },
@@ -44,12 +45,20 @@ export default function PatientProfileSetupPage() {
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<any[]>([]);
   const [medicalListsLoading, setMedicalListsLoading] = useState(false);
 
-  const progress = (currentStep / steps.length) * 100;
-
-  const requiredFieldsByStep = {
+  // Admin controls state
+  const [profileRequirements, setProfileRequirements] = useState<any[]>([]);
+  const [userTypeInformations, setUserTypeInformations] = useState<any[]>([]);
+  const [currentUserTypeConfig, setCurrentUserTypeConfig] = useState<any>(null);
+  const [availableFields, setAvailableFields] = useState<any>({
+    personal: [],
+    health: [],
+    emergency: [],
+    family: []
+  });
+  const [requiredFieldsByStep, setRequiredFieldsByStep] = useState<any>({
     1: [
       'name', 'first_name', 'date_of_birth', 'age', 'gender', 'blood_type', 'religion', 'nationality', 'civil_status', 'email', 'contact_number', 'city_municipality', 'barangay', 'street',
-      'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_middle_name', 'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_barangay', 'emergency_contact_street',
+      'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_barangay', 'emergency_contact_street',
     ],
     2: [
       // No required fields for health history step - optional information
@@ -57,6 +66,149 @@ export default function PatientProfileSetupPage() {
     3: [
       'hospital_admission_or_surgery'
     ]
+  });
+
+  // Edit mode and versioning state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalProfile, setOriginalProfile] = useState<any>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isNewProfile, setIsNewProfile] = useState(false); // Track if this is a newly created profile
+
+  const progress = (currentStep / steps.length) * 100;
+
+  // Helper function to check if a field should be shown based on admin configuration
+  const isFieldEnabled = (category: string, fieldName: string) => {
+    // First check UserTypeInformation configuration
+    if (currentUserTypeConfig && currentUserTypeConfig.required_fields) {
+      const isInUserTypeConfig = currentUserTypeConfig.required_fields.includes(fieldName) ||
+                                currentUserTypeConfig.required_fields.includes(fieldName.toLowerCase()) ||
+                                currentUserTypeConfig.required_fields.some((field: string) => 
+                                  field.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+                                );
+      if (isInUserTypeConfig) return true;
+    }
+    
+    // Fallback to legacy availableFields configuration
+    if (!availableFields[category] || availableFields[category].length === 0) {
+      return true; // Show all fields by default if no configuration is loaded
+    }
+    
+    return availableFields[category].some((field: any) => 
+      field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+    );
+  };
+
+  // Helper function to check if a field is required based on admin configuration
+  const isFieldRequired = (category: string, fieldName: string) => {
+    // First check UserTypeInformation configuration
+    if (currentUserTypeConfig && currentUserTypeConfig.required_fields) {
+      const isRequiredInUserType = currentUserTypeConfig.required_fields.includes(fieldName) ||
+                                  currentUserTypeConfig.required_fields.includes(fieldName.toLowerCase()) ||
+                                  currentUserTypeConfig.required_fields.some((field: string) => 
+                                    field.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+                                  );
+      if (isRequiredInUserType) return true;
+    }
+    
+    // Fallback to step-based requirements and legacy configuration
+    if (!availableFields[category] || availableFields[category].length === 0) {
+      return requiredFieldsByStep[currentStep]?.includes(fieldName) || false;
+    }
+    
+    const configField = availableFields[category].find((field: any) => 
+      field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+    );
+    
+    return configField ? configField.is_required : false;
+  };
+
+  // Helper function to get field description from admin configuration
+  const getFieldDescription = (category: string, fieldName: string) => {
+    // The current model doesn't have custom_fields, so return null for now
+    // This can be extended when custom fields functionality is added
+    
+    // Fallback to legacy availableFields configuration
+    if (!availableFields[category] || availableFields[category].length === 0) {
+      return null;
+    }
+    
+    const configField = availableFields[category].find((field: any) => 
+      field.field_name.toLowerCase().replace(/\s+/g, '_') === fieldName.toLowerCase()
+    );
+    
+    return configField ? configField.description : null;
+  };
+
+  // Get available options for user type specific fields
+  const getUserTypeOptions = (optionType: 'courses' | 'departments' | 'year_levels' | 'strands' | 'position_types') => {
+    if (!currentUserTypeConfig) return [];
+    
+    switch (optionType) {
+      case 'courses':
+        return currentUserTypeConfig.available_courses || [];
+      case 'departments':
+        return currentUserTypeConfig.available_departments || [];
+      case 'year_levels':
+        return currentUserTypeConfig.year_levels || [];
+      case 'strands':
+        return currentUserTypeConfig.available_strands || [];
+      case 'position_types':
+        return currentUserTypeConfig.position_types || [];
+      default:
+        return [];
+    }
+  };
+
+  // Check if user type allows specific services
+  const isServiceAllowed = (serviceType: 'medical' | 'dental' | 'certificate') => {
+    // Since the current model doesn't have allowed_services field, allow all services by default
+    return true;
+  };
+
+  // Show notification about admin-controlled fields
+  const showAdminControlledNotification = () => {
+    const hasUserTypeConfig = currentUserTypeConfig && currentUserTypeConfig.required_fields && currentUserTypeConfig.required_fields.length > 0;
+    const hasConfiguredFields = Object.values(availableFields).some(category => 
+      Array.isArray(category) && category.length > 0
+    );
+    
+    if (hasUserTypeConfig || hasConfiguredFields) {
+      return (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">
+                Profile Configuration Active
+              </h3>
+              <div className="mt-2 text-sm text-blue-700">
+                {hasUserTypeConfig && (
+                  <p className="mb-2">
+                    <strong>User Type:</strong> {currentUserTypeConfig.name}
+                    {currentUserTypeConfig.description && (
+                      <span className="ml-2 text-blue-600">- {currentUserTypeConfig.description}</span>
+                    )}
+                  </p>
+                )}
+                {hasUserTypeConfig && (
+                  <p className="mb-2">
+                    <strong>Required Fields:</strong> {currentUserTypeConfig.required_fields.length} fields configured
+                  </p>
+                )}
+                <p className="text-xs text-blue-600">
+                  Form fields and requirements are controlled by system administrators to ensure proper data collection for your user type.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   // Define fetchProfile function outside useEffect so it can be called from multiple places
@@ -86,6 +238,9 @@ export default function PatientProfileSetupPage() {
         if (!profileData.suffix && user.suffix) profileData.suffix = user.suffix;
         if (!profileData.email && user.email) profileData.email = user.email;
         if (!profileData.nationality) profileData.nationality = 'Filipino';
+        
+        // Add user type information
+        if (!profileData.user_type && user.grade_level) profileData.user_type = user.grade_level;
         
         // Handle backward compatibility for address field
         if (profileData.address && !profileData.city_municipality && !profileData.barangay && !profileData.street) {
@@ -137,6 +292,32 @@ export default function PatientProfileSetupPage() {
       setProfileVersion(profileData.version || 1);
       setIsEditMode(false);
       setHasChanges(false);
+      
+      // Debug enhanced comorbid illness fields
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== PROFILE LOADED DEBUG ===');
+        console.log('Full profile data:', profileData);
+        console.log('Comorbid illnesses:', profileData.comorbid_illnesses);
+        
+        // Check for enhanced comorbid illness fields
+        Object.keys(profileData).forEach(key => {
+          if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
+            console.log(`Enhanced field ${key}:`, profileData[key]);
+          }
+        });
+      }
+      
+      // Store original profile for change detection
+      setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
+      
+      // Check if profile exists (not a new one)
+      if (profileData.id) {
+        setIsEditMode(false); // Start in view mode for existing profiles
+        setIsNewProfile(false); // This is an existing profile
+      } else {
+        setIsEditMode(true); // Start in edit mode for new profiles
+        setIsNewProfile(true); // This is a new profile
+      }
       
       // Debug photo loading
       if (process.env.NODE_ENV === 'development') {
@@ -193,6 +374,37 @@ export default function PatientProfileSetupPage() {
             }
           });
           
+          // Process enhanced ComorbidIllness details if available
+          if (autofillData.comorbid_illness_details && typeof autofillData.comorbid_illness_details === 'object') {
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Processing enhanced ComorbidIllness details:', autofillData.comorbid_illness_details);
+            }
+            
+            // Map the enhanced details to the dynamic field structure
+            Object.keys(autofillData.comorbid_illness_details).forEach(illnessKey => {
+              const details = autofillData.comorbid_illness_details[illnessKey];
+              if (details && typeof details === 'object') {
+                // Process sub-options
+                if (details.sub_options && Array.isArray(details.sub_options)) {
+                  const subFieldName = `comorbid_${illnessKey}_sub`;
+                  defaultProfile[subFieldName] = details.sub_options;
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`Autofilled ${subFieldName}:`, details.sub_options);
+                  }
+                }
+                
+                // Process specifications
+                if (details.specification && typeof details.specification === 'string') {
+                  const specFieldName = `comorbid_${illnessKey}_spec`;
+                  defaultProfile[specFieldName] = details.specification;
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log(`Autofilled ${specFieldName}:`, details.specification);
+                  }
+                }
+              }
+            });
+          }
+          
           // Mark as auto-filled if we have previous data
           if (autofillData.has_previous_data && autofillData.autofilled_from_year) {
             setIsAutoFilled(true);
@@ -209,10 +421,33 @@ export default function PatientProfileSetupPage() {
           // Store as original profile for new autofilled profiles
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setProfile(defaultProfile);
+<<<<<<< HEAD
           setExistingProfileId(null);
           setProfileVersion(1);
           setIsEditMode(false);
           setHasChanges(false);
+=======
+          
+          // Debug enhanced comorbid illness fields in autofill
+          if (process.env.NODE_ENV === 'development') {
+            console.log('=== AUTOFILL DEBUG ===');
+            console.log('Autofill data received:', autofillData);
+            console.log('Default profile created:', defaultProfile);
+            console.log('Comorbid illnesses in autofill:', defaultProfile.comorbid_illnesses);
+            
+            // Check for enhanced comorbid illness fields
+            Object.keys(defaultProfile).forEach(key => {
+              if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
+                console.log(`Enhanced autofill field ${key}:`, defaultProfile[key]);
+              }
+            });
+          }
+          
+          // Store original profile for change detection
+          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
+          setIsEditMode(true); // Start in edit mode for new profiles
+          setIsNewProfile(true); // This is a new profile
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         } catch (autofillErr: any) {
           console.error('Failed to get autofill data:', autofillErr);
           // Fallback to basic user info
@@ -238,15 +473,24 @@ export default function PatientProfileSetupPage() {
             if (user.middle_name) defaultProfile.middle_name = user.middle_name;
             if (user.suffix) defaultProfile.suffix = user.suffix;
             if (user.email) defaultProfile.email = user.email;
+            if (user.grade_level) defaultProfile.user_type = user.grade_level;
           }
           
           // Store as original profile for fallback profiles too
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setProfile(defaultProfile);
+<<<<<<< HEAD
           setExistingProfileId(null);
           setProfileVersion(1);
           setIsEditMode(false);
           setHasChanges(false);
+=======
+          
+          // Store original profile for change detection
+          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
+          setIsEditMode(true); // Start in edit mode for new profiles
+          setIsNewProfile(true); // This is a new profile
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         }
       } else {
         console.error('Error fetching profile:', err);
@@ -255,6 +499,143 @@ export default function PatientProfileSetupPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Input sanitization functions
+  const sanitizeInput = (value: string, type: 'text' | 'email' | 'phone' | 'number' | 'name' = 'text'): string => {
+    if (!value) return value;
+    
+    let sanitized = value.toString().trim();
+    
+    switch (type) {
+      case 'name':
+        // Remove numbers and special characters except hyphens, apostrophes, periods
+        sanitized = sanitized.replace(/[^a-zA-Z\s\-'\.]/g, '');
+        // Capitalize first letter of each word
+        sanitized = sanitized.replace(/\b\w/g, l => l.toUpperCase());
+        break;
+      case 'email':
+        // Convert to lowercase and remove invalid characters
+        sanitized = sanitized.toLowerCase().replace(/[^a-z0-9@._-]/g, '');
+        break;
+      case 'phone':
+        // Remove all non-numeric characters
+        sanitized = sanitized.replace(/[^0-9]/g, '');
+        // Ensure it starts with 09 and is 11 digits
+        if (sanitized.length === 11 && sanitized.startsWith('09')) {
+          return sanitized;
+        }
+        break;
+      case 'number':
+        // Remove non-numeric characters except decimal point
+        sanitized = sanitized.replace(/[^0-9.]/g, '');
+        break;
+      case 'text':
+      default:
+        // Remove dangerous characters but keep basic punctuation
+        sanitized = sanitized.replace(/[<>\"'&]/g, '');
+        break;
+    }
+    
+    return sanitized;
+  };
+
+  // Enhanced validation function
+  const validateField = (field: string, value: any): string | null => {
+    if (!value && typeof value !== 'boolean') return null;
+    
+    const stringValue = value?.toString().trim();
+    
+    switch (field) {
+      case 'name':
+      case 'first_name':
+      case 'middle_name':
+      case 'emergency_contact_surname':
+      case 'emergency_contact_first_name':
+      case 'emergency_contact_middle_name':
+        if (stringValue && stringValue.length < 2) {
+          return 'Name must be at least 2 characters long.';
+        }
+        if (stringValue && !/^[a-zA-Z\s\-'\.]+$/.test(stringValue)) {
+          return 'Name can only contain letters, spaces, hyphens, apostrophes, and periods.';
+        }
+        break;
+        
+      case 'email':
+        if (stringValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(stringValue)) {
+          return 'Please enter a valid email address.';
+        }
+        break;
+        
+      case 'contact_number':
+      case 'emergency_contact_number':
+        if (stringValue && !/^09\d{9}$/.test(stringValue)) {
+          return 'Phone number must be 11 digits and start with 09.';
+        }
+        break;
+        
+      case 'date_of_birth':
+        if (stringValue) {
+          const birthDate = new Date(stringValue);
+          const today = new Date();
+          const minDate = new Date();
+          minDate.setFullYear(today.getFullYear() - 120); // Max age 120
+          
+          if (birthDate > today) {
+            return 'Birthday cannot be in the future.';
+          }
+          if (birthDate < minDate) {
+            return 'Please enter a valid birth date.';
+          }
+          
+          // Check if person is at least 3 years old for kindergarten and above
+          const age = today.getFullYear() - birthDate.getFullYear();
+          if (age < 3) {
+            return 'Person must be at least 3 years old.';
+          }
+        }
+        break;
+        
+      case 'age':
+        if (stringValue) {
+          const ageNum = parseInt(stringValue);
+          if (isNaN(ageNum) || ageNum < 3 || ageNum > 120) {
+            return 'Age must be between 3 and 120 years.';
+          }
+        }
+        break;
+        
+      case 'employee_id':
+        if (stringValue && (stringValue.length < 3 || stringValue.length > 20)) {
+          return 'Employee ID must be between 3 and 20 characters.';
+        }
+        if (stringValue && !/^[a-zA-Z0-9\-_]+$/.test(stringValue)) {
+          return 'Employee ID can only contain letters, numbers, hyphens, and underscores.';
+        }
+        break;
+        
+      case 'city_municipality':
+      case 'barangay':
+      case 'street':
+      case 'emergency_contact_barangay':
+      case 'emergency_contact_street':
+        if (stringValue && stringValue.length < 2) {
+          return 'Address field must be at least 2 characters long.';
+        }
+        if (stringValue && !/^[a-zA-Z0-9\s\-'.,#\/]+$/.test(stringValue)) {
+          return 'Address can only contain letters, numbers, spaces, and common punctuation.';
+        }
+        break;
+        
+      default:
+        // Generic text validation
+        if (stringValue && stringValue.length > 500) {
+          return 'Text is too long (maximum 500 characters).';
+        }
+        break;
+    }
+    
+    return null;
   };
 
   const validateStep = (step: number) => {
@@ -267,60 +648,43 @@ export default function PatientProfileSetupPage() {
       console.log(`Validating step ${step}, current step: ${currentStep}`);
       console.log(`Required fields for step ${step}:`, required);
       console.log('Current profile data:', profile);
+      console.log('Profile keys:', Object.keys(profile || {}));
     }
     
     // Only validate fields for the current step
     required.forEach(field => {
       const value = profile?.[field];
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Checking field '${field}':`, value, typeof value);
+        console.log(`Checking field '${field}':`, value, typeof value, 'exists in profile:', field in (profile || {}));
       }
       
-      // Special handling for boolean fields: only undefined/null is considered missing
+      // Check if field is required and missing
       if (typeof value === 'boolean') {
         if (value === undefined || value === null) {
           errors[field] = 'This field is required.';
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Field '${field}' is missing (boolean)`);
-          }
         }
-      } else if (!value || (Array.isArray(value) && value.length === 0)) {
+      } else if (!value || (Array.isArray(value) && value.length === 0) || (typeof value === 'string' && value.trim() === '')) {
         errors[field] = 'This field is required.';
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Field '${field}' is missing (empty/null)`);
-        }
       } else {
-        // Format validation for specific fields
-        if (field === 'email' && value) {
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(value)) {
-            errors[field] = 'Please enter a valid email address.';
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Field '${field}' has invalid format`);
-            }
-          }
-        }
-        if (field === 'contact_number' && value) {
-          const phoneRegex = /^09\d{9}$/;
-          if (!phoneRegex.test(value)) {
-            errors[field] = 'Phone number must be 11 digits and start with 09.';
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Field '${field}' has invalid format`);
-            }
-          }
-        }
-        if (field === 'date_of_birth' && value) {
-          const birthDate = new Date(value);
-          const today = new Date();
-          if (birthDate > today) {
-            errors[field] = 'Birthday cannot be in the future.';
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`Field '${field}' has invalid date`);
-            }
-          }
+        // Apply field-specific validation
+        const validationError = validateField(field, value);
+        if (validationError) {
+          errors[field] = validationError;
         }
       }
     });
+
+    // Additional validation for ALL fields (not just required ones) to catch format errors
+    if (profile) {
+      Object.keys(profile).forEach(field => {
+        if (profile[field] && !errors[field]) {
+          const validationError = validateField(field, profile[field]);
+          if (validationError) {
+            errors[field] = validationError;
+          }
+        }
+      });
+    }
 
     // STEP-SPECIFIC VALIDATIONS
     
@@ -351,6 +715,45 @@ export default function PatientProfileSetupPage() {
           console.log('Photo is required for new profile');
         }
       }
+
+      // Conditional validation based on user type
+      if (profile?.user_type === 'Employee') {
+        if (!profile?.employee_id || profile.employee_id.trim() === '') {
+          errors.employee_id = 'Employee ID is required.';
+        }
+        if (!profile?.department || profile.department.trim() === '') {
+          errors.department = 'Department is required.';
+        }
+        if (!profile?.position_type || profile.position_type.trim() === '') {
+          errors.position_type = 'Position type is required.';
+        }
+      }
+
+      if (profile?.user_type === 'College' || profile?.user_type === 'Incoming Freshman') {
+        if (!profile?.course || profile.course.trim() === '') {
+          errors.course = 'Course is required.';
+        }
+        if (!profile?.year_level || profile.year_level.trim() === '') {
+          errors.year_level = 'Year level is required.';
+        }
+      }
+
+      if (profile?.user_type === 'High School' || profile?.user_type === 'Senior High School') {
+        if (!profile?.year_level || profile.year_level.trim() === '') {
+          errors.year_level = 'Year level is required.';
+        }
+        if (profile?.user_type === 'Senior High School') {
+          if (!profile?.strand || profile.strand.trim() === '') {
+            errors.strand = 'Strand is required.';
+          }
+        }
+      }
+
+      if (profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') {
+        if (!profile?.year_level || profile.year_level.trim() === '') {
+          errors.year_level = 'Year level is required.';
+        }
+      }
     }
 
     // CONDITIONAL VALIDATION - Only run for relevant steps and when conditions are actually met
@@ -360,14 +763,35 @@ export default function PatientProfileSetupPage() {
       if (process.env.NODE_ENV === 'development') {
         console.log('=== STEP 2 VALIDATION ===');
         console.log('Comorbid illnesses:', profile?.comorbid_illnesses);
+        console.log('Available comorbid illness options:', comorbidIllnesses);
       }
       
-      // Food allergies validation - only if "Food Allergies" is selected
+      // Enhanced ComorbidIllness validation - check each selected illness for specification requirements
+      if (Array.isArray(profile?.comorbid_illnesses) && Array.isArray(comorbidIllnesses)) {
+        profile.comorbid_illnesses.forEach(selectedIllness => {
+          const illnessConfig = comorbidIllnesses.find(illness => illness.label === selectedIllness);
+          if (illnessConfig && illnessConfig.requires_specification) {
+            const fieldName = `comorbid_${selectedIllness.toLowerCase().replace(/\s+/g, '_')}_spec`;
+            if (!profile?.[fieldName] || profile[fieldName].trim() === '') {
+              errors[fieldName] = `Please specify details for ${selectedIllness}.`;
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`${selectedIllness} requires specification but field ${fieldName} is empty`);
+              }
+            }
+          }
+        });
+      }
+      
+      // Backward compatibility: Food allergies validation - only if "Food Allergies" is selected and NOT using dynamic specification
+      const foodAllergiesConfig = comorbidIllnesses.find(illness => illness.label === 'Food Allergies');
       if (Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Food Allergies')) {
-        if (!profile?.food_allergy_specify || profile.food_allergy_specify.trim() === '') {
-          errors.food_allergy_specify = 'Please specify the food allergies.';
-          if (process.env.NODE_ENV === 'development') {
-            console.log('Food allergies requires specification');
+        // If Food Allergies doesn't have dynamic specification enabled, use legacy validation
+        if (!foodAllergiesConfig?.requires_specification) {
+          if (!profile?.food_allergy_specify || profile.food_allergy_specify.trim() === '') {
+            errors.food_allergy_specify = 'Please specify the food allergies.';
+            if (process.env.NODE_ENV === 'development') {
+              console.log('Food allergies requires specification (legacy)');
+            }
           }
         }
       }
@@ -376,6 +800,42 @@ export default function PatientProfileSetupPage() {
       if (profile?.other_comorbid_specify !== undefined && profile.other_comorbid_specify !== null && profile.other_comorbid_specify.trim() === '') {
         // If the field exists but is empty, don't require it to be filled
         // This allows users to clear the field without validation errors
+      }
+
+      // Medication validation
+      if (profile?.maintenance_medications && Array.isArray(profile.maintenance_medications)) {
+        profile.maintenance_medications.forEach((med: any, idx: number) => {
+          if (med.drug || med.dose || med.unit || med.frequency || med.duration || med.custom_duration) {
+            // If any field is filled, validate all required fields
+            if (!med.drug || med.drug.trim() === '') {
+              errors[`medication_${idx}_drug`] = `Medication #${idx + 1}: Drug name is required.`;
+            }
+            if (!med.dose || med.dose.trim() === '') {
+              errors[`medication_${idx}_dose`] = `Medication #${idx + 1}: Dose is required.`;
+            } else if (!/^\d+(\.\d+)?$/.test(med.dose.toString())) {
+              errors[`medication_${idx}_dose`] = `Medication #${idx + 1}: Dose must be a valid number.`;
+            }
+            if (!med.unit || med.unit.trim() === '') {
+              errors[`medication_${idx}_unit`] = `Medication #${idx + 1}: Unit is required.`;
+            }
+            if (!med.frequency || med.frequency.trim() === '' || med.frequency === 'Frequency') {
+              errors[`medication_${idx}_frequency`] = `Medication #${idx + 1}: Frequency is required.`;
+            }
+            
+            // Duration validation - check both regular duration and custom duration
+            if (med.duration_type === 'specify') {
+              if (!med.custom_duration || med.custom_duration.trim() === '') {
+                errors[`medication_${idx}_custom_duration`] = `Medication #${idx + 1}: Please specify the duration.`;
+              } else if (med.custom_duration.trim().length < 3) {
+                errors[`medication_${idx}_custom_duration`] = `Medication #${idx + 1}: Duration specification is too short.`;
+              }
+            } else {
+              if (!med.duration || med.duration.trim() === '') {
+                errors[`medication_${idx}_duration`] = `Medication #${idx + 1}: Duration is required.`;
+              }
+            }
+          }
+        });
       }
     }
 
@@ -419,6 +879,12 @@ export default function PatientProfileSetupPage() {
             console.log('Hospital admission/surgery details required');
           }
         }
+        if (!profile?.hospital_admission_year || profile.hospital_admission_year.trim() === '') {
+          errors.hospital_admission_year = 'Please provide the year when the hospital admission or surgery occurred.';
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Hospital admission/surgery year required');
+          }
+        }
       }
     }
 
@@ -443,14 +909,29 @@ export default function PatientProfileSetupPage() {
     // Include conditional validation errors based on the step
     if (step === 1) {
       if (errors.photo) stepSpecificErrors.photo = errors.photo;
+      // User type conditional fields
+      if (errors.employee_id) stepSpecificErrors.employee_id = errors.employee_id;
+      if (errors.department) stepSpecificErrors.department = errors.department;
+      if (errors.position_type) stepSpecificErrors.position_type = errors.position_type;
+      if (errors.course) stepSpecificErrors.course = errors.course;
+      if (errors.year_level) stepSpecificErrors.year_level = errors.year_level;
+      if (errors.strand) stepSpecificErrors.strand = errors.strand;
     } else if (step === 2) {
       if (errors.food_allergy_specify) stepSpecificErrors.food_allergy_specify = errors.food_allergy_specify;
       if (errors.other_comorbid_specify) stepSpecificErrors.other_comorbid_specify = errors.other_comorbid_specify;
+      
+      // Include all medication validation errors for step 2
+      Object.keys(errors).forEach(errorKey => {
+        if (errorKey.startsWith('medication_')) {
+          stepSpecificErrors[errorKey] = errors[errorKey];
+        }
+      });
     } else if (step === 3) {
       if (errors.past_medical_history_other) stepSpecificErrors.past_medical_history_other = errors.past_medical_history_other;
       if (errors.family_medical_history_other) stepSpecificErrors.family_medical_history_other = errors.family_medical_history_other;
       if (errors.family_medical_history_allergies) stepSpecificErrors.family_medical_history_allergies = errors.family_medical_history_allergies;
       if (errors.hospital_admission_details) stepSpecificErrors.hospital_admission_details = errors.hospital_admission_details;
+      if (errors.hospital_admission_year) stepSpecificErrors.hospital_admission_year = errors.hospital_admission_year;
     }
     
     if (process.env.NODE_ENV === 'development') {
@@ -510,25 +991,164 @@ export default function PatientProfileSetupPage() {
       }
     }
 
+    // Load UserTypeInformation configurations
+    const loadUserTypeInformations = async () => {
+      try {
+        const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+        if (!token) return;
+        
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/admin-controls/user-type-information/`, 
+          { 
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10000
+          }
+        );
+        
+        setUserTypeInformations(response.data);
+        
+        // Set current user type configuration based on user's type
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          const userTypeConfig = response.data.find((uti: any) => 
+            uti.name === user.user_type || 
+            uti.name.toLowerCase() === user.user_type?.toLowerCase()
+          );
+          if (userTypeConfig && userTypeConfig.enabled) {
+            setCurrentUserTypeConfig(userTypeConfig);
+            
+            // Update required fields based on user type configuration
+            if (userTypeConfig.required_fields && userTypeConfig.required_fields.length > 0) {
+              setRequiredFieldsByStep(prev => ({
+                ...prev,
+                1: Array.from(new Set([...prev[1], ...userTypeConfig.required_fields])) // Merge with existing requirements
+              }));
+            }
+            
+            if (process.env.NODE_ENV === 'development') {
+              console.log('UserTypeInformation config loaded for user type:', user.user_type);
+              console.log('Configuration:', userTypeConfig);
+              console.log('Required fields:', userTypeConfig.required_fields);
+            }
+          }
+        }
+      } catch (err: any) {
+        console.error('Failed to fetch user type information:', err);
+        // Use fallback demo data for development
+        if (process.env.NODE_ENV === 'development') {
+          const userStr = localStorage.getItem('user');
+          if (userStr) {
+            const user = JSON.parse(userStr);
+            const demoConfig = {
+              id: 1,
+              user_type: user.user_type || 'College',
+              display_name: `${user.user_type || 'College'} Students`,
+              description: 'Demo configuration for development',
+              required_fields: ['name', 'first_name', 'date_of_birth', 'email', 'contact_number'],
+              available_courses: ['Computer Science', 'Engineering', 'Business', 'Education'],
+              available_departments: ['CCS', 'Engineering', 'Business', 'Education'],
+              available_year_levels: ['1st Year', '2nd Year', '3rd Year', '4th Year'],
+              is_active: true,
+              requires_approval: false,
+              allowed_services: ['medical', 'dental', 'certificate'],
+              custom_fields: {},
+            };
+            setCurrentUserTypeConfig(demoConfig);
+            setUserTypeInformations([demoConfig]);
+          }
+        }
+      }
+    };
+
     // Load medical lists from API
     const loadMedicalLists = async () => {
       setMedicalListsLoading(true);
       try {
+        // Load profile requirements from admin controls
+        try {
+          const configResponse = await djangoApiClient.get('/admin-controls/profile_requirements/get_form_configuration/');
+          if (configResponse.data) {
+            setAvailableFields(configResponse.data);
+            
+            // NOTE: Personal information fields are NOT controlled by admin configuration
+            // Only medical fields (comorbid illnesses, vaccinations, etc.) are admin-controlled
+            // Keep the hardcoded required fields for personal information
+            
+            // No need to update requiredFieldsByStep - keep the default configuration
+            // The admin controls only affect the medical data options, not form field requirements
+          }
+        } catch (error) {
+          console.log('Profile Requirements API not available, using default configuration');
+          // Keep default field configuration if API fails
+        }
+
         // Load comorbid illnesses
         try {
           const comorbidResponse = await djangoApiClient.get('/user-management/comorbid_illnesses/');
           if (comorbidResponse.data) {
-            setComorbidIllnesses(comorbidResponse.data.filter(illness => illness.is_enabled));
+            console.log('Raw comorbid illnesses from API:', comorbidResponse.data);
+            const enabledIllnesses = comorbidResponse.data.filter(illness => illness.is_enabled);
+            console.log('Filtered enabled comorbid illnesses:', enabledIllnesses);
+            setComorbidIllnesses(enabledIllnesses);
           }
         } catch (error) {
           console.log('Comorbid Illnesses API not available, using fallback data');
           setComorbidIllnesses([
-            { id: 1, label: 'Bronchial Asthma ("Hika")', is_enabled: true },
-            { id: 2, label: 'Food Allergies', is_enabled: true },
-            { id: 3, label: 'Allergic Rhinitis', is_enabled: true },
-            { id: 4, label: 'Hyperthyroidism', is_enabled: true },
-            { id: 5, label: 'Hypothyroidism/Goiter', is_enabled: true },
-            { id: 6, label: 'Anemia', is_enabled: true }
+            { 
+              id: 1, 
+              label: 'Bronchial Asthma ("Hika")', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 2, 
+              label: 'Food Allergies', 
+              is_enabled: true,
+              has_sub_options: true,
+              sub_options: ['Shellfish', 'Nuts', 'Dairy', 'Eggs', 'Wheat/Gluten', 'Soy', 'Fish', 'Other'],
+              requires_specification: true,
+              specification_placeholder: 'Specify severity of reactions or other details'
+            },
+            { 
+              id: 3, 
+              label: 'Allergic Rhinitis', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 4, 
+              label: 'Hyperthyroidism', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 5, 
+              label: 'Hypothyroidism/Goiter', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            },
+            { 
+              id: 6, 
+              label: 'Anemia', 
+              is_enabled: true,
+              has_sub_options: false,
+              sub_options: [],
+              requires_specification: false,
+              specification_placeholder: ''
+            }
           ]);
         }
 
@@ -536,7 +1156,10 @@ export default function PatientProfileSetupPage() {
         try {
           const vaccinationResponse = await djangoApiClient.get('/user-management/vaccinations/');
           if (vaccinationResponse.data) {
-            setVaccinations(vaccinationResponse.data.filter(vaccination => vaccination.is_enabled));
+            console.log('Raw vaccinations from API:', vaccinationResponse.data);
+            const enabledVaccinations = vaccinationResponse.data.filter(vaccination => vaccination.is_enabled);
+            console.log('Filtered enabled vaccinations:', enabledVaccinations);
+            setVaccinations(enabledVaccinations);
           }
         } catch (error) {
           console.log('Vaccinations API not available, using fallback data');
@@ -553,7 +1176,10 @@ export default function PatientProfileSetupPage() {
         try {
           const pastMedicalResponse = await djangoApiClient.get('/user-management/past_medical_histories/');
           if (pastMedicalResponse.data) {
-            setPastMedicalHistories(pastMedicalResponse.data.filter(history => history.is_enabled));
+            console.log('Raw past medical histories from API:', pastMedicalResponse.data);
+            const enabledHistories = pastMedicalResponse.data.filter(history => history.is_enabled);
+            console.log('Filtered enabled past medical histories:', enabledHistories);
+            setPastMedicalHistories(enabledHistories);
           }
         } catch (error) {
           console.log('Past Medical Histories API not available, using fallback data');
@@ -571,7 +1197,10 @@ export default function PatientProfileSetupPage() {
         try {
           const familyMedicalResponse = await djangoApiClient.get('/user-management/family_medical_histories/');
           if (familyMedicalResponse.data) {
-            setFamilyMedicalHistories(familyMedicalResponse.data.filter(history => history.is_enabled));
+            console.log('Raw family medical histories from API:', familyMedicalResponse.data);
+            const enabledFamilyHistories = familyMedicalResponse.data.filter(history => history.is_enabled);
+            console.log('Filtered enabled family medical histories:', enabledFamilyHistories);
+            setFamilyMedicalHistories(enabledFamilyHistories);
           }
         } catch (error) {
           console.log('Family Medical Histories API not available, using fallback data');
@@ -594,6 +1223,7 @@ export default function PatientProfileSetupPage() {
     };
 
     loadCurrentSchoolYear();
+    loadUserTypeInformations();
     loadMedicalLists();
   }, []);
 
@@ -605,6 +1235,7 @@ export default function PatientProfileSetupPage() {
   }, [currentSchoolYear, currentSemester]);
 
   const handleProfileChange = (field: string, value: any) => {
+    // Handle special date of birth case
     if (field === 'date_of_birth') {
       const birthDate = new Date(value);
       const today = new Date();
@@ -615,11 +1246,22 @@ export default function PatientProfileSetupPage() {
       }
       setProfile((prev: any) => {
         const newProfile = { ...prev, date_of_birth: value, age: age > 0 ? age : '' };
+<<<<<<< HEAD
         checkForChanges(newProfile);
+=======
+        
+        // Check for changes
+        if (originalProfile) {
+          const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+          setHasUnsavedChanges(hasChanges);
+        }
+        
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         return newProfile;
       });
       return;
     }
+<<<<<<< HEAD
     setProfile((prev: any) => {
       const newProfile = { ...prev, [field]: value };
       checkForChanges(newProfile);
@@ -669,6 +1311,73 @@ export default function PatientProfileSetupPage() {
     }
 
     setHasChanges(hasChanged);
+=======
+    
+    // Apply input sanitization based on field type
+    let sanitizedValue = value;
+    if (typeof value === 'string') {
+      switch (field) {
+        case 'name':
+        case 'first_name':
+        case 'middle_name':
+        case 'emergency_contact_surname':
+        case 'emergency_contact_first_name':
+        case 'emergency_contact_middle_name':
+          sanitizedValue = sanitizeInput(value, 'name');
+          break;
+        case 'email':
+          sanitizedValue = sanitizeInput(value, 'email');
+          break;
+        case 'contact_number':
+        case 'emergency_contact_number':
+          sanitizedValue = sanitizeInput(value, 'phone');
+          break;
+        case 'employee_id':
+          // Allow alphanumeric, hyphens, and underscores
+          sanitizedValue = value.replace(/[^a-zA-Z0-9\-_]/g, '');
+          break;
+        case 'city_municipality':
+        case 'barangay':
+        case 'street':
+        case 'emergency_contact_barangay':
+        case 'emergency_contact_street':
+          // Allow letters, numbers, spaces, and common punctuation for addresses
+          sanitizedValue = value.replace(/[^a-zA-Z0-9\s\-'.,#\/]/g, '');
+          break;
+        default:
+          sanitizedValue = sanitizeInput(value, 'text');
+          break;
+      }
+    }
+    
+    setProfile((prev: any) => {
+      const newProfile = { ...prev, [field]: sanitizedValue };
+      
+      // Real-time validation feedback - clear error for this field if it's now valid
+      const validationError = validateField(field, sanitizedValue);
+      if (!validationError && fieldErrors[field]) {
+        setFieldErrors(prevErrors => {
+          const newErrors = { ...prevErrors };
+          delete newErrors[field];
+          return newErrors;
+        });
+      } else if (validationError) {
+        // Set error immediately for better UX
+        setFieldErrors(prevErrors => ({
+          ...prevErrors,
+          [field]: validationError
+        }));
+      }
+      
+      // Check for changes
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+      return newProfile;
+    });
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
   };
 
   const handleProfileSave = async () => {
@@ -676,16 +1385,54 @@ export default function PatientProfileSetupPage() {
     setError('');
     setSuccess(false);
     try {
+      // Collect enhanced ComorbidIllness details
+      const comorbidIllnessDetails: any = {};
+      
+      // Process all comorbid illness related fields
+      Object.keys(profile).forEach(key => {
+        if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
+          // Extract the illness name from the field name
+          let illnessKey = '';
+          if (key.includes('_sub')) {
+            illnessKey = key.replace('comorbid_', '').replace('_sub', '');
+          } else if (key.includes('_spec')) {
+            illnessKey = key.replace('comorbid_', '').replace('_spec', '');
+          }
+          
+          if (illnessKey && profile[key]) {
+            if (!comorbidIllnessDetails[illnessKey]) {
+              comorbidIllnessDetails[illnessKey] = {};
+            }
+            
+            if (key.includes('_sub') && Array.isArray(profile[key]) && profile[key].length > 0) {
+              comorbidIllnessDetails[illnessKey].sub_options = profile[key];
+            } else if (key.includes('_spec') && typeof profile[key] === 'string' && profile[key].trim()) {
+              comorbidIllnessDetails[illnessKey].specification = profile[key].trim();
+            }
+          }
+        }
+      });
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Collected ComorbidIllness details for save:', comorbidIllnessDetails);
+      }
+      
+      // Add the enhanced details to the profile
+      const enhancedProfile = {
+        ...profile,
+        comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null
+      };
+      
       // Prepare the form data
       const formData = new FormData();
-      for (const key in profile) {
-        if (profile[key] !== undefined && profile[key] !== null) {
-          if (key === 'photo' && profile[key] instanceof File) {
-            formData.append('photo', profile[key]);
-          } else if (typeof profile[key] === 'object' && !(profile[key] instanceof File)) {
-            formData.append(key, JSON.stringify(profile[key]));
+      for (const key in enhancedProfile) {
+        if (enhancedProfile[key] !== undefined && enhancedProfile[key] !== null) {
+          if (key === 'photo' && enhancedProfile[key] instanceof File) {
+            formData.append('photo', enhancedProfile[key]);
+          } else if (typeof enhancedProfile[key] === 'object' && !(enhancedProfile[key] instanceof File)) {
+            formData.append(key, JSON.stringify(enhancedProfile[key]));
           } else if (key !== 'photo') {
-            formData.append(key, profile[key]);
+            formData.append(key, enhancedProfile[key]);
           }
         }
       }
@@ -704,6 +1451,7 @@ export default function PatientProfileSetupPage() {
       // Check if we need to create a new profile version or update existing one
       let shouldCreateNewVersion = false;
       
+<<<<<<< HEAD
       if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
         // If the current profile has a different school year OR semester, create new profile
         shouldCreateNewVersion = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
@@ -719,6 +1467,32 @@ export default function PatientProfileSetupPage() {
         const nextVersion = profileVersion + 1;
         formData.append('version', nextVersion.toString());
         formData.append('previous_version_id', existingProfileId.toString());
+=======
+      // Logic for versioning:
+      // 1. If it's a new profile (no existing ID), always create new
+      // 2. If it's an existing profile with changes, create new version (versioning)
+      // 3. If it's a newly created profile being edited, just update (overwrite)
+      
+      if (!profile?.id) {
+        // No ID means it's a completely new profile
+        shouldCreateNew = true;
+      } else if (isNewProfile && hasUnsavedChanges) {
+        // This is a profile that was just created in this session, overwrite it
+        shouldCreateNew = false;
+      } else if (!isNewProfile && hasUnsavedChanges) {
+        // This is an existing profile with changes, create new version
+        shouldCreateNew = true;
+        // Add version increment logic
+        const currentVersion = profile.version || 1;
+        formData.append('version', (currentVersion + 1).toString());
+        formData.append('previous_version_id', profile.id.toString());
+      } else if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
+        // Different school year or semester, create new profile
+        shouldCreateNew = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
+      } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
+        // Profile has no school year or semester but we have active ones, create new profile
+        shouldCreateNew = true;
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       }
 
       const getSemesterDisplayName = (sem: string) => {
@@ -736,6 +1510,7 @@ export default function PatientProfileSetupPage() {
         formData.delete('id');
         const response = await patientProfileAPI.create(formData);
         const semesterDisplay = getSemesterDisplayName(currentSemester);
+<<<<<<< HEAD
         
         if (hasChanges && existingProfileId) {
           setFeedbackMessage(`Profile updated (v${profileVersion + 1}) for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
@@ -744,10 +1519,18 @@ export default function PatientProfileSetupPage() {
           setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
         }
         
+=======
+        if (hasUnsavedChanges && profile?.id && !isNewProfile) {
+          setFeedbackMessage(`New profile version created for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        } else {
+          setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        }
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         setAutoFilledFromYear(currentSchoolYear.academic_year);
         setAutoFilledFromSemester(semesterDisplay);
         setIsAutoFilled(true);
         
+<<<<<<< HEAD
         // Update tracking variables
         setExistingProfileId(response.data.id);
         setOriginalProfile(JSON.parse(JSON.stringify(response.data)));
@@ -762,8 +1545,30 @@ export default function PatientProfileSetupPage() {
         // Reset change tracking
         setOriginalProfile(JSON.parse(JSON.stringify(profile)));
         setHasChanges(false);
+=======
+        // Reset change tracking
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+        setIsNewProfile(false); // After saving, it's no longer a new profile
+      } else {
+        // Update the existing profile (overwrite)
+        await patientProfileAPI.update(formData);
+        const semesterDisplay = getSemesterDisplayName(currentSemester);
+        if (isNewProfile) {
+          setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+          setIsNewProfile(false); // After updating, it's no longer a new profile
+        } else {
+          setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        }
+        
+        // Reset change tracking
+        setHasUnsavedChanges(false);
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         setIsEditMode(false);
       }
+      
+      // Refresh the profile data
+      await fetchProfile();
       
       setSuccess(true);
       setFeedbackOpen(true);
@@ -799,6 +1604,121 @@ export default function PatientProfileSetupPage() {
     }
   };
 
+  // Independent photo upload function - allows photo upload anytime
+  const handleIndependentPhotoUpload = async (file: File) => {
+    if (!profile?.id) {
+      // If no profile exists yet, just store the photo for later
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+      handleProfileChange('photo', file);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      
+      // Include all existing profile data to avoid validation errors
+      for (const key in profile) {
+        if (profile[key] !== null && profile[key] !== undefined && key !== 'photo') {
+          if (Array.isArray(profile[key])) {
+            formData.append(key, JSON.stringify(profile[key]));
+          } else if (typeof profile[key] === 'object') {
+            formData.append(key, JSON.stringify(profile[key]));
+          } else {
+            formData.append(key, profile[key].toString());
+          }
+        }
+      }
+      
+      // Add the new photo file
+      formData.append('photo', file);
+      
+      // Add required fields for the update
+      if (profile?.id) {
+        formData.append('id', profile.id.toString());
+      }
+      if (currentSchoolYear?.id) {
+        formData.append('school_year', currentSchoolYear.id.toString());
+      }
+      if (currentSemester) {
+        formData.append('semester', currentSemester);
+      }
+
+      // Update the profile with the new photo
+      await patientProfileAPI.update(formData);
+      
+      setFeedbackMessage('Profile photo updated successfully!');
+      setFeedbackOpen(true);
+      
+      // Clear any photo-related validation errors
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.photo;
+        return newErrors;
+      });
+      
+      // Refresh the profile data
+      await fetchProfile();
+      
+      // Clear the preview and file since it's now saved
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      
+    } catch (err: any) {
+      let msg = 'Failed to update profile photo.';
+      if (err.response && err.response.data) {
+        if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        } else if (typeof err.response.data === 'object') {
+          const errors = Object.values(err.response.data).flat();
+          msg = errors.length > 0 ? errors.join(', ') : msg;
+        }
+      }
+      setError(msg);
+      setFeedbackMessage(msg);
+      setFeedbackOpen(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhotoChangeIndependent = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setFeedbackMessage('File size must be less than 5MB');
+        setFeedbackOpen(true);
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setFeedbackMessage('Please select a valid image file');
+        setFeedbackOpen(true);
+        return;
+      }
+
+      // Clear any photo-related validation errors immediately when a valid photo is selected
+      setFieldErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.photo;
+        return newErrors;
+      });
+
+      // Set preview immediately
+      const reader = new FileReader();
+      reader.onloadend = () => setPhotoPreview(reader.result as string);
+      reader.readAsDataURL(file);
+      
+      // Upload immediately if profile exists, otherwise store for later
+      handleIndependentPhotoUpload(file);
+    }
+  };
+
   const handleCheckboxArrayChange = (field: string, value: string, checked: boolean) => {
     setProfile((prev: any) => {
       const arr = Array.isArray(prev[field]) ? [...prev[field]] : [];
@@ -808,8 +1728,20 @@ export default function PatientProfileSetupPage() {
         const idx = arr.indexOf(value);
         if (idx > -1) arr.splice(idx, 1);
       }
+<<<<<<< HEAD
       const newProfile = { ...prev, [field]: arr };
       checkForChanges(newProfile);
+=======
+      
+      const newProfile = { ...prev, [field]: arr };
+      
+      // Check for changes
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -831,11 +1763,105 @@ export default function PatientProfileSetupPage() {
   };
 
   const handleMedicationChange = (idx: number, key: string, value: string) => {
+    // Sanitize medication input based on field type
+    let sanitizedValue = value;
+    switch (key) {
+      case 'dose':
+        // Only allow numbers and decimal point for dose
+        sanitizedValue = value.replace(/[^0-9.]/g, '');
+        // Ensure only one decimal point
+        const decimalParts = sanitizedValue.split('.');
+        if (decimalParts.length > 2) {
+          sanitizedValue = decimalParts[0] + '.' + decimalParts.slice(1).join('');
+        }
+        break;
+      case 'drug':
+        // Allow letters, numbers, spaces, and basic punctuation for drug names
+        sanitizedValue = value.replace(/[^a-zA-Z0-9\s\-.,()]/g, '');
+        break;
+      default:
+        sanitizedValue = value;
+        break;
+    }
+
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [{}];
+<<<<<<< HEAD
       meds[idx] = { ...meds[idx], [key]: value };
       const newProfile = { ...prev, maintenance_medications: meds };
       checkForChanges(newProfile);
+=======
+      meds[idx] = { ...meds[idx], [key]: sanitizedValue };
+      
+      const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Real-time validation for medication fields
+      const med = meds[idx];
+      const fieldKey = `medication_${idx}_${key}`;
+      
+      // Clear previous errors for this medication field
+      setFieldErrors(prevErrors => {
+        const newErrors = { ...prevErrors };
+        delete newErrors[fieldKey];
+        return newErrors;
+      });
+      
+      // Validate the specific field if it has a value
+      if (sanitizedValue) {
+        let validationError = null;
+        
+        switch (key) {
+          case 'drug':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Drug name is required.`;
+            }
+            break;
+          case 'dose':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Dose is required.`;
+            } else if (!/^\d+(\.\d+)?$/.test(sanitizedValue.toString())) {
+              validationError = `Medication #${idx + 1}: Dose must be a valid number.`;
+            }
+            break;
+          case 'unit':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Unit is required.`;
+            }
+            break;
+          case 'frequency':
+            if (!sanitizedValue.trim() || sanitizedValue === 'Frequency') {
+              validationError = `Medication #${idx + 1}: Frequency is required.`;
+            }
+            break;
+          case 'duration':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Duration is required.`;
+            }
+            break;
+          case 'custom_duration':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Please specify the duration.`;
+            } else if (sanitizedValue.trim().length < 3) {
+              validationError = `Medication #${idx + 1}: Duration specification is too short.`;
+            }
+            break;
+        }
+        
+        if (validationError) {
+          setFieldErrors(prevErrors => ({
+            ...prevErrors,
+            [fieldKey]: validationError
+          }));
+        }
+      }
+      
+      // Check for changes (medications can be changed independently)
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -843,9 +1869,22 @@ export default function PatientProfileSetupPage() {
   const handleAddMedication = () => {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
+<<<<<<< HEAD
       meds.push({ drug: '', dose: '', unit: 'mg', frequency: '' });
       const newProfile = { ...prev, maintenance_medications: meds };
       checkForChanges(newProfile);
+=======
+      meds.push({ drug: '', dose: '', unit: '', frequency: '', duration: '', duration_type: '', custom_duration: '' });
+      
+      const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Check for changes (medications can be changed independently)
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -854,10 +1893,162 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
       meds.splice(idx, 1);
+<<<<<<< HEAD
       const newProfile = { ...prev, maintenance_medications: meds };
       checkForChanges(newProfile);
+=======
+      
+      const newProfile = { ...prev, maintenance_medications: meds };
+      
+      // Clear all validation errors for this medication
+      setFieldErrors(prevErrors => {
+        const newErrors = { ...prevErrors };
+        Object.keys(newErrors).forEach(key => {
+          if (key.startsWith(`medication_${idx}_`)) {
+            delete newErrors[key];
+          }
+        });
+        
+        // Update medication indices for remaining medications
+        const updatedErrors = {};
+        Object.keys(newErrors).forEach(key => {
+          if (key.startsWith('medication_')) {
+            const parts = key.split('_');
+            const medIndex = parseInt(parts[1]);
+            if (medIndex > idx) {
+              // Shift down the index
+              const newKey = `medication_${medIndex - 1}_${parts.slice(2).join('_')}`;
+              updatedErrors[newKey] = newErrors[key];
+            } else if (medIndex < idx) {
+              // Keep the same index
+              updatedErrors[key] = newErrors[key];
+            }
+          } else {
+            // Non-medication errors remain unchanged
+            updatedErrors[key] = newErrors[key];
+          }
+        });
+        
+        return updatedErrors;
+      });
+      
+      // Check for changes (medications can be changed independently)
+      if (originalProfile) {
+        const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+        setHasUnsavedChanges(hasChanges);
+      }
+      
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
+  };
+
+  // Edit mode functions
+  const handleEditModeToggle = () => {
+    if (isEditMode && hasUnsavedChanges) {
+      // Confirm before discarding changes
+      if (window.confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+        setProfile(JSON.parse(JSON.stringify(originalProfile)));
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+      }
+    } else {
+      setIsEditMode(!isEditMode);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (hasUnsavedChanges) {
+      if (window.confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+        setProfile(JSON.parse(JSON.stringify(originalProfile)));
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+      }
+    } else {
+      setIsEditMode(false);
+    }
+  };
+
+  const handleSaveChanges = async () => {
+    // Validate current step before saving
+    if (!validateStep(currentStep)) {
+      return;
+    }
+    await handleProfileSave();
+  };
+
+  // Save medications independently without requiring full edit mode
+  const handleSaveMedications = async () => {
+    if (!hasUnsavedChanges) return;
+    
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      
+      // Only send medication data
+      if (profile?.maintenance_medications) {
+        formData.append('maintenance_medications', JSON.stringify(profile.maintenance_medications));
+      }
+      
+      // Add required fields for the update
+      if (profile?.id) {
+        formData.append('id', profile.id.toString());
+      }
+      if (currentSchoolYear?.id) {
+        formData.append('school_year', currentSchoolYear.id.toString());
+      }
+      if (currentSemester) {
+        formData.append('semester', currentSemester);
+      }
+
+      // Determine if we need to create new version or update
+      if (!isNewProfile && profile?.id) {
+        // Existing profile - create new version for medication changes
+        const currentVersion = profile.version || 1;
+        formData.append('version', (currentVersion + 1).toString());
+        formData.append('previous_version_id', profile.id.toString());
+        
+        // Include all existing profile data to create complete new version
+        for (const key in profile) {
+          if (profile[key] !== undefined && profile[key] !== null && key !== 'maintenance_medications' && key !== 'id') {
+            if (typeof profile[key] === 'object' && !(profile[key] instanceof File)) {
+              formData.append(key, JSON.stringify(profile[key]));
+            } else if (key !== 'photo') {
+              formData.append(key, profile[key]);
+            }
+          }
+        }
+        
+        formData.delete('id'); // Remove ID to force creation of new record
+        await patientProfileAPI.create(formData);
+        setFeedbackMessage('Medications updated - new profile version created!');
+        setIsNewProfile(false);
+      } else {
+        // New profile - just update
+        await patientProfileAPI.update(formData);
+        setFeedbackMessage('Medications updated successfully!');
+      }
+      
+      // Refresh the profile data
+      await fetchProfile();
+      
+      setSuccess(true);
+      setFeedbackOpen(true);
+    } catch (err: any) {
+      let msg = 'Failed to update medications.';
+      if (err.response && err.response.data) {
+        if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        } else if (typeof err.response.data === 'object') {
+          msg = Object.values(err.response.data).flat().join(' ');
+        }
+      }
+      setError(msg);
+      setFeedbackMessage(msg);
+      setFeedbackOpen(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderStepContent = () => {
@@ -897,13 +2088,16 @@ export default function PatientProfileSetupPage() {
               )}
             </div>
 
-            {/* Photo Upload - Enhanced mobile design */}
+            {/* Admin Configuration Notification */}
+            {showAdminControlledNotification()}
+
+            {/* Photo Upload - Enhanced mobile design - Always enabled */}
             <div className="flex flex-col items-center justify-center mb-8">
               <label className="block text-base sm:text-lg font-medium text-gray-700 mb-4 text-center">
                 Profile Photo {!profile?.photo && <span className="text-red-500">*</span>}
               </label>
               <label htmlFor="photo-upload" className="cursor-pointer group">
-                <div className="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed border-gray-400 rounded-lg bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200 transition-all duration-200">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed rounded-lg transition-all duration-200 border-gray-400 bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200">
                   {photoPreview ? (
                     <div className="relative w-full h-full">
                       <img src={photoPreview} alt="Preview" className="object-cover w-full h-full rounded-md" />
@@ -924,8 +2118,10 @@ export default function PatientProfileSetupPage() {
                     </div>
                   ) : (
                     <div className="text-center">
-                      <span className="text-2xl sm:text-3xl lg:text-4xl text-gray-400 font-light block">+</span>
-                      <span className="text-xs sm:text-sm text-gray-500 mt-1">Upload Photo</span>
+                      <span className="text-2xl sm:text-3xl lg:text-4xl font-light block text-gray-400">+</span>
+                      <span className="text-xs sm:text-sm mt-1 text-gray-500">
+                        Upload Photo
+                      </span>
                     </div>
                   )}
                 </div>
@@ -934,7 +2130,7 @@ export default function PatientProfileSetupPage() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={handlePhotoChange}
+                  onChange={isEditMode ? handlePhotoChange : handlePhotoChangeIndependent}
                 />
               </label>
               {fieldErrors.photo && (
@@ -944,6 +2140,11 @@ export default function PatientProfileSetupPage() {
               )}
               <p className="text-xs text-gray-500 mt-2 text-center max-w-xs">
                 Supported formats: JPG, PNG, GIF (max 5MB)
+                {!isEditMode && (
+                  <span className="block text-blue-600 mt-1">
+                    📷 You can change your photo anytime!
+                  </span>
+                )}
               </p>
             </div>
 
@@ -1044,6 +2245,277 @@ export default function PatientProfileSetupPage() {
                     </select>
                     {fieldErrors.gender && <div className="text-red-500 text-xs mt-1">{fieldErrors.gender}</div>}
                   </div>
+                </div>
+              </div>
+
+              {/* User Type Section */}
+              <div className="border border-gray-200 rounded-lg p-6">
+                <h3 className="font-medium text-gray-900 mb-4 flex items-center">
+                  <span className="w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm mr-3">U</span>
+                  User Type Information
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-md shadow-sm py-3 px-4 bg-gray-50 border-gray-300"
+                      value={profile?.user_type || ''}
+                      readOnly
+                      placeholder="User type from signup"
+                    />
+                  </div>
+                  
+                  {/* Employee Fields */}
+                  {profile?.user_type === 'Employee' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID *</label>
+                        <input
+                          type="text"
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.employee_id ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.employee_id || ''}
+                          onChange={e => handleProfileChange('employee_id', e.target.value)}
+                          placeholder="Enter employee ID"
+                        />
+                        {fieldErrors.employee_id && <div className="text-red-500 text-xs mt-1">{fieldErrors.employee_id}</div>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Department *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.department ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.department || ''}
+                          onChange={e => handleProfileChange('department', e.target.value)}
+                        >
+                          <option value="">Select department</option>
+                          {getUserTypeOptions('departments').length > 0 ? (
+                            getUserTypeOptions('departments').map((dept: string) => (
+                              <option key={dept} value={dept}>{dept}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="Academic Affairs">Academic Affairs</option>
+                              <option value="Administration">Administration</option>
+                              <option value="Admissions">Admissions</option>
+                              <option value="Business Administration">Business Administration</option>
+                              <option value="Computer Science">Computer Science</option>
+                              <option value="Education">Education</option>
+                              <option value="Engineering">Engineering</option>
+                              <option value="Finance">Finance</option>
+                              <option value="Health Sciences">Health Sciences</option>
+                              <option value="Human Resources">Human Resources</option>
+                              <option value="Information Technology">Information Technology</option>
+                              <option value="Liberal Arts">Liberal Arts</option>
+                              <option value="Library Services">Library Services</option>
+                              <option value="Maintenance">Maintenance</option>
+                              <option value="Medical Services">Medical Services</option>
+                              <option value="Nursing">Nursing</option>
+                              <option value="Physical Education">Physical Education</option>
+                              <option value="Psychology">Psychology</option>
+                              <option value="Registrar">Registrar</option>
+                              <option value="Research">Research</option>
+                              <option value="Science">Science</option>
+                              <option value="Security">Security</option>
+                              <option value="Social Sciences">Social Sciences</option>
+                              <option value="Student Affairs">Student Affairs</option>
+                              <option value="Other">Other</option>
+                            </>
+                          )}
+                        </select>
+                        {fieldErrors.department && <div className="text-red-500 text-xs mt-1">{fieldErrors.department}</div>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Position Type *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.position_type ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.position_type || ''}
+                          onChange={e => handleProfileChange('position_type', e.target.value)}
+                        >
+                          <option value="">Select position type</option>
+                          {getUserTypeOptions('position_types').length > 0 ? (
+                            getUserTypeOptions('position_types').map((posType: string) => (
+                              <option key={posType} value={posType}>{posType}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="Teaching">Teaching</option>
+                              <option value="Non-Teaching">Non-Teaching</option>
+                            </>
+                          )}
+                        </select>
+                        {fieldErrors.position_type && <div className="text-red-500 text-xs mt-1">{fieldErrors.position_type}</div>}
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* College and Incoming Freshman Fields */}
+                  {(profile?.user_type === 'College' || profile?.user_type === 'Incoming Freshman') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.course ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.course || ''}
+                          onChange={e => handleProfileChange('course', e.target.value)}
+                        >
+                          <option value="">Select course</option>
+                          {getUserTypeOptions('courses').length > 0 ? (
+                            getUserTypeOptions('courses').map((course: string) => (
+                              <option key={course} value={course}>{course}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="BS Business Administration">BS Business Administration</option>
+                              <option value="BS Computer Science">BS Computer Science</option>
+                              <option value="BS Education">BS Education</option>
+                              <option value="BS Engineering">BS Engineering</option>
+                              <option value="BS Information Technology">BS Information Technology</option>
+                              <option value="BS Nursing">BS Nursing</option>
+                              <option value="BS Psychology">BS Psychology</option>
+                              <option value="BA Communication">BA Communication</option>
+                              <option value="BA Political Science">BA Political Science</option>
+                              <option value="BA Sociology">BA Sociology</option>
+                            </>
+                          )}
+                        </select>
+                        {fieldErrors.course && <div className="text-red-500 text-xs mt-1">{fieldErrors.course}</div>}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.year_level || ''}
+                          onChange={e => handleProfileChange('year_level', e.target.value)}
+                        >
+                          <option value="">Select year level</option>
+                          {getUserTypeOptions('year_levels').length > 0 ? (
+                            getUserTypeOptions('year_levels').map((level: string) => (
+                              <option key={level} value={level}>{level}</option>
+                            ))
+                          ) : (
+                            // Fallback options if no UserTypeInformation configuration
+                            <>
+                              <option value="1st Year">1st Year</option>
+                              <option value="2nd Year">2nd Year</option>
+                              <option value="3rd Year">3rd Year</option>
+                              <option value="4th Year">4th Year</option>
+                              <option value="5th Year">5th Year</option>
+                            </>
+                          )}
+                        </select>
+                        {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* High School and Senior High School Fields */}
+                  {(profile?.user_type === 'High School' || profile?.user_type === 'Senior High School') && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                        <select
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          value={profile?.year_level || ''}
+                          onChange={e => handleProfileChange('year_level', e.target.value)}
+                        >
+                          <option value="">Select year level</option>
+                          {getUserTypeOptions('year_levels').length > 0 ? (
+                            getUserTypeOptions('year_levels').map((level: string) => (
+                              <option key={level} value={level}>{level}</option>
+                            ))
+                          ) : (
+                            // Fallback options based on user type if no UserTypeInformation configuration
+                            <>
+                              {profile?.user_type === 'High School' && (
+                                <>
+                                  <option value="Grade 7">Grade 7</option>
+                                  <option value="Grade 8">Grade 8</option>
+                                  <option value="Grade 9">Grade 9</option>
+                                  <option value="Grade 10">Grade 10</option>
+                                </>
+                              )}
+                              {profile?.user_type === 'Senior High School' && (
+                                <>
+                                  <option value="Grade 11">Grade 11</option>
+                                  <option value="Grade 12">Grade 12</option>
+                                </>
+                              )}
+                            </>
+                          )}
+                        </select>
+                        {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
+                      </div>
+                      {profile?.user_type === 'Senior High School' && (
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Strand *</label>
+                          <select
+                            className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.strand ? 'border-red-500' : 'border-gray-300'}`}
+                            value={profile?.strand || ''}
+                            onChange={e => handleProfileChange('strand', e.target.value)}
+                          >
+                            <option value="">Select strand</option>
+                            {getUserTypeOptions('strands').length > 0 ? (
+                              getUserTypeOptions('strands').map((strand: string) => (
+                                <option key={strand} value={strand}>{strand}</option>
+                              ))
+                            ) : (
+                              // Fallback options if no UserTypeInformation configuration
+                              <>
+                                <option value="ABM">ABM (Accountancy, Business and Management)</option>
+                                <option value="HUMSS">HUMSS (Humanities and Social Sciences)</option>
+                                <option value="STEM">STEM (Science, Technology, Engineering and Mathematics)</option>
+                                <option value="GAS">GAS (General Academic Strand)</option>
+                                <option value="TVL">TVL (Technical-Vocational-Livelihood)</option>
+                                <option value="Arts and Design">Arts and Design</option>
+                                <option value="Sports">Sports</option>
+                              </>
+                            )}
+                          </select>
+                          {fieldErrors.strand && <div className="text-red-500 text-xs mt-1">{fieldErrors.strand}</div>}
+                        </div>
+                      )}
+                    </>
+                  )}
+                  
+                  {/* Elementary and Kindergarten Fields */}
+                  {(profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                      <select
+                        className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                        value={profile?.year_level || ''}
+                        onChange={e => handleProfileChange('year_level', e.target.value)}
+                      >
+                        <option value="">Select year level</option>
+                        {getUserTypeOptions('year_levels').length > 0 ? (
+                          getUserTypeOptions('year_levels').map((level: string) => (
+                            <option key={level} value={level}>{level}</option>
+                          ))
+                        ) : (
+                          // Fallback options based on user type if no UserTypeInformation configuration
+                          <>
+                            {profile?.user_type === 'Kindergarten' && (
+                              <option value="Kindergarten">Kindergarten</option>
+                            )}
+                            {profile?.user_type === 'Elementary' && (
+                              <>
+                                <option value="Grade 1">Grade 1</option>
+                                <option value="Grade 2">Grade 2</option>
+                                <option value="Grade 3">Grade 3</option>
+                                <option value="Grade 4">Grade 4</option>
+                                <option value="Grade 5">Grade 5</option>
+                                <option value="Grade 6">Grade 6</option>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </select>
+                      {fieldErrors.year_level && <div className="text-red-500 text-xs mt-1">{fieldErrors.year_level}</div>}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1313,11 +2785,30 @@ export default function PatientProfileSetupPage() {
               <p className="text-sm text-gray-600">Tell us about your current health conditions and medications</p>
             </div>
 
+            {/* Admin Configuration Notification */}
+            {showAdminControlledNotification()}
+
+            {/* Loading State for Medical Lists */}
+            {medicalListsLoading && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                  <span className="ml-3 text-gray-600">Loading health conditions and options...</span>
+                </div>
+              </div>
+            )}
+
             {/* Comorbid Illnesses */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
                 Current Health Conditions
+                {comorbidIllnesses.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {comorbidIllnesses.length} options available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Check all conditions that you currently have:</p>
               
@@ -1335,13 +2826,54 @@ export default function PatientProfileSetupPage() {
                       />
                       <label htmlFor={`comorbid-${item.id}`} className="ml-3 text-sm font-medium text-gray-900 cursor-pointer">{item.label}</label>
                     </div>
-                    {/* Food allergy specify */}
-                    {item.label === 'Food Allergies' && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Food Allergies') && (
+                    
+                    {/* Dynamic sub-options */}
+                    {item.has_sub_options && Array.isArray(item.sub_options) && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes(item.label) && (
+                      <div className="mt-3 ml-7 space-y-2">
+                        {item.sub_options.map(subOption => (
+                          <div key={subOption} className="flex items-start">
+                            <input
+                              type="checkbox"
+                              id={`comorbid-${item.id}-sub-${subOption}`}
+                              className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
+                              checked={Array.isArray(profile?.[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`]) && 
+                                       profile[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`].includes(subOption)}
+                              onChange={e => {
+                                const fieldName = `comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`;
+                                handleCheckboxArrayChange(fieldName, subOption, e.target.checked);
+                              }}
+                            />
+                            <label htmlFor={`comorbid-${item.id}-sub-${subOption}`} className="ml-2 text-sm text-gray-700 cursor-pointer">{subOption}</label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Dynamic text specification */}
+                    {item.requires_specification && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes(item.label) && (
+                      <div className="mt-3 ml-7">
+                        <input
+                          type="text"
+                          placeholder={item.specification_placeholder || `Specify ${item.label.toLowerCase()}`}
+                          className="w-full border rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
+                          value={profile?.[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`] || ''}
+                          onChange={e => {
+                            const fieldName = `comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`;
+                            handleProfileChange(fieldName, e.target.value);
+                          }}
+                        />
+                        {fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`] && 
+                         <div className="text-red-500 text-xs mt-1">{fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`]}</div>}
+                      </div>
+                    )}
+                    
+                    {/* Backward compatibility for Food Allergies */}
+                    {item.label === 'Food Allergies' && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Food Allergies') && !item.requires_specification && (
                       <div className="mt-3 ml-7">
                         <input
                           type="text"
                           placeholder="Specify food allergies (e.g., shellfish, nuts)"
-                          className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.food_allergy_specify ? 'border-red-500' : 'border-gray-300'}`}
+                          className="w-full border rounded-lg shadow-sm py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
                           value={profile?.food_allergy_specify || ''}
                           onChange={e => handleProfileChange('food_allergy_specify', e.target.value)}
                         />
@@ -1351,38 +2883,6 @@ export default function PatientProfileSetupPage() {
                   </div>
                 ))}
                 
-                {/* Psychiatric Illness Section */}
-                <div className="bg-white p-3 rounded-lg border border-gray-200">
-                  <div className="flex items-start">
-                    <input
-                      type="checkbox"
-                      id="psychiatric"
-                      className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
-                      checked={Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Psychiatric Illness')}
-                      onChange={e => handleCheckboxArrayChange('comorbid_illnesses', 'Psychiatric Illness', e.target.checked)}
-                    />
-                    <label htmlFor="psychiatric" className="ml-3 text-sm font-bold text-gray-900 cursor-pointer">Psychiatric Illness</label>
-                  </div>
-                  
-                  {/* Psychiatric sub-options */}
-                  {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes('Psychiatric Illness') && (
-                    <div className="mt-3 ml-7 space-y-2">
-                      {['Major Depressive Disorder', 'Bipolar Disorder', 'Generalized Anxiety Disorder', 'Panic Disorder', 'Posttraumatic Stress Disorder', 'Schizophrenia'].map(psychItem => (
-                        <div key={psychItem} className="flex items-start">
-                          <input
-                            type="checkbox"
-                            id={`psych-${psychItem}`}
-                            className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
-                            checked={Array.isArray(profile?.psychiatric_illnesses) && profile.psychiatric_illnesses.includes(psychItem)}
-                            onChange={e => handleCheckboxArrayChange('psychiatric_illnesses', psychItem, e.target.checked)}
-                          />
-                          <label htmlFor={`psych-${psychItem}`} className="ml-2 text-sm text-gray-700 cursor-pointer">{psychItem}</label>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
                 {/* Other Condition */}
                 <div className="bg-white p-3 rounded-lg border border-gray-200">
                   <div className="flex items-start">
@@ -1442,6 +2942,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Maintenance Medications */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
@@ -1453,11 +2954,20 @@ export default function PatientProfileSetupPage() {
               
               {/* Mobile-optimized medication table */}
               <div className="space-y-4">
-                {(profile?.maintenance_medications || [{}]).map((med: any, idx: number) => (
+                {(!profile?.maintenance_medications || profile.maintenance_medications.length === 0) && !isEditMode ? (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 text-center">
+                    <p className="text-sm text-gray-500">No current medications recorded</p>
+                  </div>
+                ) : (
+                  (profile?.maintenance_medications && profile.maintenance_medications.length > 0 
+                    ? profile.maintenance_medications 
+                    : isEditMode ? [{}] : []
+                  ).map((med: any, idx: number) => (
                   <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-gray-800">Medication #{idx + 1}</span>
                       <button
+<<<<<<< HEAD
                         className="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
                         onClick={() => handleRemoveMedication(idx)}
                         type="button"
@@ -1467,13 +2977,20 @@ export default function PatientProfileSetupPage() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                       </button>
+=======
+                        className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
+                        onClick={() => handleRemoveMedication(idx)}
+                        type="button"
+                        title="Remove medication"
+                      >×</button>
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
                     </div>
                     
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Drug Name</label>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Drug Name *</label>
                         <select
-                          className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                          className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_drug`] ? 'border-red-500' : 'border-gray-300'}`}
                           value={med.drug || ''}
                           onChange={e => handleMedicationChange(idx, 'drug', e.target.value)}
                         >
@@ -1482,59 +2999,153 @@ export default function PatientProfileSetupPage() {
                             <option key={drugName} value={drugName}>{drugName}</option>
                           ))}
                         </select>
+                        {fieldErrors[`medication_${idx}_drug`] && (
+                          <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_drug`]}</div>
+                        )}
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Dose</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Dose *</label>
                           <input
                             type="text"
                             placeholder="e.g., 500"
-                            className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_dose`] ? 'border-red-500' : 'border-gray-300'}`}
                             value={med.dose || ''}
                             onChange={e => handleMedicationChange(idx, 'dose', e.target.value)}
                           />
+                          {fieldErrors[`medication_${idx}_dose`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_dose`]}</div>
+                          )}
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Unit</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Unit *</label>
                           <select
-                            className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
-                            value={med.unit || 'mg'}
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_unit`] ? 'border-red-500' : 'border-gray-300'}`}
+                            value={med.unit || ''}
                             onChange={e => handleMedicationChange(idx, 'unit', e.target.value)}
                           >
-                            <option>mg</option>
-                            <option>mcg</option>
-                            <option>g</option>
+                            <option value="">Select</option>
+                            <option value="mg">mg</option>
+                            <option value="mcg">mcg</option>
+                            <option value="g">g</option>
                           </select>
+                          {fieldErrors[`medication_${idx}_unit`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_unit`]}</div>
+                          )}
                         </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Frequency</label>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Frequency *</label>
                           <select
-                            className="w-full border border-gray-300 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_frequency`] ? 'border-red-500' : 'border-gray-300'}`}
                             value={med.frequency || ''}
                             onChange={e => handleMedicationChange(idx, 'frequency', e.target.value)}
                           >
                             {freqOptions.map(f => <option key={f} value={f}>{f}</option>)}
                           </select>
+                          {fieldErrors[`medication_${idx}_frequency`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_frequency`]}</div>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Duration *</label>
+                          <select
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_duration`] ? 'border-red-500' : 'border-gray-300'}`}
+                            value={med.duration_type || med.duration || ''}
+                            onChange={e => {
+                              if (e.target.value === 'specify') {
+                                handleMedicationChange(idx, 'duration_type', 'specify');
+                                handleMedicationChange(idx, 'duration', '');
+                                handleMedicationChange(idx, 'custom_duration', '');
+                              } else {
+                                handleMedicationChange(idx, 'duration_type', '');
+                                handleMedicationChange(idx, 'duration', e.target.value);
+                                handleMedicationChange(idx, 'custom_duration', '');
+                              }
+                            }}
+                          >
+                            <option value="">Select duration</option>
+                            <option value="1 week">1 week</option>
+                            <option value="2 weeks">2 weeks</option>
+                            <option value="3 weeks">3 weeks</option>
+                            <option value="1 month">1 month</option>
+                            <option value="2 months">2 months</option>
+                            <option value="3 months">3 months</option>
+                            <option value="6 months">6 months</option>
+                            <option value="1 year">1 year</option>
+                            <option value="2+ years">2+ years</option>
+                            <option value="Ongoing">Ongoing</option>
+                            <option value="specify">Specify duration</option>
+                          </select>
+                          {fieldErrors[`medication_${idx}_duration`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_duration`]}</div>
+                          )}
+                          
+                          {/* Custom duration input when "Specify" is selected */}
+                          {med.duration_type === 'specify' && (
+                            <div className="mt-2">
+                              <input
+                                type="text"
+                                placeholder="e.g., 5 days, 10 weeks, 8 months"
+                                className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_custom_duration`] ? 'border-red-500' : 'border-gray-300'}`}
+                                value={med.custom_duration || ''}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  handleMedicationChange(idx, 'custom_duration', value);
+                                  // Also set the duration field to the custom value for storage
+                                  if (value.trim()) {
+                                    handleMedicationChange(idx, 'duration', value.trim());
+                                  }
+                                }}
+                              />
+                              {fieldErrors[`medication_${idx}_custom_duration`] && (
+                                <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_custom_duration`]}</div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                   </div>
-                ))}
+                  ))
+                )}
                 
-                <button
-                  className="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                  onClick={handleAddMedication}
-                  type="button"
-                >+ Add Medication</button>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <button
+                    className="w-full sm:w-auto px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                    onClick={handleAddMedication}
+                    type="button"
+                  >+ Add Medication</button>
+                  
+                  {/* Save Medications Button - shows when there are unsaved medication changes and medications exist */}
+                  {hasUnsavedChanges && Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0 && (
+                    <button
+                      className="w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                      onClick={handleSaveMedications}
+                      type="button"
+                      disabled={loading}
+                    >
+                      {loading ? 'Saving...' : 'Save Medications'}
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Vaccination History */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
                 Vaccination Status
+                {vaccinations.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {vaccinations.length} vaccines available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Please indicate your vaccination status for each vaccine:</p>
               
@@ -1625,6 +3236,7 @@ export default function PatientProfileSetupPage() {
                 ))}
               </div>
             </div>
+            )}
           </div>
         );
       case 3:
@@ -1636,11 +3248,30 @@ export default function PatientProfileSetupPage() {
               <p className="text-sm text-gray-600">Tell us about your past medical conditions and family health history</p>
             </div>
 
+            {/* Admin Configuration Notification */}
+            {showAdminControlledNotification()}
+
+            {/* Loading State for Medical Lists */}
+            {medicalListsLoading && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                  <span className="ml-3 text-gray-600">Loading medical history options...</span>
+                </div>
+              </div>
+            )}
+
             {/* Past Medical & Surgical History */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">1</span>
                 Past Medical & Surgical History
+                {pastMedicalHistories.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {pastMedicalHistories.length} conditions available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Check any conditions you have had in the past:</p>
               
@@ -1657,6 +3288,45 @@ export default function PatientProfileSetupPage() {
                       />
                       <label htmlFor={`past-${item.id}`} className="ml-3 text-sm font-medium text-gray-900 cursor-pointer">{item.name}</label>
                     </div>
+                    
+                    {/* Sub-options for this condition */}
+                    {item.has_sub_options && Array.isArray(item.sub_options) && item.sub_options.length > 0 && (
+                      Array.isArray(profile?.past_medical_history) && profile.past_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3 space-y-2 pl-4 border-l-2 border-gray-200">
+                        <p className="text-xs text-gray-600 font-medium">Select specific conditions:</p>
+                        {item.sub_options.map((subOption: string, index: number) => (
+                          <div key={index} className="flex items-start">
+                            <input
+                              type="checkbox"
+                              id={`past-${item.id}-sub-${index}`}
+                              className="h-3 w-3 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
+                              checked={Array.isArray(profile?.[`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`]) && 
+                                profile[`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`].includes(subOption)}
+                              onChange={e => handleCheckboxArrayChange(`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`, subOption, e.target.checked)}
+                            />
+                            <label htmlFor={`past-${item.id}-sub-${index}`} className="ml-2 text-xs text-gray-700 cursor-pointer">
+                              {subOption}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Specification text field for this condition */}
+                    {item.requires_specification && (
+                      Array.isArray(profile?.past_medical_history) && profile.past_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3">
+                        <input
+                          type="text"
+                          placeholder={item.specification_placeholder || 'Please specify...'}
+                          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                          value={profile?.[`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`] || ''}
+                          onChange={e => handleProfileChange(`past_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`, e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 
@@ -1720,6 +3390,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
             </div>
+            )}
 
             {/* Hospital Admission / Surgery */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
@@ -1758,28 +3429,205 @@ export default function PatientProfileSetupPage() {
                 
                 {/* Conditional input for surgery/admission details */}
                 {profile?.hospital_admission_or_surgery === true && (
-                  <div className="mt-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Please specify the reason for admission and/or type of surgery: <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.hospital_admission_details ? 'border-red-500' : 'border-gray-300'}`}
-                      rows={3}
-                      value={profile?.hospital_admission_details || ''}
-                      onChange={e => handleProfileChange('hospital_admission_details', e.target.value)}
-                      placeholder="Please describe the reason for hospital admission and/or type of surgery performed..."
-                    />
-                    {fieldErrors.hospital_admission_details && <div className="text-red-500 text-xs mt-1">{fieldErrors.hospital_admission_details}</div>}
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Please specify the reason for admission and/or type of surgery: <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.hospital_admission_details ? 'border-red-500' : 'border-gray-300'}`}
+                        rows={3}
+                        value={profile?.hospital_admission_details || ''}
+                        onChange={e => handleProfileChange('hospital_admission_details', e.target.value)}
+                        placeholder="Please describe the reason for hospital admission and/or type of surgery performed..."
+                      />
+                      {fieldErrors.hospital_admission_details && <div className="text-red-500 text-xs mt-1">{fieldErrors.hospital_admission_details}</div>}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        What year did this happen? <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className={`w-full border rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm ${fieldErrors.hospital_admission_year ? 'border-red-500' : 'border-gray-300'}`}
+                        value={profile?.hospital_admission_year || ''}
+                        onChange={e => handleProfileChange('hospital_admission_year', e.target.value)}
+                        placeholder="e.g., 2023, 2020-2021, etc."
+                      />
+                      {fieldErrors.hospital_admission_year && <div className="text-red-500 text-xs mt-1">{fieldErrors.hospital_admission_year}</div>}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
 
+            {/* Menstrual & Obstetric History (for females only) */}
+            {profile?.gender === 'Female' && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
+                  <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                  Menstrual & Obstetric History
+                  <span className="ml-2 text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded-full">
+                    For females only
+                  </span>
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Age when menstruation began */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Age when menstruation began:
+                    </label>
+                    <input
+                      type="number"
+                      min="8"
+                      max="20"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                      value={profile?.menstruation_age_began || ''}
+                      onChange={e => handleProfileChange('menstruation_age_began', parseInt(e.target.value) || null)}
+                      placeholder="Age"
+                    />
+                  </div>
+
+                  {/* Menstrual regularity */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Menstrual pattern:
+                    </label>
+                    <div className="space-y-2">
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="menstrual-pattern"
+                          className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500"
+                          checked={profile?.menstruation_regular === true}
+                          onChange={() => {
+                            handleProfileChange('menstruation_regular', true);
+                            handleProfileChange('menstruation_irregular', false);
+                          }}
+                        />
+                        <span className="ml-2 text-sm text-gray-900">Regular (monthly)</span>
+                      </label>
+                      <label className="flex items-center">
+                        <input
+                          type="radio"
+                          name="menstrual-pattern"
+                          className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500"
+                          checked={profile?.menstruation_irregular === true}
+                          onChange={() => {
+                            handleProfileChange('menstruation_regular', false);
+                            handleProfileChange('menstruation_irregular', true);
+                          }}
+                        />
+                        <span className="ml-2 text-sm text-gray-900">Irregular</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Number of pregnancies */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of pregnancies:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                      value={profile?.number_of_pregnancies || ''}
+                      onChange={e => handleProfileChange('number_of_pregnancies', parseInt(e.target.value) || null)}
+                      placeholder="Number"
+                    />
+                  </div>
+
+                  {/* Number of live children */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of live children:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="20"
+                      className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                      value={profile?.number_of_live_children || ''}
+                      onChange={e => handleProfileChange('number_of_live_children', parseInt(e.target.value) || null)}
+                      placeholder="Number"
+                    />
+                  </div>
+
+                  {/* Menstrual symptoms */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Menstrual Symptoms:
+                    </label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        'Dysmenorrhea (cramps)',
+                        'Migraine',
+                        'Loss of consciousness',
+                        'Other'
+                      ].map(symptom => (
+                        <label key={symptom} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-gray-600 border-gray-300 rounded focus:ring-gray-500"
+                            checked={Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes(symptom)}
+                            onChange={e => {
+                              const symptoms = Array.isArray(profile?.menstrual_symptoms) ? [...profile.menstrual_symptoms] : [];
+                              if (e.target.checked) {
+                                if (!symptoms.includes(symptom)) symptoms.push(symptom);
+                              } else {
+                                const index = symptoms.indexOf(symptom);
+                                if (index > -1) symptoms.splice(index, 1);
+                              }
+                              handleProfileChange('menstrual_symptoms', symptoms);
+                            }}
+                          />
+                          <span className="ml-2 text-sm text-gray-900">{symptom}</span>
+                        </label>
+                      ))}
+                    </div>
+                    
+                    {/* Other symptoms specification */}
+                    {Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes('Other') && (
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                          placeholder="Please specify other menstrual symptoms..."
+                          value={profile?.menstrual_symptoms_other || ''}
+                          onChange={e => handleProfileChange('menstrual_symptoms_other', e.target.value)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Loading State for Family Medical History */}
+            {medicalListsLoading && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                  <span className="ml-3 text-gray-600">Loading family medical history options...</span>
+                </div>
+              </div>
+            )}
+
             {/* Family Medical History */}
+            {!medicalListsLoading && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
-                <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
                 Family Medical History
+                {familyMedicalHistories.length > 0 && (
+                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                    {familyMedicalHistories.length} conditions available
+                  </span>
+                )}
               </h3>
               <p className="text-sm text-gray-700 mb-4">Check the known health conditions of your immediate family members (parents, siblings, grandparents):</p>
               
@@ -1796,6 +3644,45 @@ export default function PatientProfileSetupPage() {
                       />
                       <label htmlFor={`fam-${item.id}`} className="ml-3 text-sm font-medium text-gray-900 cursor-pointer">{item.name}</label>
                     </div>
+                    
+                    {/* Sub-options for this condition */}
+                    {item.has_sub_options && Array.isArray(item.sub_options) && item.sub_options.length > 0 && (
+                      Array.isArray(profile?.family_medical_history) && profile.family_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3 space-y-2 pl-4 border-l-2 border-gray-200">
+                        <p className="text-xs text-gray-600 font-medium">Select specific conditions:</p>
+                        {item.sub_options.map((subOption: string, index: number) => (
+                          <div key={index} className="flex items-start">
+                            <input
+                              type="checkbox"
+                              id={`fam-${item.id}-sub-${index}`}
+                              className="h-3 w-3 text-gray-600 border-gray-300 rounded focus:ring-gray-500 mt-0.5 flex-shrink-0"
+                              checked={Array.isArray(profile?.[`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`]) && 
+                                profile[`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`].includes(subOption)}
+                              onChange={e => handleCheckboxArrayChange(`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_sub`, subOption, e.target.checked)}
+                            />
+                            <label htmlFor={`fam-${item.id}-sub-${index}`} className="ml-2 text-xs text-gray-700 cursor-pointer">
+                              {subOption}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Specification text field for this condition */}
+                    {item.requires_specification && (
+                      Array.isArray(profile?.family_medical_history) && profile.family_medical_history.includes(item.name)
+                    ) && (
+                      <div className="ml-7 mt-3">
+                        <input
+                          type="text"
+                          placeholder={item.specification_placeholder || 'Please specify...'}
+                          className="w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 text-sm"
+                          value={profile?.[`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`] || ''}
+                          onChange={e => handleProfileChange(`family_medical_history_${item.name.toLowerCase().replace(/\s+/g, '_')}_spec`, e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
                 
@@ -1916,6 +3803,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
             </div>
+            )}
           </div>
         );
       case 4:
@@ -1970,10 +3858,75 @@ export default function PatientProfileSetupPage() {
               </div>
             </div>
 
-            {/* Emergency Contact Summary */}
+            {/* User Type Information Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
                 <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">2</span>
+                User Type Information
+              </h3>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <p className="font-medium text-gray-600 text-xs">User Type</p>
+                  <p className="text-gray-900 font-semibold">{profile?.user_type || 'Not specified'}</p>
+                </div>
+                
+                {profile?.user_type === 'Employee' && (
+                  <>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Employee ID</p>
+                      <p className="text-gray-900 font-semibold">{profile?.employee_id || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Position Type</p>
+                      <p className="text-gray-900 font-semibold">{profile?.position_type || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Department</p>
+                      <p className="text-gray-900 font-semibold">{profile?.department || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
+                
+                {profile?.user_type === 'College' && (
+                  <>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Course</p>
+                      <p className="text-gray-900 font-semibold">{profile?.course || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Year Level</p>
+                      <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
+                
+                {profile?.user_type === 'Senior High School' && (
+                  <>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Strand</p>
+                      <p className="text-gray-900 font-semibold">{profile?.strand || 'Not specified'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                      <p className="font-medium text-gray-600 text-xs">Year Level</p>
+                      <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
+                
+                {(profile?.user_type === 'High School' || profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') && (
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="font-medium text-gray-600 text-xs">Year Level</p>
+                    <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Emergency Contact Summary */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+              <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">3</span>
                 Emergency Contact
               </h3>
               
@@ -2000,7 +3953,7 @@ export default function PatientProfileSetupPage() {
             {/* Health History Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
-                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">3</span>
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">4</span>
                 Health History
               </h3>
               
@@ -2008,11 +3961,38 @@ export default function PatientProfileSetupPage() {
                 {/* Current Health Conditions */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Current Health Conditions</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.length > 0 
-                      ? profile.comorbid_illnesses.join(', ') 
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.length > 0 ? (
+                      <div className="space-y-2">
+                        {profile.comorbid_illnesses.map((condition: string, index: number) => {
+                          const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+                          const subOptions = profile?.[`comorbid_${conditionKey}_sub`];
+                          const specification = profile?.[`comorbid_${conditionKey}_spec`];
+                          
+                          return (
+                            <div key={index} className="text-sm">
+                              <span className="font-semibold">{condition}</span>
+                              {Array.isArray(subOptions) && subOptions.length > 0 && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Selected: </span>
+                                  <span className="text-xs text-gray-800">{subOptions.join(', ')}</span>
+                                </div>
+                              )}
+                              {specification && specification.trim() && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Details: </span>
+                                  <span className="text-xs text-gray-800">{specification}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
+                  {/* Backward compatibility for existing fields */}
                   {profile?.food_allergy_specify && (
                     <p className="text-gray-700 mt-1 text-xs">Food Allergies: {profile.food_allergy_specify}</p>
                   )}
@@ -2026,7 +4006,7 @@ export default function PatientProfileSetupPage() {
                   <p className="font-medium text-gray-600 text-xs mb-2">Maintenance Medications</p>
                   <p className="text-gray-900 font-semibold">
                     {Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0
-                      ? profile.maintenance_medications.map(med => `${med.drug} ${med.dose}${med.unit} - ${med.frequency}`).join(', ')
+                      ? profile.maintenance_medications.map(med => `${med.drug} ${med.dose}${med.unit} - ${med.frequency} (${med.duration || 'Duration not specified'})`).join(', ')
                       : 'None specified'}
                   </p>
                 </div>
@@ -2051,7 +4031,7 @@ export default function PatientProfileSetupPage() {
             {/* Medical & Family History Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
-                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">4</span>
+                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">5</span>
                 Medical & Family History
               </h3>
               
@@ -2059,13 +4039,42 @@ export default function PatientProfileSetupPage() {
                 {/* Past Medical History */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Past Medical History</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.past_medical_history) && profile.past_medical_history.length > 0 
-                      ? profile.past_medical_history.join(', ') 
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.past_medical_history) && profile.past_medical_history.length > 0 ? (
+                      <div className="space-y-2">
+                        {profile.past_medical_history.map((condition: string, index: number) => {
+                          const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+                          const subOptions = profile?.[`past_medical_history_${conditionKey}_sub`];
+                          const specification = profile?.[`past_medical_history_${conditionKey}_spec`];
+                          
+                          return (
+                            <div key={index} className="text-sm">
+                              <span className="font-semibold">{condition}</span>
+                              {Array.isArray(subOptions) && subOptions.length > 0 && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Selected: </span>
+                                  <span className="text-xs text-gray-800">{subOptions.join(', ')}</span>
+                                </div>
+                              )}
+                              {specification && specification.trim() && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Details: </span>
+                                  <span className="text-xs text-gray-800">{specification}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
                   {profile?.past_medical_history_other && (
-                    <p className="text-gray-700 mt-1 text-xs">Other: {profile.past_medical_history_other}</p>
+                    <div className="text-gray-700 mt-2 text-xs">
+                      <span className="font-medium">Other: </span>
+                      <span>{profile.past_medical_history_other}</span>
+                    </div>
                   )}
                 </div>
 
@@ -2078,21 +4087,110 @@ export default function PatientProfileSetupPage() {
                   {profile?.hospital_admission_details && (
                     <p className="text-gray-700 mt-1 text-xs">{profile.hospital_admission_details}</p>
                   )}
+                  {profile?.hospital_admission_year && (
+                    <p className="text-gray-700 mt-1 text-xs"><strong>Year:</strong> {profile.hospital_admission_year}</p>
+                  )}
                 </div>
+
+                {/* Menstrual & Obstetric History (for females only) */}
+                {profile?.gender === 'Female' && (
+                  <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                    <p className="font-medium text-gray-600 text-xs mb-2">Menstrual & Obstetric History</p>
+                    <div className="space-y-2 text-sm">
+                      {profile?.menstruation_age_began && (
+                        <div>
+                          <span className="font-medium text-gray-700">Age when menstruation began:</span>
+                          <span className="ml-2 text-gray-900">{profile.menstruation_age_began} years old</span>
+                        </div>
+                      )}
+                      
+                      {(profile?.menstruation_regular || profile?.menstruation_irregular) && (
+                        <div>
+                          <span className="font-medium text-gray-700">Menstrual pattern:</span>
+                          <span className="ml-2 text-gray-900">
+                            {profile?.menstruation_regular ? 'Regular (monthly)' : 'Irregular'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {profile?.number_of_pregnancies !== undefined && profile?.number_of_pregnancies !== null && (
+                        <div>
+                          <span className="font-medium text-gray-700">Number of pregnancies:</span>
+                          <span className="ml-2 text-gray-900">{profile.number_of_pregnancies}</span>
+                        </div>
+                      )}
+                      
+                      {profile?.number_of_live_children !== undefined && profile?.number_of_live_children !== null && (
+                        <div>
+                          <span className="font-medium text-gray-700">Number of live children:</span>
+                          <span className="ml-2 text-gray-900">{profile.number_of_live_children}</span>
+                        </div>
+                      )}
+                      
+                      {Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.length > 0 && (
+                        <div>
+                          <span className="font-medium text-gray-700">Menstrual symptoms:</span>
+                          <span className="ml-2 text-gray-900">{profile.menstrual_symptoms.join(', ')}</span>
+                          {profile?.menstrual_symptoms_other && (
+                            <span className="ml-1 text-gray-900">- {profile.menstrual_symptoms_other}</span>
+                          )}
+                        </div>
+                      )}
+                      
+                      {!profile?.menstruation_age_began && !profile?.menstruation_regular && !profile?.menstruation_irregular && 
+                       profile?.number_of_pregnancies === undefined && profile?.number_of_live_children === undefined && 
+                       (!Array.isArray(profile?.menstrual_symptoms) || profile.menstrual_symptoms.length === 0) && (
+                        <p className="text-gray-500 text-xs">No menstrual or obstetric history provided</p>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Family Medical History */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Family Medical History</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.family_medical_history) && profile.family_medical_history.length > 0 
-                      ? profile.family_medical_history.join(', ') 
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.family_medical_history) && profile.family_medical_history.length > 0 ? (
+                      <div className="space-y-2">
+                        {profile.family_medical_history.map((condition: string, index: number) => {
+                          const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
+                          const subOptions = profile?.[`family_medical_history_${conditionKey}_sub`];
+                          const specification = profile?.[`family_medical_history_${conditionKey}_spec`];
+                          
+                          return (
+                            <div key={index} className="text-sm">
+                              <span className="font-semibold">{condition}</span>
+                              {Array.isArray(subOptions) && subOptions.length > 0 && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Selected: </span>
+                                  <span className="text-xs text-gray-800">{subOptions.join(', ')}</span>
+                                </div>
+                              )}
+                              {specification && specification.trim() && (
+                                <div className="ml-4 mt-1">
+                                  <span className="text-xs text-gray-600">Details: </span>
+                                  <span className="text-xs text-gray-800">{specification}</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
                   {profile?.family_medical_history_other && (
-                    <p className="text-gray-700 mt-1 text-xs">Other: {profile.family_medical_history_other}</p>
+                    <div className="text-gray-700 mt-2 text-xs">
+                      <span className="font-medium">Other: </span>
+                      <span>{profile.family_medical_history_other}</span>
+                    </div>
                   )}
                   {profile?.family_medical_history_allergies && (
-                    <p className="text-gray-700 mt-1 text-xs">Allergies: {profile.family_medical_history_allergies}</p>
+                    <div className="text-gray-700 mt-2 text-xs">
+                      <span className="font-medium">Allergies: </span>
+                      <span>{profile.family_medical_history_allergies}</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -2108,7 +4206,7 @@ export default function PatientProfileSetupPage() {
                 </div>
               </div>
               <p className="text-gray-700 text-center text-sm sm:text-base">
-                Please review all the information you've provided above. Once you submit, you'll be able to proceed with your <span className="font-semibold text-[#800000]">{option}</span>.
+                Please review all the information you&apos;ve provided above. Once you submit, you&apos;ll be able to proceed with your <span className="font-semibold text-[#800000]">{option}</span>.
               </p>
               <p className="text-gray-500 text-center text-xs mt-2">
                 You can go back to any previous step to make changes before submitting.
@@ -2125,9 +4223,12 @@ export default function PatientProfileSetupPage() {
     if (process.env.NODE_ENV === 'development') {
       console.log('=== HANDLE NEXT CLICKED ===');
       console.log('Current step:', currentStep);
+      console.log('Is edit mode:', isEditMode);
+      console.log('Has unsaved changes:', hasUnsavedChanges);
       console.log('About to validate step:', currentStep);
     }
     
+    // ALWAYS validate current step before proceeding (regardless of edit mode)
     if (!validateStep(currentStep)) {
       // Get specific error messages for missing fields
       const errorMessages = Object.entries(fieldErrors)
@@ -2158,33 +4259,65 @@ export default function PatientProfileSetupPage() {
             'emergency_contact_relationship': 'Emergency Contact Relationship',
             'emergency_contact_barangay': 'Emergency Contact Barangay',
             'emergency_contact_street': 'Emergency Contact Street',
+            'employee_id': 'Employee ID',
+            'department': 'Department',
+            'position_type': 'Position Type',
+            'course': 'Course',
+            'year_level': 'Year Level',
+            'strand': 'Strand',
             'hospital_admission_or_surgery': 'Hospital Admission/Surgery',
             'hospital_admission_details': 'Hospital Admission/Surgery Details',
+            'hospital_admission_year': 'Hospital Admission/Surgery Year',
             'past_medical_history_other': 'Past Medical History (Other)',
             'food_allergy_specify': 'Food Allergies Specification',
             'other_comorbid_specify': 'Other Comorbid Illness Specification',
             'family_medical_history_other': 'Family Medical History (Other)',
-            'family_medical_history_allergies': 'Family Medical History Allergies'
+            'family_medical_history_allergies': 'Family Medical History Allergies',
+            'menstrual_symptoms_other': 'Menstrual Symptoms (Other)'
           };
           
-          const friendlyName = fieldNames[field] || field;
+          // Handle medication field names
+          let friendlyName = fieldNames[field];
+          if (!friendlyName && field.startsWith('medication_')) {
+            const parts = field.split('_');
+            if (parts.length >= 3) {
+              const medIndex = parseInt(parts[1]) + 1;
+              const fieldType = parts.slice(2).join('_');
+              const medFieldNames: { [key: string]: string } = {
+                'drug': 'Drug Name',
+                'dose': 'Dose',
+                'unit': 'Unit',
+                'frequency': 'Frequency',
+                'duration': 'Duration',
+                'custom_duration': 'Custom Duration'
+              };
+              friendlyName = `Medication #${medIndex} ${medFieldNames[fieldType] || fieldType}`;
+            }
+          }
+          
+          if (!friendlyName) friendlyName = field;
           return `• ${friendlyName}: ${message}`;
         });
       
       const errorMessage = errorMessages.length > 0 
-        ? `Please fix the following issues:\n\n${errorMessages.join('\n')}`
+        ? `Please fix the following issues before proceeding:\n\n${errorMessages.join('\n')}\n\nAll required fields must be completed to continue.`
         : 'Please fill in all required fields before proceeding.';
       
       setFeedbackMessage(errorMessage);
       setFeedbackOpen(true);
       return;
     }
+    
     if (currentStep < steps.length) {
       // Clear any previous errors when moving to next step
       setFieldErrors({});
       setCurrentStep(currentStep + 1);
     } else {
-      await handleProfileSave();
+      // Final submission - save if in edit mode or if there are changes
+      if (isEditMode || hasUnsavedChanges) {
+        await handleProfileSave();
+      }
+      
       setTimeout(() => {
         if (option === 'Request Medical Certificate') {
           router.push('/patient/upload-documents');
@@ -2334,6 +4467,66 @@ export default function PatientProfileSetupPage() {
                   </div>
                 </div>
               )}
+
+              {/* Edit Mode Controls */}
+              {profile?.id && (
+                <div className="mt-4 mb-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
+                    {/* Edit Mode Status */}
+                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      isEditMode 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {isEditMode ? '✏️ Edit Mode' : '👁️ View Mode'}
+                    </div>
+
+                    {/* Profile Type Indicator */}
+                    {isNewProfile && (
+                      <div className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        🆕 New Profile
+                      </div>
+                    )}
+
+                    {/* Unsaved Changes Indicator */}
+                    {hasUnsavedChanges && (
+                      <div className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                        📝 Unsaved Changes
+                      </div>
+                    )}
+
+                    {/* Edit/Cancel Button */}
+                    <button
+                      onClick={handleEditModeToggle}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        isEditMode
+                          ? 'bg-gray-500 text-white hover:bg-gray-600'
+                          : 'bg-blue-500 text-white hover:bg-blue-600'
+                      }`}
+                    >
+                      {isEditMode ? 'Cancel Edit' : 'Edit Profile'}
+                    </button>
+
+                    {/* Save Changes Button - only show in edit mode */}
+                    {isEditMode && hasUnsavedChanges && (
+                      <button
+                        onClick={handleSaveChanges}
+                        disabled={loading}
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Helpful text about medications */}
+                  <div className="text-center mt-2">
+                    <p className="text-xs text-gray-500">
+                      💊 Medications can be added/removed anytime • Other fields require edit mode
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             
             {/* Main Card - Enhanced responsive design */}
@@ -2359,6 +4552,7 @@ export default function PatientProfileSetupPage() {
                   </button>
                   
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+<<<<<<< HEAD
                     {/* Save Changes button for edit mode */}
                     {hasChanges && existingProfileId && (
                       <button
@@ -2382,6 +4576,32 @@ export default function PatientProfileSetupPage() {
                       className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] active:bg-[#600000] active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
                     >
                       {currentStep === steps.length ? 'Submit Profile' : 'Next →'}
+=======
+                    {/* Save Changes Button - only show in edit mode with unsaved changes */}
+                    {isEditMode && hasUnsavedChanges && (
+                      <button
+                        onClick={handleSaveChanges}
+                        disabled={loading}
+                        className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-green-500 text-white rounded-lg font-semibold hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-center text-sm sm:text-base"
+                      >
+                        {loading ? 'Saving...' : 'Save Changes'}
+                      </button>
+                    )}
+                    
+                    {/* Next/Submit Button */}
+                    <button
+                      onClick={handleNext}
+                      className={`w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 rounded-lg font-semibold transition-all duration-200 shadow-md text-center text-sm sm:text-base ${
+                        (!isEditMode && profile?.id) 
+                          ? 'bg-gray-500 text-white hover:bg-gray-600 active:bg-gray-700 active:scale-95'
+                          : 'bg-[#800000] text-white hover:bg-[#a83232] active:bg-[#600000] active:scale-95'
+                      }`}
+                    >
+                      {currentStep === steps.length 
+                        ? (isEditMode || hasUnsavedChanges ? 'Submit Profile' : 'Continue') 
+                        : 'Next →'
+                      }
+>>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
                     </button>
                   </div>
                 </div>

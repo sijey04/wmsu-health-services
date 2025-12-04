@@ -66,6 +66,10 @@ interface ComorbidIllness {
   id: string;
   label: string;
   enabled: boolean;
+  has_sub_options?: boolean;
+  sub_options?: string[];
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   isNew?: boolean;
 }
 
@@ -80,6 +84,10 @@ interface PastMedicalHistoryItem {
   id: string;
   name: string;
   enabled: boolean;
+  has_sub_options?: boolean;
+  sub_options?: string[];
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   isNew?: boolean;
 }
 
@@ -87,6 +95,10 @@ interface FamilyMedicalHistoryItem {
   id: string;
   name: string;
   enabled: boolean;
+  has_sub_options?: boolean;
+  sub_options?: string[];
+  requires_specification?: boolean;
+  specification_placeholder?: string;
   isNew?: boolean;
 }
 
@@ -98,6 +110,20 @@ interface DentalMedicine {
   description: string;
   unit: string;
   is_active: boolean;
+  isNew?: boolean;
+}
+
+interface UserTypeInformation {
+  id: string;
+  name: string;
+  enabled: boolean;
+  description: string;
+  required_fields: string[];
+  available_courses?: string[];
+  available_departments?: string[];
+  available_strands?: string[];
+  year_levels?: string[];
+  position_types?: string[];
   isNew?: boolean;
 }
 
@@ -117,6 +143,7 @@ export default function AdminControls() {
   const [pastMedicalHistories, setPastMedicalHistories] = useState<PastMedicalHistoryItem[]>([]);
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<FamilyMedicalHistoryItem[]>([]);
   const [dentalMedicines, setDentalMedicines] = useState<DentalMedicine[]>([]);
+  const [userTypeInformation, setUserTypeInformation] = useState<UserTypeInformation[]>([]);
 
   const [saving, setSaving] = useState(false);
   
@@ -131,6 +158,12 @@ export default function AdminControls() {
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
+  
+  // Sub-options modal state
+  const [showSubOptionsModal, setShowSubOptionsModal] = useState(false);
+  const [editingSubOptions, setEditingSubOptions] = useState<any>(null);
+  const [subOptionsType, setSubOptionsType] = useState<'past' | 'family' | 'comorbid'>('past');
+  const [tempSubOptions, setTempSubOptions] = useState<string[]>([]);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -260,7 +293,11 @@ export default function AdminControls() {
         setComorbidIllnesses(comorbidResponse.data.map((illness: any) => ({
           id: illness.id.toString(),
           label: illness.label,
-          enabled: illness.is_enabled
+          enabled: illness.is_enabled,
+          has_sub_options: illness.has_sub_options || false,
+          sub_options: illness.sub_options || [],
+          requires_specification: illness.requires_specification || false,
+          specification_placeholder: illness.specification_placeholder || ''
         })));
       }
 
@@ -276,7 +313,11 @@ export default function AdminControls() {
         setPastMedicalHistories(pastMedicalResponse.data.map((history: any) => ({
           id: history.id.toString(),
           name: history.name,
-          enabled: history.is_enabled
+          enabled: history.is_enabled,
+          has_sub_options: history.has_sub_options || false,
+          sub_options: history.sub_options || [],
+          requires_specification: history.requires_specification || false,
+          specification_placeholder: history.specification_placeholder || ''
         })));
       }
 
@@ -284,8 +325,134 @@ export default function AdminControls() {
         setFamilyMedicalHistories(familyMedicalResponse.data.map((history: any) => ({
           id: history.id.toString(),
           name: history.name,
-          enabled: history.is_enabled
+          enabled: history.is_enabled,
+          has_sub_options: history.has_sub_options || false,
+          sub_options: history.sub_options || [],
+          requires_specification: history.requires_specification || false,
+          specification_placeholder: history.specification_placeholder || ''
         })));
+      }
+
+      // Load user type information - using fallback data for now since API might not exist yet
+      try {
+        const userTypeResponse = await djangoApiClient.get('/admin-controls/user-type-information/');
+        if (userTypeResponse.data) {
+          setUserTypeInformation(userTypeResponse.data.map((userType: any) => ({
+            id: userType.id.toString(),
+            name: userType.name,
+            enabled: userType.enabled,
+            description: userType.description,
+            required_fields: userType.required_fields || [],
+            available_courses: userType.available_courses || [],
+            available_departments: userType.available_departments || [],
+            available_strands: userType.available_strands || [],
+            year_levels: userType.year_levels || [],
+            position_types: userType.position_types || []
+          })));
+        }
+      } catch (error) {
+        console.warn('User Type Information API not available, using fallback data');
+        // Set default user types based on what's used in profile-setup.tsx
+        setUserTypeInformation([
+          {
+            id: '1',
+            name: 'Employee',
+            enabled: true,
+            description: 'University employees including teaching and non-teaching staff',
+            required_fields: ['employee_id', 'department', 'position_type'],
+            available_courses: [],
+            available_departments: [
+              'Academic Affairs', 'Administration', 'Admissions', 'Business Administration',
+              'Computer Science', 'Education', 'Engineering', 'Finance', 'Health Sciences',
+              'Human Resources', 'Information Technology', 'Liberal Arts', 'Library Services',
+              'Maintenance', 'Medical Services', 'Nursing', 'Physical Education', 'Psychology',
+              'Registrar', 'Research', 'Science', 'Security', 'Social Sciences', 'Student Affairs'
+            ],
+            available_strands: [],
+            year_levels: [],
+            position_types: ['Teaching', 'Non-Teaching']
+          },
+          {
+            id: '2',
+            name: 'College',
+            enabled: true,
+            description: 'College students enrolled in undergraduate programs',
+            required_fields: ['course', 'year_level'],
+            available_courses: [
+              'BS Business Administration', 'BS Computer Science', 'BS Education', 'BS Engineering',
+              'BS Information Technology', 'BS Nursing', 'BS Psychology', 'BA Communication',
+              'BA Political Science', 'BA Sociology'
+            ],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['1st Year', '2nd Year', '3rd Year', '4th Year', '5th Year'],
+            position_types: []
+          },
+          {
+            id: '3',
+            name: 'Incoming Freshman',
+            enabled: true,
+            description: 'New students entering college for the first time',
+            required_fields: ['course'],
+            available_courses: [
+              'BS Business Administration', 'BS Computer Science', 'BS Education', 'BS Engineering',
+              'BS Information Technology', 'BS Nursing', 'BS Psychology', 'BA Communication',
+              'BA Political Science', 'BA Sociology'
+            ],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['1st Year'],
+            position_types: []
+          },
+          {
+            id: '4',
+            name: 'Senior High School',
+            enabled: true,
+            description: 'Students in grades 11-12 following K-12 curriculum',
+            required_fields: ['strand', 'grade_level'],
+            available_courses: [],
+            available_departments: [],
+            available_strands: ['STEM', 'ABM', 'HUMSS', 'GAS', 'TVL'],
+            year_levels: ['Grade 11', 'Grade 12'],
+            position_types: []
+          },
+          {
+            id: '5',
+            name: 'High School',
+            enabled: true,
+            description: 'Students in grades 7-10 following traditional high school curriculum',
+            required_fields: ['grade_level'],
+            available_courses: [],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['Grade 7', 'Grade 8', 'Grade 9', 'Grade 10'],
+            position_types: []
+          },
+          {
+            id: '6',
+            name: 'Elementary',
+            enabled: true,
+            description: 'Students in grades 1-6',
+            required_fields: ['grade_level'],
+            available_courses: [],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6'],
+            position_types: []
+          },
+          {
+            id: '7',
+            name: 'Kindergarten',
+            enabled: true,
+            description: 'Pre-school students preparing for elementary education',
+            required_fields: [],
+            available_courses: [],
+            available_departments: [],
+            available_strands: [],
+            year_levels: ['Kindergarten'],
+            position_types: []
+          }
+        ]);
       }
 
       // Load dental medicines if the endpoint is available
@@ -339,6 +506,47 @@ export default function AdminControls() {
   const showAlert = (type: 'success' | 'error', message: string) => {
     setAlert({ type, message });
     setTimeout(() => setAlert(null), 5000);
+  };
+
+  // Sub-options modal functions
+  const openSubOptionsModal = (item: any, type: 'past' | 'family' | 'comorbid') => {
+    setEditingSubOptions(item);
+    setSubOptionsType(type);
+    setTempSubOptions([...(item.sub_options || [])]);
+    setShowSubOptionsModal(true);
+  };
+
+  const closeSubOptionsModal = () => {
+    setShowSubOptionsModal(false);
+    setEditingSubOptions(null);
+    setTempSubOptions([]);
+  };
+
+  const addSubOption = () => {
+    setTempSubOptions([...tempSubOptions, '']);
+  };
+
+  const updateSubOption = (index: number, value: string) => {
+    const newSubOptions = [...tempSubOptions];
+    newSubOptions[index] = value;
+    setTempSubOptions(newSubOptions);
+  };
+
+  const removeSubOption = (index: number) => {
+    const newSubOptions = tempSubOptions.filter((_, i) => i !== index);
+    setTempSubOptions(newSubOptions);
+  };
+
+  const saveSubOptions = () => {
+    const filteredOptions = tempSubOptions.filter(option => option.trim() !== '');
+    if (subOptionsType === 'past') {
+      updatePastMedicalHistory(editingSubOptions.id, 'sub_options', filteredOptions);
+    } else if (subOptionsType === 'family') {
+      updateFamilyMedicalHistory(editingSubOptions.id, 'sub_options', filteredOptions);
+    } else if (subOptionsType === 'comorbid') {
+      updateComorbidIllness(editingSubOptions.id, 'sub_options', filteredOptions);
+    }
+    closeSubOptionsModal();
   };
 
   const confirmDelete = (message: string, action: () => void) => {
@@ -396,14 +604,22 @@ export default function AdminControls() {
           savePromises.push(
             djangoApiClient.post('/user-management/comorbid_illnesses/create_comorbid_illness/', {
               label: illness.label,
-              is_enabled: illness.enabled
+              is_enabled: illness.enabled,
+              has_sub_options: illness.has_sub_options || false,
+              sub_options: illness.sub_options || [],
+              requires_specification: illness.requires_specification || false,
+              specification_placeholder: illness.specification_placeholder || ''
             })
           );
         } else {
           savePromises.push(
             djangoApiClient.put('/user-management/comorbid_illnesses/update_comorbid_illness/', {
               id: parseInt(illness.id),
-              is_enabled: illness.enabled
+              is_enabled: illness.enabled,
+              has_sub_options: illness.has_sub_options || false,
+              sub_options: illness.sub_options || [],
+              requires_specification: illness.requires_specification || false,
+              specification_placeholder: illness.specification_placeholder || ''
             })
           );
         }
@@ -434,14 +650,22 @@ export default function AdminControls() {
           savePromises.push(
             djangoApiClient.post('/user-management/past_medical_histories/create_past_medical_history/', {
               name: history.name,
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         } else {
           savePromises.push(
             djangoApiClient.put('/user-management/past_medical_histories/update_past_medical_history/', {
               id: parseInt(history.id),
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         }
@@ -453,14 +677,22 @@ export default function AdminControls() {
           savePromises.push(
             djangoApiClient.post('/user-management/family_medical_histories/create_family_medical_history/', {
               name: history.name,
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         } else {
           savePromises.push(
             djangoApiClient.put('/user-management/family_medical_histories/update_family_medical_history/', {
               id: parseInt(history.id),
-              is_enabled: history.enabled
+              is_enabled: history.enabled,
+              has_sub_options: history.has_sub_options || false,
+              sub_options: history.sub_options || [],
+              requires_specification: history.requires_specification || false,
+              specification_placeholder: history.specification_placeholder || ''
             })
           );
         }
@@ -538,6 +770,44 @@ export default function AdminControls() {
       } catch (yearError) {
         console.log('School year endpoint not available yet, school year data not saved');
         // In a real implementation, we might want to show a warning that school year data wasn't saved
+      }
+
+      // Save user type information if API is available
+      try {
+        const newUserTypes = userTypeInformation.filter(userType => userType.isNew);
+        const existingUserTypes = userTypeInformation.filter(userType => !userType.isNew);
+        
+        // Save new user types
+        for (const newUserType of newUserTypes) {
+          await djangoApiClient.post('/admin-controls/user-type-information/', {
+            name: newUserType.name,
+            enabled: newUserType.enabled,
+            description: newUserType.description,
+            required_fields: newUserType.required_fields,
+            available_courses: newUserType.available_courses,
+            available_departments: newUserType.available_departments,
+            available_strands: newUserType.available_strands,
+            year_levels: newUserType.year_levels,
+            position_types: newUserType.position_types
+          });
+        }
+        
+        // Update existing user types
+        for (const userType of existingUserTypes) {
+          await djangoApiClient.put(`/admin-controls/user-type-information/${userType.id}/`, {
+            name: userType.name,
+            enabled: userType.enabled,
+            description: userType.description,
+            required_fields: userType.required_fields,
+            available_courses: userType.available_courses,
+            available_departments: userType.available_departments,
+            available_strands: userType.available_strands,
+            year_levels: userType.year_levels,
+            position_types: userType.position_types
+          });
+        }
+      } catch (userTypeError) {
+        console.log('User Type Information endpoint not available yet, user type data not saved');
       }
 
       // Save dental medicines if any new ones were added
@@ -691,6 +961,7 @@ export default function AdminControls() {
       tabs: [
         { id: 'profile', name: 'Profile Requirements', icon: '👤' },
         { id: 'documents', name: 'Document Requirements', icon: '📄' },
+        { id: 'usertypes', name: 'User Type Information', icon: '👥' },
         { id: 'campus', name: 'Campus Schedules', icon: '🏢' },
         { id: 'dentist', name: 'Dentist Schedules', icon: '🦷' },
         { id: 'schoolyears', name: 'Academic Years', icon: '🗓️' }
@@ -719,6 +990,10 @@ export default function AdminControls() {
       id: Date.now().toString(),
       label: '',
       enabled: true,
+      has_sub_options: false,
+      sub_options: [],
+      requires_specification: false,
+      specification_placeholder: '',
       isNew: true
     };
     setComorbidIllnesses(prev => [...prev, newItem]);
@@ -791,6 +1066,10 @@ export default function AdminControls() {
       id: Date.now().toString(),
       name: '',
       enabled: true,
+      has_sub_options: false,
+      sub_options: [],
+      requires_specification: false,
+      specification_placeholder: '',
       isNew: true
     };
     setPastMedicalHistories(prev => [...prev, newItem]);
@@ -827,6 +1106,10 @@ export default function AdminControls() {
       id: Date.now().toString(),
       name: '',
       enabled: true,
+      has_sub_options: false,
+      sub_options: [],
+      requires_specification: false,
+      specification_placeholder: '',
       isNew: true
     };
     setFamilyMedicalHistories(prev => [...prev, newItem]);
@@ -913,6 +1196,109 @@ export default function AdminControls() {
       console.error('Error removing dental medicine:', error);
       showAlert('error', 'Failed to remove item');
     }
+  };
+
+  // Helper functions for User Type Information
+  const addUserTypeInformation = () => {
+    const newItem: UserTypeInformation = {
+      id: Date.now().toString(),
+      name: '',
+      enabled: true,
+      description: '',
+      required_fields: [],
+      available_courses: [],
+      available_departments: [],
+      available_strands: [],
+      year_levels: [],
+      position_types: [],
+      isNew: true
+    };
+    setUserTypeInformation(prev => [...prev, newItem]);
+  };
+
+  const updateUserTypeInformation = (id: string, field: keyof UserTypeInformation, value: any) => {
+    setUserTypeInformation(prev => 
+      prev.map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  const removeUserTypeInformation = async (id: string) => {
+    try {
+      // If it's not a new item, delete it from the backend
+      const item = userTypeInformation.find(item => item.id === id);
+      if (item && !item.isNew) {
+        await djangoApiClient.delete('/admin-controls/delete_user_type_information/', { 
+          data: { id: parseInt(id) } 
+        });
+      }
+      setUserTypeInformation(prev => prev.filter(item => item.id !== id));
+      showAlert('success', 'User type removed successfully');
+    } catch (error) {
+      console.error('Error removing user type:', error);
+      showAlert('error', 'Failed to remove user type');
+    }
+  };
+
+  const updateUserTypeField = (id: string, field: string, value: string, checked: boolean) => {
+    setUserTypeInformation(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const fieldKey = field as keyof UserTypeInformation;
+          if (fieldKey === 'required_fields') {
+            const currentFields = item.required_fields || [];
+            if (checked) {
+              return { ...item, required_fields: [...currentFields, value] };
+            } else {
+              return { ...item, required_fields: currentFields.filter(f => f !== value) };
+            }
+          } else if (Array.isArray(item[fieldKey])) {
+            const currentArray = item[fieldKey] as string[] || [];
+            if (checked) {
+              return { ...item, [fieldKey]: [...currentArray, value] };
+            } else {
+              return { ...item, [fieldKey]: currentArray.filter(f => f !== value) };
+            }
+          }
+        }
+        return item;
+      })
+    );
+  };
+
+  const addUserTypeOption = (id: string, field: string, value: string) => {
+    if (!value.trim()) return;
+    
+    setUserTypeInformation(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const fieldKey = field as keyof UserTypeInformation;
+          if (Array.isArray(item[fieldKey])) {
+            const currentArray = item[fieldKey] as string[] || [];
+            if (!currentArray.includes(value)) {
+              return { ...item, [fieldKey]: [...currentArray, value] };
+            }
+          }
+        }
+        return item;
+      })
+    );
+  };
+
+  const removeUserTypeOption = (id: string, field: string, value: string) => {
+    setUserTypeInformation(prev => 
+      prev.map(item => {
+        if (item.id === id) {
+          const fieldKey = field as keyof UserTypeInformation;
+          if (Array.isArray(item[fieldKey])) {
+            const currentArray = item[fieldKey] as string[] || [];
+            return { ...item, [fieldKey]: currentArray.filter(f => f !== value) };
+          }
+        }
+        return item;
+      })
+    );
   };
 
   if (loading) {
@@ -1073,6 +1459,386 @@ export default function AdminControls() {
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                             min="1"
                           />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* User Type Information Tab */}
+            {activeTab === 'usertypes' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">User Type Information</h3>
+                    <p className="text-sm text-gray-500">Configure user types and their required fields for profile setup</p>
+                  </div>
+                  <button
+                    onClick={addUserTypeInformation}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#8B1538] hover:bg-[#7a1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                  >
+                    Add User Type
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {userTypeInformation.map((userType) => (
+                    <div key={userType.id} className="border border-gray-200 rounded-lg p-6 bg-white">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            checked={userType.enabled}
+                            onChange={(e) => updateUserTypeInformation(userType.id, 'enabled', e.target.checked)}
+                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded mt-1"
+                          />
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={userType.name}
+                              onChange={(e) => updateUserTypeInformation(userType.id, 'name', e.target.value)}
+                              className="text-lg font-medium text-gray-900 border-none bg-transparent focus:outline-none focus:ring-0 p-0"
+                              placeholder="User Type Name"
+                            />
+                            <input
+                              type="text"
+                              value={userType.description}
+                              onChange={(e) => updateUserTypeInformation(userType.id, 'description', e.target.value)}
+                              className="text-sm text-gray-500 mt-1 block w-full border-none bg-transparent focus:outline-none focus:ring-0 p-0"
+                              placeholder="Description"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            userType.enabled 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {userType.enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                          <button
+                            onClick={() => removeUserTypeInformation(userType.id)}
+                            className="text-red-600 hover:text-red-900 p-1"
+                            title="Remove user type"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Required Fields */}
+                        <div>
+                          <h4 className="text-sm font-medium text-gray-900 mb-3">Required Fields</h4>
+                          <div className="space-y-2">
+                            {[
+                              'student_id', 'employee_id', 'department', 'position_type', 'course', 
+                              'year_level', 'grade_level', 'strand', 'section'
+                            ].map((field) => (
+                              <label key={field} className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={userType.required_fields?.includes(field) || false}
+                                  onChange={(e) => updateUserTypeField(userType.id, 'required_fields', field, e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700 capitalize">
+                                  {field.replace(/_/g, ' ')}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Available Options */}
+                        <div className="space-y-4">
+                          {/* Courses */}
+                          {userType.name === 'College' || userType.name === 'Incoming Freshman' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Courses</h4>
+                              <div className="space-y-2">
+                                {userType.available_courses?.map((course, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={course}
+                                      onChange={(e) => {
+                                        const newCourses = [...(userType.available_courses || [])];
+                                        newCourses[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'available_courses', newCourses);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'available_courses', course)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new course"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'available_courses', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'available_courses', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Departments */}
+                          {userType.name === 'Employee' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Departments</h4>
+                              <div className="space-y-2 max-h-40 overflow-y-auto">
+                                {userType.available_departments?.map((department, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={department}
+                                      onChange={(e) => {
+                                        const newDepartments = [...(userType.available_departments || [])];
+                                        newDepartments[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'available_departments', newDepartments);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'available_departments', department)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new department"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'available_departments', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'available_departments', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Strands */}
+                          {userType.name === 'Senior High School' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Strands</h4>
+                              <div className="space-y-2">
+                                {userType.available_strands?.map((strand, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={strand}
+                                      onChange={(e) => {
+                                        const newStrands = [...(userType.available_strands || [])];
+                                        newStrands[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'available_strands', newStrands);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'available_strands', strand)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new strand"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'available_strands', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'available_strands', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {/* Year Levels */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900 mb-2">Available Year/Grade Levels</h4>
+                            <div className="space-y-2">
+                              {userType.year_levels?.map((level, index) => (
+                                <div key={index} className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    value={level}
+                                    onChange={(e) => {
+                                      const newLevels = [...(userType.year_levels || [])];
+                                      newLevels[index] = e.target.value;
+                                      updateUserTypeInformation(userType.id, 'year_levels', newLevels);
+                                    }}
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                  />
+                                  <button
+                                    onClick={() => removeUserTypeOption(userType.id, 'year_levels', level)}
+                                    className="text-red-600 hover:text-red-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              ))}
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="text"
+                                  placeholder="Add new level"
+                                  className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                  onKeyPress={(e) => {
+                                    if (e.key === 'Enter') {
+                                      const target = e.target as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'year_levels', target.value);
+                                      target.value = '';
+                                    }
+                                  }}
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                    addUserTypeOption(userType.id, 'year_levels', input.value);
+                                    input.value = '';
+                                  }}
+                                  className="text-green-600 hover:text-green-900"
+                                >
+                                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Position Types */}
+                          {userType.name === 'Employee' ? (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-900 mb-2">Position Types</h4>
+                              <div className="space-y-2">
+                                {userType.position_types?.map((position, index) => (
+                                  <div key={index} className="flex items-center space-x-2">
+                                    <input
+                                      type="text"
+                                      value={position}
+                                      onChange={(e) => {
+                                        const newPositions = [...(userType.position_types || [])];
+                                        newPositions[index] = e.target.value;
+                                        updateUserTypeInformation(userType.id, 'position_types', newPositions);
+                                      }}
+                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    />
+                                    <button
+                                      onClick={() => removeUserTypeOption(userType.id, 'position_types', position)}
+                                      className="text-red-600 hover:text-red-900"
+                                    >
+                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                ))}
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add new position type"
+                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                                    onKeyPress={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const target = e.target as HTMLInputElement;
+                                        addUserTypeOption(userType.id, 'position_types', target.value);
+                                        target.value = '';
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={(e) => {
+                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                      addUserTypeOption(userType.id, 'position_types', input.value);
+                                      input.value = '';
+                                    }}
+                                    className="text-green-600 hover:text-green-900"
+                                  >
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </div>
@@ -1497,32 +2263,103 @@ export default function AdminControls() {
                   <ul className="divide-y divide-gray-200">
                     {comorbidIllnesses.map((illness) => (
                       <li key={illness.id} className={`px-4 py-4 ${illness.isNew ? 'bg-green-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 mr-4">
-                            <input
-                              type="text"
-                              value={illness.label}
-                              onChange={(e) => updateComorbidIllness(illness.id, 'label', e.target.value)}
-                              placeholder="Enter illness name"
-                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <label className="flex items-center">
+                        <div className="space-y-4">
+                          {/* Main illness configuration */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0 mr-4">
                               <input
-                                type="checkbox"
-                                checked={illness.enabled}
-                                onChange={(e) => updateComorbidIllness(illness.id, 'enabled', e.target.checked)}
-                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                type="text"
+                                value={illness.label}
+                                onChange={(e) => updateComorbidIllness(illness.id, 'label', e.target.value)}
+                                placeholder="Enter illness name"
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                               />
-                              <span className="ml-2 text-sm text-gray-700">Enabled</span>
-                            </label>
-                            <button
-                              onClick={() => removeComorbidIllness(illness.id)}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={illness.enabled}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'enabled', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                              </label>
+                              <button
+                                onClick={() => removeComorbidIllness(illness.id)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-options configuration */}
+                          <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                            <div className="flex items-center space-x-4">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={illness.has_sub_options || false}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'has_sub_options', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Has sub-options (checkboxes)</span>
+                              </label>
+                              
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={illness.requires_specification || false}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'requires_specification', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Requires text specification</span>
+                              </label>
+                            </div>
+
+                            {/* Sub-options list */}
+                            {illness.has_sub_options && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Sub-options:
+                                  </label>
+                                  <button
+                                    onClick={() => openSubOptionsModal(illness, 'comorbid')}
+                                    className="px-3 py-1 bg-[#8B1538] text-white text-xs rounded hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                                  >
+                                    Configure Sub-options
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {(illness.sub_options || []).length > 0 ? (
+                                    <span>{(illness.sub_options || []).length} sub-option(s) configured: {(illness.sub_options || []).slice(0, 3).join(', ')}{(illness.sub_options || []).length > 3 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-400">No sub-options configured yet</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Specification placeholder */}
+                            {illness.requires_specification && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Specification placeholder text:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={illness.specification_placeholder || ''}
+                                  onChange={(e) => updateComorbidIllness(illness.id, 'specification_placeholder', e.target.value)}
+                                  placeholder="e.g., Please specify the condition details..."
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  💡 This text will appear as placeholder in the text input field for patients to specify details.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -1599,32 +2436,103 @@ export default function AdminControls() {
                   <ul className="divide-y divide-gray-200">
                     {pastMedicalHistories.map((item) => (
                       <li key={item.id} className={`px-4 py-4 ${item.isNew ? 'bg-green-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 mr-4">
-                            <input
-                              type="text"
-                              value={item.name}
-                              onChange={(e) => updatePastMedicalHistory(item.id, 'name', e.target.value)}
-                              placeholder="Enter medical condition name"
-                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <label className="flex items-center">
+                        <div className="space-y-4">
+                          {/* Main item configuration */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0 mr-4">
                               <input
-                                type="checkbox"
-                                checked={item.enabled}
-                                onChange={(e) => updatePastMedicalHistory(item.id, 'enabled', e.target.checked)}
-                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updatePastMedicalHistory(item.id, 'name', e.target.value)}
+                                placeholder="Enter medical condition name"
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                               />
-                              <span className="ml-2 text-sm text-gray-700">Enabled</span>
-                            </label>
-                            <button
-                              onClick={() => removePastMedicalHistory(item.id)}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.enabled}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'enabled', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                              </label>
+                              <button
+                                onClick={() => removePastMedicalHistory(item.id)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-options configuration */}
+                          <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                            <div className="flex items-center space-x-4">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.has_sub_options || false}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'has_sub_options', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Has sub-options (checkboxes)</span>
+                              </label>
+                              
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.requires_specification || false}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'requires_specification', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Requires text specification</span>
+                              </label>
+                            </div>
+
+                            {/* Sub-options list */}
+                            {item.has_sub_options && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Sub-options:
+                                  </label>
+                                  <button
+                                    onClick={() => openSubOptionsModal(item, 'past')}
+                                    className="px-3 py-1 bg-[#8B1538] text-white text-xs rounded hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                                  >
+                                    Configure Sub-options
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {(item.sub_options || []).length > 0 ? (
+                                    <span>{(item.sub_options || []).length} sub-option(s) configured: {(item.sub_options || []).slice(0, 3).join(', ')}{(item.sub_options || []).length > 3 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-400">No sub-options configured yet</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Specification placeholder */}
+                            {item.requires_specification && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Specification placeholder text:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={item.specification_placeholder || ''}
+                                  onChange={(e) => updatePastMedicalHistory(item.id, 'specification_placeholder', e.target.value)}
+                                  placeholder="e.g., Please specify the condition..."
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  💡 This text will appear as placeholder in the text input field for patients to specify details.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -1650,32 +2558,103 @@ export default function AdminControls() {
                   <ul className="divide-y divide-gray-200">
                     {familyMedicalHistories.map((item) => (
                       <li key={item.id} className={`px-4 py-4 ${item.isNew ? 'bg-green-50' : ''}`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1 min-w-0 mr-4">
-                            <input
-                              type="text"
-                              value={item.name}
-                              onChange={(e) => updateFamilyMedicalHistory(item.id, 'name', e.target.value)}
-                              placeholder="Enter family medical condition name"
-                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
-                            />
-                          </div>
-                          <div className="flex items-center space-x-3">
-                            <label className="flex items-center">
+                        <div className="space-y-4">
+                          {/* Main item configuration */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1 min-w-0 mr-4">
                               <input
-                                type="checkbox"
-                                checked={item.enabled}
-                                onChange={(e) => updateFamilyMedicalHistory(item.id, 'enabled', e.target.checked)}
-                                className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updateFamilyMedicalHistory(item.id, 'name', e.target.value)}
+                                placeholder="Enter family medical condition name"
+                                className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                               />
-                              <span className="ml-2 text-sm text-gray-700">Enabled</span>
-                            </label>
-                            <button
-                              onClick={() => removeFamilyMedicalHistory(item.id)}
-                              className="text-red-600 hover:text-red-900 text-sm font-medium"
-                            >
-                              Remove
-                            </button>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.enabled}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'enabled', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Enabled</span>
+                              </label>
+                              <button
+                                onClick={() => removeFamilyMedicalHistory(item.id)}
+                                className="text-red-600 hover:text-red-900 text-sm font-medium"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Sub-options configuration */}
+                          <div className="ml-6 space-y-3 border-l-2 border-gray-200 pl-4">
+                            <div className="flex items-center space-x-4">
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.has_sub_options || false}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'has_sub_options', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Has sub-options (checkboxes)</span>
+                              </label>
+                              
+                              <label className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={item.requires_specification || false}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'requires_specification', e.target.checked)}
+                                  className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
+                                />
+                                <span className="ml-2 text-sm text-gray-700">Requires text specification</span>
+                              </label>
+                            </div>
+
+                            {/* Sub-options list */}
+                            {item.has_sub_options && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="block text-sm font-medium text-gray-700">
+                                    Sub-options:
+                                  </label>
+                                  <button
+                                    onClick={() => openSubOptionsModal(item, 'family')}
+                                    className="px-3 py-1 bg-[#8B1538] text-white text-xs rounded hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                                  >
+                                    Configure Sub-options
+                                  </button>
+                                </div>
+                                <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                  {(item.sub_options || []).length > 0 ? (
+                                    <span>{(item.sub_options || []).length} sub-option(s) configured: {(item.sub_options || []).slice(0, 3).join(', ')}{(item.sub_options || []).length > 3 ? '...' : ''}</span>
+                                  ) : (
+                                    <span className="text-gray-400">No sub-options configured yet</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Specification placeholder */}
+                            {item.requires_specification && (
+                              <div className="space-y-2">
+                                <label className="block text-sm font-medium text-gray-700">
+                                  Specification placeholder text:
+                                </label>
+                                <input
+                                  type="text"
+                                  value={item.specification_placeholder || ''}
+                                  onChange={(e) => updateFamilyMedicalHistory(item.id, 'specification_placeholder', e.target.value)}
+                                  placeholder="e.g., Please specify family medical condition..."
+                                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                                />
+                                <p className="text-xs text-gray-500">
+                                  💡 This text will appear as placeholder in the text input field for patients to specify details.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </li>
@@ -1869,6 +2848,83 @@ export default function AdminControls() {
           alert.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
           {alert.message}
+        </div>
+      )}
+
+      {/* Sub-options Configuration Modal */}
+      {showSubOptionsModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">
+                  Configure Sub-options for &ldquo;{editingSubOptions?.name || editingSubOptions?.label}&rdquo;
+                </h3>
+                <button
+                  onClick={closeSubOptionsModal}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                <p className="text-sm text-gray-600 mb-4">
+                  💡 These will appear as individual checkboxes under the main condition for patients to select.
+                </p>
+                
+                {tempSubOptions.map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => updateSubOption(index, e.target.value)}
+                        placeholder={`Sub-option ${index + 1}`}
+                        className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                      />
+                    </div>
+                    <button
+                      onClick={() => removeSubOption(index)}
+                      className="text-red-600 hover:text-red-800 p-1"
+                      title="Remove this sub-option"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                
+                <button
+                  onClick={addSubOption}
+                  className="flex items-center space-x-2 text-[#8B1538] hover:text-[#7A1230] text-sm font-medium"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Add Sub-option</span>
+                </button>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+                <button
+                  onClick={closeSubOptionsModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveSubOptions}
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#8B1538] rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                >
+                  Save Sub-options
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </AdminLayout>

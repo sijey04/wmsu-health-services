@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Modal from './Modal';
 import { getPostLoginRedirectPath } from '../utils/auth';
 
@@ -76,12 +77,12 @@ export default function LoginForm({ onLogin, isOpen, onClose, onSwitchToSignup }
               <div className="text-sm">
                 <p className="font-medium mb-2">Email verification required</p>
                 <p className="mb-2">Please verify your email address before signing in.</p>
-                <a 
+                <Link 
                   href="/resend-verification" 
                   className="text-[#800000] hover:underline font-medium"
                 >
                   Resend verification email →
-                </a>
+                </Link>
               </div>
             );
           } else {
@@ -211,7 +212,7 @@ export default function LoginForm({ onLogin, isOpen, onClose, onSwitchToSignup }
         {/* Switch to Signup */}
         <div className="mt-8 text-center">
           <p className="text-sm text-gray-600">
-            Don't have an account?{' '}            <button
+            Don&apos;t have an account?{' '}            <button
               type="button"
               onClick={onSwitchToSignup}
               className="font-medium text-[#800000] hover:text-[#a83232] transition-colors"

@@ -546,15 +546,17 @@ class DentalInformationRecordViewSet(viewsets.ModelViewSet):
                     'error': 'Dental information record already exists for this semester'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Create new record
+            # Prepare data - don't override patient and school_year in data
+            # Let the serializer handle setting patient and auto-populating fields
             data = request.data.copy()
-            data['patient'] = current_patient_profile.id
             data['school_year'] = current_school_year.id
             data['semester'] = current_semester
             
-            serializer = self.get_serializer(data=data)
+            # Create serializer with request context so it can access user info
+            serializer = self.get_serializer(data=data, context={'request': request})
             if serializer.is_valid():
-                dental_record = serializer.save()
+                # Explicitly set the patient when saving
+                dental_record = serializer.save(patient=current_patient_profile)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

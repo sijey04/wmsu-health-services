@@ -529,7 +529,7 @@ function AdminMedicalConsultations() {
                 }`}
                 onClick={() => setActiveTab('todaysAppointments')}
               >
-                Today's Appointments
+                Today&apos;s Appointments
               </button>
               <button
                 className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${

@@ -7,7 +7,7 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, DentalMedicineSupply
+    DentalInformationRecord, DentalMedicineSupply, UserTypeInformation
 )
 
 
@@ -122,10 +122,15 @@ class PatientSerializer(serializers.ModelSerializer):
             'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship',
             'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street', 
-            'comorbid_illnesses', 'maintenance_medications', 'vaccination_history', 'past_medical_history', 
-            'hospital_admission_or_surgery', 'hospital_admission_details',
+            'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'vaccination_history', 'past_medical_history', 
+            'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             'family_medical_history', 'allergies', 'created_at', 'updated_at', 'user_email', 'user_name', 'user_first_name', 
-            'user_middle_name', 'user_last_name', 'school_year'
+            'user_middle_name', 'user_last_name', 'school_year',
+            # Menstrual & Obstetric History
+            'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
+            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms', 'menstrual_symptoms_other',
+            # User type fields
+            'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand'
         ]
 
 
@@ -277,13 +282,18 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street',
             # Health history
-            'comorbid_illnesses', 'maintenance_medications', 'vaccination_history',
+            'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'vaccination_history',
             # Past medical/surgical history
-            'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details',
+            'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
+            # Menstrual & Obstetric History (for females)
+            'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
+            'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms', 'menstrual_symptoms_other',
             # Family medical history
             'family_medical_history', 'allergies',
             # School year
             'school_year',
+            # User type fields
+            'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand'
         ]
 
     def validate(self, attrs):
@@ -293,6 +303,10 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             if not attrs.get('hospital_admission_details'):
                 raise serializers.ValidationError({
                     'hospital_admission_details': 'Please provide details when hospital admission or surgery is "Yes".'
+                })
+            if not attrs.get('hospital_admission_year'):
+                raise serializers.ValidationError({
+                    'hospital_admission_year': 'Please provide the year when hospital admission or surgery occurred.'
                 })
         
         return attrs
@@ -855,7 +869,9 @@ class ComorbidIllnessSerializer(serializers.ModelSerializer):
     """Serializer for comorbid illnesses configuration"""
     class Meta:
         model = ComorbidIllness
-        fields = ['id', 'label', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
+        fields = ['id', 'label', 'description', 'is_enabled', 'display_order', 
+                 'has_sub_options', 'sub_options', 'requires_specification', 'specification_placeholder',
+                 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
@@ -871,7 +887,9 @@ class PastMedicalHistoryItemSerializer(serializers.ModelSerializer):
     """Serializer for past medical history items configuration"""
     class Meta:
         model = PastMedicalHistoryItem
-        fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 
+                 'has_sub_options', 'sub_options', 'requires_specification', 
+                 'specification_placeholder', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
@@ -879,7 +897,9 @@ class FamilyMedicalHistoryItemSerializer(serializers.ModelSerializer):
     """Serializer for family medical history items configuration"""
     class Meta:
         model = FamilyMedicalHistoryItem
-        fields = ['id', 'name', 'description', 'is_enabled', 'display_order', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'description', 'is_enabled', 'display_order',
+                 'has_sub_options', 'sub_options', 'requires_specification', 
+                 'specification_placeholder', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
@@ -892,8 +912,9 @@ class DentalInformationRecordSerializer(serializers.ModelSerializer):
         model = DentalInformationRecord
         fields = [
             'id', 'patient', 'school_year', 'school_year_display', 'semester', 'semester_display',
-            'patient_name', 'age', 'sex', 'year_section', 'date',
+            'patient_name', 'year_section', 'date',
             'name_of_previous_dentist', 'last_dental_visit', 'date_of_last_cleaning',
+            'has_family_dentist', 'family_dentist_name', 'family_dentist_address', 'family_dentist_phone',
             'oral_hygiene_instructions', 'gums_bleed_brushing', 'teeth_sensitive_hot_cold',
             'feel_pain_teeth', 'difficult_extractions_past', 'orthodontic_treatment',
             'prolonged_bleeding_extractions', 'frequent_headaches', 'clench_grind_teeth',
@@ -916,21 +937,94 @@ class DentalInformationRecordSerializer(serializers.ModelSerializer):
             'other_conditions', 'patient_signature', 'signature_date',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ['created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'patient']
     
     def create(self, validated_data):
-        # Automatically set patient from the request user
+        # Auto-populate patient_name from patient if not provided
+        patient = validated_data.get('patient')
+        if patient and not validated_data.get('patient_name'):
+            validated_data['patient_name'] = patient.name or f"{patient.user.first_name} {patient.user.last_name}".strip() or patient.user.username
+        
+        return super().create(validated_data)
+
+
+class UserTypeInformationSerializer(serializers.ModelSerializer):
+    """Serializer for user type information configuration"""
+    required_fields_display = serializers.CharField(source='get_required_fields_display', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    
+    class Meta:
+        model = UserTypeInformation
+        fields = [
+            'id', 'name', 'enabled', 'description',
+            'required_fields', 'required_fields_display',
+            'available_courses', 'available_departments', 'available_strands',
+            'year_levels', 'position_types',
+            'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'created_by_name', 'required_fields_display']
+    
+    def validate_name(self, value):
+        """Validate that the user type name is unique"""
+        instance = getattr(self, 'instance', None)
+        if UserTypeInformation.objects.filter(name=value).exclude(pk=instance.pk if instance else None).exists():
+            raise serializers.ValidationError("A user type with this name already exists.")
+        return value
+    
+    def validate_required_fields(self, value):
+        """Validate that required fields are a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Required fields must be a list.")
+        
+        # Define valid field names
+        valid_fields = [
+            'student_id', 'employee_id', 'department', 'position_type', 'course',
+            'year_level', 'grade_level', 'strand', 'section', 'name', 'first_name',
+            'middle_name', 'suffix', 'date_of_birth', 'age', 'gender', 'contact_number',
+            'email', 'address', 'blood_type', 'religion', 'nationality', 'civil_status',
+            'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_number',
+            'emergency_contact_relationship', 'emergency_contact_barangay', 'emergency_contact_street'
+        ]
+        
+        for field in value:
+            if field not in valid_fields:
+                raise serializers.ValidationError(f"'{field}' is not a valid field name.")
+        
+        return value
+    
+    def validate_available_courses(self, value):
+        """Validate that available courses is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Available courses must be a list.")
+        return [str(course).strip() for course in value if str(course).strip()]
+    
+    def validate_available_departments(self, value):
+        """Validate that available departments is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Available departments must be a list.")
+        return [str(dept).strip() for dept in value if str(dept).strip()]
+    
+    def validate_available_strands(self, value):
+        """Validate that available strands is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Available strands must be a list.")
+        return [str(strand).strip() for strand in value if str(strand).strip()]
+    
+    def validate_year_levels(self, value):
+        """Validate that year levels is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Year levels must be a list.")
+        return [str(level).strip() for level in value if str(level).strip()]
+    
+    def validate_position_types(self, value):
+        """Validate that position types is a list of strings"""
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Position types must be a list.")
+        return [str(position).strip() for position in value if str(position).strip()]
+    
+    def create(self, validated_data):
+        """Set the created_by field to the current user"""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            # Get or create patient profile for current user
-            user = request.user
-            patient = user.get_current_patient_profile()
-            if patient:
-                validated_data['patient'] = patient
-            else:
-                # If no patient profile exists, we need to handle this
-                raise serializers.ValidationError({
-                    'patient': 'No patient profile found. Please create your profile first.'
-                })
-        
+            validated_data['created_by'] = request.user
         return super().create(validated_data)

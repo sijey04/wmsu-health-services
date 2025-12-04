@@ -154,7 +154,7 @@ export default function Dashboard() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Today's Appointments</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate">Today&apos;s Appointments</dt>
                     <dd className="text-lg font-bold text-gray-900">{stats.todayAppointments}</dd>
                   </dl>
                 </div>
@@ -198,7 +198,7 @@ export default function Dashboard() {
             {/* Today's Appointments */}
             <div className="bg-white shadow rounded-lg overflow-hidden">
               <div className="px-4 py-5 sm:px-6 bg-gray-50">
-                <h3 className="text-lg font-medium leading-6 text-gray-900">Today's Appointments</h3>
+                <h3 className="text-lg font-medium leading-6 text-gray-900">Today&apos;s Appointments</h3>
               </div>
               <div className="divide-y divide-gray-200">
                 {recentAppointments.length > 0 ? (

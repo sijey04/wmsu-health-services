@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "@headlessui/react": "^2.2.4",
-    "framer-motion": "^12.18.1",
-    "next": "^15.3.3",
-    "react-signature-pad-wrapper": "^4.1.0",
-    "signature_pad": "^5.0.9"
-  }
-}

@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 15, 2025 at 05:16 PM
+-- Generation Time: Jul 22, 2025 at 04:45 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -55,7 +55,10 @@ INSERT INTO `api_academicschoolyear` (`id`, `academic_year`, `start_date`, `end_
 (17, '2028-2029', '2028-06-14', '2029-03-14', 0, 'active', '2025-07-08 01:40:42.687983', '2025-07-08 01:46:52.532957', NULL, NULL, NULL, NULL, NULL, NULL),
 (18, '2029-2030', '2029-06-14', '2030-03-14', 0, 'active', '2025-07-08 01:46:00.346102', '2025-07-08 01:46:52.516653', NULL, NULL, NULL, NULL, NULL, NULL),
 (19, '2030-2031', '2030-06-14', '2031-03-14', 0, 'active', '2025-07-08 01:46:52.491878', '2025-07-08 12:11:53.794063', NULL, NULL, NULL, NULL, NULL, NULL),
-(20, '2024-2025', '2024-08-01', '2025-07-31', 1, 'upcoming', '2025-07-08 04:11:53.813165', '2025-07-08 04:11:53.813165', NULL, NULL, NULL, NULL, NULL, NULL);
+(20, '2024-2025', '2024-08-15', '2025-07-31', 1, 'active', '2025-07-08 04:11:53.813165', '2025-07-16 06:15:05.507440', '2024-08-15', '2024-12-20', '2025-01-15', '2025-05-31', '2025-06-01', '2025-07-31'),
+(21, '2031-2032', '2031-08-14', '2032-07-30', 0, 'active', '2025-07-16 05:41:33.323068', '2025-07-21 17:38:18.376946', '2031-08-14', '2031-12-19', '2032-01-14', '2032-05-14', '2032-05-31', '2032-07-30'),
+(22, '2032-2033', '2032-08-14', '2033-07-30', 0, 'active', '2025-07-16 05:42:14.507647', '2025-07-21 17:38:18.374349', '2032-08-14', '2032-12-19', '2033-01-14', '2033-05-14', '2033-05-31', '2033-07-30'),
+(23, '2023-2024', '2023-08-15', '2024-07-31', 0, 'completed', '2025-07-16 06:13:47.594588', '2025-07-16 06:13:47.594588', '2023-08-15', '2023-12-20', '2024-01-15', '2024-05-31', '2024-06-01', '2024-07-31');
 
 -- --------------------------------------------------------
 
@@ -111,9 +114,8 @@ CREATE TABLE `api_appointment` (
 --
 
 INSERT INTO `api_appointment` (`id`, `appointment_date`, `appointment_time`, `purpose`, `status`, `notes`, `created_at`, `updated_at`, `doctor_id`, `patient_id`, `concern`, `type`, `rejection_reason`, `campus`, `school_year_id`, `is_rescheduled`, `original_date`, `original_time`, `reschedule_reason`, `rescheduled_at`, `rescheduled_by_id`, `semester`) VALUES
-(49, '2025-07-09', '09:03:00.000000', 'sadasd', 'completed', NULL, '2025-07-08 05:03:18.545269', '2025-07-08 05:03:50.795475', NULL, 31, '', 'medical', NULL, 'a', 20, 0, NULL, NULL, NULL, NULL, NULL, NULL),
-(50, '2025-07-09', '08:00:00.000000', 'asdasdas', 'completed', NULL, '2025-07-08 05:33:51.195180', '2025-07-08 05:35:44.496246', NULL, 31, 'asdasdas', 'dental', NULL, 'a', 20, 0, NULL, NULL, NULL, NULL, NULL, NULL),
-(51, '2025-07-08', '10:00:00.000000', 'Dental checkup', 'confirmed', NULL, '2025-07-08 05:48:40.299950', '2025-07-08 05:48:40.299950', 52, 32, NULL, 'dental', NULL, 'a', NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL);
+(58, '2025-07-21', '13:00:00.000000', 'asdasd', 'completed', NULL, '2025-07-19 19:53:32.063516', '2025-07-22 01:50:28.464886', NULL, 47, 'asdasd', 'dental', NULL, 'a', 20, 0, NULL, NULL, NULL, NULL, NULL, 'summer'),
+(59, '2025-07-23', '10:39:00.000000', 'sad', 'pending', NULL, '2025-07-22 00:39:31.754715', '2025-07-22 00:39:31.754749', NULL, 48, '', 'medical', NULL, 'a', 20, 0, NULL, NULL, NULL, NULL, NULL, 'summer');
 
 -- --------------------------------------------------------
 
@@ -137,9 +139,9 @@ CREATE TABLE `api_campusschedule` (
 --
 
 INSERT INTO `api_campusschedule` (`id`, `campus`, `open_time`, `close_time`, `operating_days`, `is_active`, `created_at`, `updated_at`) VALUES
-(5, 'a', '08:00:00.000000', '17:00:00.000000', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', 1, '2025-07-02 18:35:38.316935', '2025-07-08 01:46:50.349745'),
-(6, 'b', '08:00:00.000000', '17:00:00.000000', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', 1, '2025-07-02 18:35:38.316935', '2025-07-08 01:46:50.358053'),
-(7, 'c', '08:00:00.000000', '17:00:00.000000', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', 1, '2025-07-02 18:35:38.316935', '2025-07-08 01:46:50.366205');
+(5, 'a', '08:00:00.000000', '17:00:00.000000', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', 1, '2025-07-02 18:35:38.316935', '2025-07-21 17:38:17.455693'),
+(6, 'b', '08:00:00.000000', '17:00:00.000000', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', 1, '2025-07-02 18:35:38.316935', '2025-07-21 17:38:17.458319'),
+(7, 'c', '08:00:00.000000', '17:00:00.000000', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', 1, '2025-07-02 18:35:38.316935', '2025-07-21 17:38:17.461006');
 
 -- --------------------------------------------------------
 
@@ -154,44 +156,51 @@ CREATE TABLE `api_comorbidillness` (
   `is_enabled` tinyint(1) NOT NULL,
   `display_order` int(11) NOT NULL,
   `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL
+  `updated_at` datetime(6) NOT NULL,
+  `has_sub_options` tinyint(1) NOT NULL,
+  `requires_specification` tinyint(1) NOT NULL,
+  `specification_placeholder` varchar(200) DEFAULT NULL,
+  `sub_options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`sub_options`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `api_comorbidillness`
 --
 
-INSERT INTO `api_comorbidillness` (`id`, `label`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 'Hypertension', '', 0, 0, '2025-07-04 18:06:45.921382', '2025-07-08 01:46:50.673602'),
-(2, 'Diabetes Mellitus', '', 0, 1, '2025-07-04 18:06:45.939916', '2025-07-08 01:46:50.635800'),
-(3, 'Asthma', '', 0, 2, '2025-07-04 18:06:45.943553', '2025-07-08 01:46:50.517230'),
-(4, 'Heart Disease', '', 0, 3, '2025-07-04 18:06:45.948092', '2025-07-08 01:46:50.650433'),
-(5, 'Epilepsy', '', 0, 4, '2025-07-04 18:06:45.952259', '2025-07-08 01:46:50.667758'),
-(6, 'Kidney Disease', '', 0, 5, '2025-07-04 18:06:45.957015', '2025-07-08 01:46:50.707335'),
-(7, 'Liver Disease', '', 0, 6, '2025-07-04 18:06:45.959262', '2025-07-08 01:46:50.693820'),
-(8, 'Thyroid Disease', '', 0, 7, '2025-07-04 18:06:45.959262', '2025-07-08 01:46:50.840543'),
-(9, 'Depression', '', 0, 8, '2025-07-04 18:06:45.972281', '2025-07-08 01:46:50.607150'),
-(10, 'Anxiety Disorder', '', 0, 9, '2025-07-04 18:06:45.974275', '2025-07-08 01:46:50.486163'),
-(11, 'Bipolar Disorder', '', 0, 10, '2025-07-04 18:06:45.974275', '2025-07-08 01:46:50.503550'),
-(12, 'Schizophrenia', '', 1, 11, '2025-07-04 18:06:45.974275', '2025-07-08 01:46:50.792542'),
-(13, 'Other Mental Health Condition', '', 0, 12, '2025-07-04 18:06:45.990368', '2025-07-08 01:46:50.767020'),
-(14, 'Bronchitis', 'Common medical condition: Bronchitis', 0, 4, '2025-07-05 18:41:02.805345', '2025-07-08 01:46:50.583551'),
-(15, 'Tuberculosis', 'Common medical condition: Tuberculosis', 0, 5, '2025-07-05 18:41:02.822231', '2025-07-08 01:46:50.834730'),
-(16, 'Chronic Kidney Disease', 'Common medical condition: Chronic Kidney Disease', 0, 6, '2025-07-05 18:41:02.824239', '2025-07-08 01:46:50.590226'),
-(17, 'Obesity', 'Common medical condition: Obesity', 0, 8, '2025-07-05 18:41:02.824239', '2025-07-08 01:46:50.725340'),
-(18, 'Stroke', 'Common medical condition: Stroke', 0, 11, '2025-07-05 18:41:02.838173', '2025-07-08 01:46:50.786128'),
-(19, 'Cancer', 'Common medical condition: Cancer', 0, 12, '2025-07-05 18:41:02.838173', '2025-07-08 01:46:50.583551'),
-(20, 'Autoimmune Disease', 'Common medical condition: Autoimmune Disease', 0, 13, '2025-07-05 18:41:02.838173', '2025-07-08 01:46:50.489695'),
-(21, 'COPD (Chronic Obstructive Pulmonary Disease)', 'Common medical condition: COPD (Chronic Obstructive Pulmonary Disease)', 0, 14, '2025-07-05 18:41:02.851132', '2025-07-08 01:46:50.583551'),
-(22, 'Arthritis', 'Common medical condition: Arthritis', 0, 15, '2025-07-05 18:41:02.851132', '2025-07-08 01:46:50.511911'),
-(23, 'Osteoporosis', 'Common medical condition: Osteoporosis', 0, 16, '2025-07-05 18:41:02.859478', '2025-07-08 01:46:50.761085'),
-(24, 'Mental Health Disorders', 'Common medical condition: Mental Health Disorders', 0, 17, '2025-07-05 18:41:02.859478', '2025-07-08 01:46:50.742556'),
-(25, 'Allergies', 'Common medical condition: Allergies', 0, 18, '2025-07-05 18:41:02.859478', '2025-07-08 01:46:50.493989'),
-(26, 'None', 'Common medical condition: None', 0, 19, '2025-07-05 18:41:02.859478', '2025-07-08 01:46:50.723811'),
-(27, 'Diabetes', '', 0, 0, '2025-07-06 06:23:21.043405', '2025-07-08 01:46:50.636199'),
-(28, 'COPD', '', 0, 0, '2025-07-06 06:23:21.083838', '2025-07-08 01:46:50.600829'),
-(29, 'Mental Health Conditions', '', 0, 0, '2025-07-06 06:45:50.402002', '2025-07-08 01:46:50.700137'),
-(30, 'Test Illness', '', 1, 0, '2025-07-06 07:00:32.302506', '2025-07-08 01:46:50.817870');
+INSERT INTO `api_comorbidillness` (`id`, `label`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`, `has_sub_options`, `requires_specification`, `specification_placeholder`, `sub_options`) VALUES
+(1, 'Hypertension', '', 0, 0, '2025-07-04 18:06:45.921382', '2025-07-21 17:38:17.613603', 0, 1, 'Specify blood pressure readings or medications', '[]'),
+(2, 'Diabetes Mellitus', '', 0, 1, '2025-07-04 18:06:45.939916', '2025-07-21 17:38:17.607411', 0, 0, '', '[]'),
+(3, 'Asthma', '', 0, 2, '2025-07-04 18:06:45.943553', '2025-07-21 17:38:17.556025', 0, 0, '', '[]'),
+(4, 'Heart Disease', '', 0, 3, '2025-07-04 18:06:45.948092', '2025-07-21 17:38:17.618058', 1, 0, '', '[\"Coronary Artery Disease\", \"Heart Failure\", \"Arrhythmia\", \"Valvular Heart Disease\", \"Congenital Heart Disease\"]'),
+(5, 'Epilepsy', '', 0, 4, '2025-07-04 18:06:45.952259', '2025-07-21 17:38:17.614145', 0, 0, '', '[]'),
+(6, 'Kidney Disease', '', 0, 5, '2025-07-04 18:06:45.957015', '2025-07-21 17:38:17.637638', 0, 0, '', '[]'),
+(7, 'Liver Disease', '', 0, 6, '2025-07-04 18:06:45.959262', '2025-07-21 17:38:17.642085', 0, 0, '', '[]'),
+(8, 'Thyroid Disease', '', 0, 7, '2025-07-04 18:06:45.959262', '2025-07-21 17:38:17.699757', 0, 0, '', '[]'),
+(9, 'Depression', '', 0, 8, '2025-07-04 18:06:45.972281', '2025-07-21 17:38:17.591939', 0, 0, '', '[]'),
+(10, 'Anxiety Disorder', '', 0, 9, '2025-07-04 18:06:45.974275', '2025-07-21 17:38:17.561731', 0, 0, '', '[]'),
+(11, 'Bipolar Disorder', '', 0, 10, '2025-07-04 18:06:45.974275', '2025-07-21 17:38:17.555268', 0, 0, '', '[]'),
+(12, 'Schizophrenia', '', 1, 11, '2025-07-04 18:06:45.974275', '2025-07-21 17:38:17.688890', 0, 0, '', '[]'),
+(13, 'Other Mental Health Condition', '', 0, 12, '2025-07-04 18:06:45.990368', '2025-07-21 17:38:17.677673', 0, 0, '', '[]'),
+(14, 'Bronchitis', 'Common medical condition: Bronchitis', 0, 4, '2025-07-05 18:41:02.805345', '2025-07-21 17:38:17.581201', 0, 0, '', '[]'),
+(15, 'Tuberculosis', 'Common medical condition: Tuberculosis', 0, 5, '2025-07-05 18:41:02.822231', '2025-07-21 17:38:17.700291', 0, 0, '', '[]'),
+(16, 'Chronic Kidney Disease', 'Common medical condition: Chronic Kidney Disease', 0, 6, '2025-07-05 18:41:02.824239', '2025-07-21 17:38:17.580148', 0, 0, '', '[]'),
+(17, 'Obesity', 'Common medical condition: Obesity', 0, 8, '2025-07-05 18:41:02.824239', '2025-07-21 17:38:17.656188', 0, 0, '', '[]'),
+(18, 'Stroke', 'Common medical condition: Stroke', 0, 11, '2025-07-05 18:41:02.838173', '2025-07-21 17:38:17.682218', 0, 0, '', '[]'),
+(19, 'Cancer', 'Common medical condition: Cancer', 0, 12, '2025-07-05 18:41:02.838173', '2025-07-21 17:38:17.584421', 0, 0, '', '[]'),
+(20, 'Autoimmune Disease', 'Common medical condition: Autoimmune Disease', 0, 13, '2025-07-05 18:41:02.838173', '2025-07-21 17:38:17.561174', 0, 0, '', '[]'),
+(21, 'COPD (Chronic Obstructive Pulmonary Disease)', 'Common medical condition: COPD (Chronic Obstructive Pulmonary Disease)', 0, 14, '2025-07-05 18:41:02.851132', '2025-07-21 17:38:17.589801', 0, 0, '', '[]'),
+(22, 'Arthritis', 'Common medical condition: Arthritis', 0, 15, '2025-07-05 18:41:02.851132', '2025-07-21 17:38:17.549857', 0, 0, '', '[]'),
+(23, 'Osteoporosis', 'Common medical condition: Osteoporosis', 1, 16, '2025-07-05 18:41:02.859478', '2025-07-21 17:38:17.664098', 0, 0, '', '[]'),
+(24, 'Mental Health Disorders', 'Common medical condition: Mental Health Disorders', 1, 17, '2025-07-05 18:41:02.859478', '2025-07-21 17:38:17.645937', 0, 0, '', '[]'),
+(25, 'Allergies', 'Common medical condition: Allergies', 1, 18, '2025-07-05 18:41:02.859478', '2025-07-21 17:38:17.564356', 1, 1, 'tae', '[\"eat\"]'),
+(26, 'None', 'Common medical condition: None', 0, 19, '2025-07-05 18:41:02.859478', '2025-07-21 17:38:17.654274', 0, 0, '', '[]'),
+(27, 'Diabetes', '', 0, 0, '2025-07-06 06:23:21.043405', '2025-07-21 17:38:17.606158', 1, 1, 'Specify blood sugar levels, medications, or management details', '[\"Type 1 Diabetes\", \"Type 2 Diabetes\", \"Gestational Diabetes\"]'),
+(28, 'COPD', '', 0, 0, '2025-07-06 06:23:21.083838', '2025-07-21 17:38:17.583472', 0, 0, '', '[]'),
+(29, 'Mental Health Conditions', '', 0, 0, '2025-07-06 06:45:50.402002', '2025-07-21 17:38:17.641512', 0, 0, '', '[]'),
+(30, 'Test Illness', '', 1, 0, '2025-07-06 07:00:32.302506', '2025-07-21 17:38:17.692539', 0, 0, '', '[]'),
+(31, 'Psychiatric Illness', 'Mental health conditions', 1, 0, '2025-07-21 17:29:52.502184', '2025-07-21 17:38:17.667035', 1, 1, 'Specify medications, therapy, or additional details', '[\"Major Depressive Disorder\", \"Bipolar Disorder\", \"Generalized Anxiety Disorder\", \"Panic Disorder\", \"Posttraumatic Stress Disorder\", \"Schizophrenia\", \"Other\"]'),
+(32, 'Food Allergies', 'Allergic reactions to specific foods', 1, 0, '2025-07-21 17:29:52.506262', '2025-07-21 17:38:17.614690', 1, 1, 'Specify severity of reactions or other details', '[\"Shellfish\", \"Nuts\", \"Dairy\", \"Eggs\", \"Wheat/Gluten\", \"Soy\", \"Fish\", \"Other\"]'),
+(33, 'Respiratory Conditions', 'Breathing and lung-related conditions', 0, 0, '2025-07-21 17:29:52.509498', '2025-07-21 17:38:17.673814', 1, 1, 'Specify medications, triggers, or severity', '[\"Asthma\", \"COPD\", \"Sleep Apnea\", \"Chronic Bronchitis\", \"Emphysema\"]');
 
 -- --------------------------------------------------------
 
@@ -233,12 +242,10 @@ CREATE TABLE `api_customuser` (
 --
 
 INSERT INTO `api_customuser` (`id`, `password`, `last_login`, `is_superuser`, `username`, `first_name`, `last_name`, `is_staff`, `is_active`, `date_joined`, `email`, `grade_level`, `is_email_verified`, `email_verification_token`, `email_verification_sent_at`, `user_type`, `middle_name`, `blocked_at`, `blocked_by_id`, `block_reason`, `is_blocked`, `education_level`, `education_year`, `education_program`, `department_college`, `employee_position`) VALUES
-(8, 'pbkdf2_sha256$600000$HdZr2FXHyxmtmSe8gXr9tX$BEmYGrfcyHntT2pv6faLJDZngLpXdxOb8kToy1vhJGM=', NULL, 1, 'usamaputli@gmail.com', 'usamaputli@gmail.com', '', 1, 1, '2025-06-24 02:55:15.689131', 'usamaputli@gmail.com', 'Incoming Freshman', 1, '16527cbf-9540-4aa1-9eae-87446d7b89dd', '2025-06-24 10:55:20.071692', 'student', 'AOID', NULL, NULL, '', 0, NULL, NULL, NULL, NULL, NULL),
+(8, 'pbkdf2_sha256$1000000$9v4GqKW3gp5Z7sxCUjZU81$XVr3xSyC+J38NhGaw3YzjCiQINrDT4ZdE+qt9HnflY4=', NULL, 1, 'usamaputli@gmail.com', 'usamaputli@gmail.com', '', 1, 1, '2025-06-24 02:55:15.689131', 'usamaputli@gmail.com', 'Incoming Freshman', 1, '16527cbf-9540-4aa1-9eae-87446d7b89dd', '2025-06-24 10:55:20.071692', 'student', 'AOID', NULL, NULL, '', 0, NULL, NULL, NULL, NULL, NULL),
 (31, 'pbkdf2_sha256$600000$m9kuC2CETGsOO90ZjVXDjG$sUNnhUL6uf1kN/uAmrD17Z33gC909aUBbfpG4G0Lc1s=', NULL, 1, 'admin', 'System', 'Administrator', 1, 1, '2025-07-05 21:19:23.138087', 'admin@wmsu.edu.ph', NULL, 1, 'b8360aaf-ef92-4033-b4e7-11c2d47d1961', NULL, 'admin', NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL),
-(51, 'pbkdf2_sha256$600000$YE9TXEDxMJWcD4TnEHLpkZ$9KyrQqGfSJJANmrjZworLFZ5o5V4ml/Zc5XlqcMmK7U=', NULL, 0, 'johnmagno332@gmail.com', 'Rezier', 'Magno', 0, 1, '2025-07-08 04:59:41.455825', 'johnmagno332@gmail.com', 'Incoming Freshman', 1, 'e553300d-7c07-4b45-b79d-ed7a9c4c4b32', '2025-07-08 04:59:46.047911', 'student', 'John O.', NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL),
-(52, 'pbkdf2_sha256$600000$WF0cipmONguN4vKs3jfKVv$1VHmDtqwE+5MPk0Cf99moPO3Hk+oMTbSc4sTooiWsTI=', NULL, 0, 'teststaff', 'Dr. Maria', 'Santos', 1, 1, '2025-07-08 05:45:11.199892', 'test.staff@wmsu.edu', NULL, 1, '8c19b442-623c-4652-9b56-ffa1fbd180ab', NULL, 'staff', NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL),
-(53, '', NULL, 0, 'testpatient', 'Juan', 'Dela Cruz', 0, 1, '2025-07-08 05:47:29.419278', 'test.patient@wmsu.edu', NULL, 1, '7706c0a1-8d4d-4e34-8d0b-ff1751282fe0', NULL, 'student', NULL, NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL),
-(55, 'pbkdf2_sha256$600000$sXSrbIp08YGgTofZZFxAhM$TxIbNXXHdUcFJQBWnIaKy8cbnrPeCQxivKHahtC9Kl8=', NULL, 0, 'doctor_main', 'Felicitas', 'Elago', 1, 1, '2025-07-15 21:11:21.000000', 'doctor.main@wmsu.edu.ph', '', 1, 'c69ff049-4614-43e9-b5a2-4fd36f13912f', NULL, 'staff', 'C.', NULL, NULL, '', 0, NULL, NULL, NULL, NULL, NULL);
+(68, 'pbkdf2_sha256$1000000$zLPZ6yKpGTXeX51jrVtTBR$mVrKJ9sspJIwJ780O2rO42zWNwPx/6QW71x0uPJdbJU=', NULL, 0, 'faminianochristianjude@gmail.com', 'CHRISTIAN', 'FAMINIANO, CHRISTIAN', 0, 1, '2025-07-19 19:48:41.314720', 'faminianochristianjude@gmail.com', 'Incoming Freshman', 1, 'db4b13d2c0b84deb8d8826aac2ea60dc', '2025-07-19 19:48:45.699149', 'student', 'JUDE', NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL),
+(69, 'pbkdf2_sha256$1000000$moB6syuuPqjOXgVJSaDpha$2WbwRs7Gqu41UiD86H6Wtbi15sKTkwl5aWqdDDzZRRY=', NULL, 0, 'eh202201151@wmsu.edu.ph', 'Jhn', 'Rei', 0, 1, '2025-07-21 12:11:08.994905', 'eh202201151@wmsu.edu.ph', 'Employee', 1, '61a53611c7cc4a0a81aabc71abe39bb1', '2025-07-21 12:11:13.479700', 'student', 'M', NULL, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -342,15 +349,179 @@ CREATE TABLE `api_dentalformdata` (
   `current_management` longtext DEFAULT NULL,
   `current_nurse_physician` varchar(100) DEFAULT NULL,
   `total_consultations` int(11) NOT NULL,
-  `consultation_template_compliant` tinyint(1) NOT NULL
+  `consultation_template_compliant` tinyint(1) NOT NULL,
+  `used_medicines` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`used_medicines`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `api_dentalformdata`
 --
 
-INSERT INTO `api_dentalformdata` (`id`, `file_no`, `surname`, `first_name`, `middle_name`, `grade_year_section`, `age`, `sex`, `has_toothbrush`, `dentition`, `periodontal`, `occlusion`, `malocclusion_severity`, `remarks`, `examined_by`, `date`, `permanent_teeth_status`, `temporary_teeth_status`, `created_at`, `updated_at`, `appointment_id`, `patient_id`, `decayed_teeth`, `filled_teeth`, `missing_teeth`, `next_appointment`, `oral_hygiene`, `prevention_advice`, `recommended_treatments`, `treatment_priority`, `academic_year_id`, `examiner_license`, `examiner_phone`, `examiner_position`, `examiner_ptr`, `consultations_record`, `current_consultation_date`, `current_signs_symptoms`, `current_hr`, `current_rr`, `current_temp`, `current_o2_sat`, `current_bp`, `current_test_results`, `current_diagnosis`, `current_management`, `current_nurse_physician`, `total_consultations`, `consultation_template_compliant`) VALUES
-(12, 'TEMP-51', 'Magno', 'Rezier', 'John O.', NULL, 7, 'Female', 'Yes', '', '', '', '', '', 'usamaputli@gmail.com', '2025-07-08', '{}', '{\"5\": {\"treatment\": \"asdas\", \"status\": \"\"}}', '2025-07-08 05:35:44.477476', '2025-07-08 05:35:44.477476', 50, 31, '', '', '', '', '', '', '', '', 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 1);
+INSERT INTO `api_dentalformdata` (`id`, `file_no`, `surname`, `first_name`, `middle_name`, `grade_year_section`, `age`, `sex`, `has_toothbrush`, `dentition`, `periodontal`, `occlusion`, `malocclusion_severity`, `remarks`, `examined_by`, `date`, `permanent_teeth_status`, `temporary_teeth_status`, `created_at`, `updated_at`, `appointment_id`, `patient_id`, `decayed_teeth`, `filled_teeth`, `missing_teeth`, `next_appointment`, `oral_hygiene`, `prevention_advice`, `recommended_treatments`, `treatment_priority`, `academic_year_id`, `examiner_license`, `examiner_phone`, `examiner_position`, `examiner_ptr`, `consultations_record`, `current_consultation_date`, `current_signs_symptoms`, `current_hr`, `current_rr`, `current_temp`, `current_o2_sat`, `current_bp`, `current_test_results`, `current_diagnosis`, `current_management`, `current_nurse_physician`, `total_consultations`, `consultation_template_compliant`, `used_medicines`) VALUES
+(16, 'TEMP-68', 'FAMINIANO', 'CHRISTIAN', 'JUDE', NULL, 0, 'Male', 'Yes', '', '', '', '', '', 'Rezier John O Magno', '2025-07-22', '{\"11\": {\"treatment\": \"\", \"status\": \"Filled\"}, \"13\": {\"treatment\": \"\", \"status\": \"Extracted\"}, \"14\": {\"treatment\": \"\", \"status\": \"Needs Filling\"}, \"15\": {\"treatment\": \"\", \"status\": \"Needs Extraction\"}, \"16\": {\"treatment\": \"\", \"status\": \"Needs Filling\"}}', '{\"4\": {\"treatment\": \"\", \"status\": \"\"}, \"9\": {\"treatment\": \"\", \"status\": \"Decayed\"}}', '2025-07-22 01:50:28.461752', '2025-07-22 01:50:28.461770', 58, 47, '1', '1', '1', '', '', '', '', '', 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 1, '[]');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `api_dentalinformationrecord`
+--
+
+CREATE TABLE `api_dentalinformationrecord` (
+  `id` bigint(20) NOT NULL,
+  `semester` varchar(20) NOT NULL,
+  `patient_name` varchar(255) NOT NULL,
+  `age` int(11) DEFAULT NULL,
+  `sex` varchar(20) DEFAULT NULL,
+  `year_section` varchar(100) DEFAULT NULL,
+  `date` date NOT NULL,
+  `name_of_previous_dentist` varchar(255) DEFAULT NULL,
+  `last_dental_visit` varchar(255) DEFAULT NULL,
+  `date_of_last_cleaning` varchar(255) DEFAULT NULL,
+  `oral_hygiene_instructions` tinyint(1) DEFAULT NULL,
+  `gums_bleed_brushing` tinyint(1) DEFAULT NULL,
+  `teeth_sensitive_hot_cold` tinyint(1) DEFAULT NULL,
+  `feel_pain_teeth` tinyint(1) DEFAULT NULL,
+  `difficult_extractions_past` tinyint(1) DEFAULT NULL,
+  `orthodontic_treatment` tinyint(1) DEFAULT NULL,
+  `prolonged_bleeding_extractions` tinyint(1) DEFAULT NULL,
+  `frequent_headaches` tinyint(1) DEFAULT NULL,
+  `clench_grind_teeth` tinyint(1) DEFAULT NULL,
+  `allergic_to_following` tinyint(1) DEFAULT NULL,
+  `allergic_penicillin` tinyint(1) NOT NULL,
+  `allergic_amoxicillin` tinyint(1) NOT NULL,
+  `allergic_local_anesthetic` tinyint(1) NOT NULL,
+  `allergic_sulfa_drugs` tinyint(1) NOT NULL,
+  `allergic_latex` tinyint(1) NOT NULL,
+  `allergic_others` varchar(255) DEFAULT NULL,
+  `is_woman` tinyint(1) NOT NULL,
+  `menstruation_today` tinyint(1) DEFAULT NULL,
+  `pregnant` tinyint(1) DEFAULT NULL,
+  `taking_birth_control` tinyint(1) DEFAULT NULL,
+  `smoke` tinyint(1) DEFAULT NULL,
+  `under_medical_treatment` tinyint(1) DEFAULT NULL,
+  `medical_treatment_condition` varchar(255) DEFAULT NULL,
+  `hospitalized` tinyint(1) DEFAULT NULL,
+  `hospitalization_when_why` varchar(255) DEFAULT NULL,
+  `taking_prescription_medication` tinyint(1) DEFAULT NULL,
+  `prescription_medication_details` varchar(255) DEFAULT NULL,
+  `high_blood_pressure` tinyint(1) NOT NULL,
+  `low_blood_pressure` tinyint(1) NOT NULL,
+  `epilepsy_convulsions` tinyint(1) NOT NULL,
+  `aids_hiv_positive` tinyint(1) NOT NULL,
+  `sexually_transmitted_disease` tinyint(1) NOT NULL,
+  `stomach_trouble_ulcers` tinyint(1) NOT NULL,
+  `fainting_seizure` tinyint(1) NOT NULL,
+  `rapid_weight_loss` tinyint(1) NOT NULL,
+  `radiation_therapy` tinyint(1) NOT NULL,
+  `joint_replacement_implant` tinyint(1) NOT NULL,
+  `heart_surgery` tinyint(1) NOT NULL,
+  `heart_attack` tinyint(1) NOT NULL,
+  `thyroid_problem` tinyint(1) NOT NULL,
+  `heart_disease` tinyint(1) NOT NULL,
+  `heart_murmur` tinyint(1) NOT NULL,
+  `hepatitis_liver_disease` tinyint(1) NOT NULL,
+  `rheumatic_fever` tinyint(1) NOT NULL,
+  `hay_fever_allergies` tinyint(1) NOT NULL,
+  `respiratory_problems` tinyint(1) NOT NULL,
+  `hepatitis_jaundice` tinyint(1) NOT NULL,
+  `tuberculosis` tinyint(1) NOT NULL,
+  `swollen_ankles` tinyint(1) NOT NULL,
+  `kidney_disease` tinyint(1) NOT NULL,
+  `diabetes` tinyint(1) NOT NULL,
+  `chest_pain` tinyint(1) NOT NULL,
+  `stroke` tinyint(1) NOT NULL,
+  `cancer_tumors` tinyint(1) NOT NULL,
+  `anemia` tinyint(1) NOT NULL,
+  `angina` tinyint(1) NOT NULL,
+  `asthma` tinyint(1) NOT NULL,
+  `emphysema` tinyint(1) NOT NULL,
+  `blood_diseases` tinyint(1) NOT NULL,
+  `head_injuries` tinyint(1) NOT NULL,
+  `arthritis_rheumatism` tinyint(1) NOT NULL,
+  `other_conditions` varchar(255) DEFAULT NULL,
+  `patient_signature` varchar(255) DEFAULT NULL,
+  `signature_date` date NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL,
+  `patient_id` bigint(20) NOT NULL,
+  `school_year_id` int(11) DEFAULT NULL,
+  `education_level` varchar(50) DEFAULT NULL,
+  `year_level` varchar(50) DEFAULT NULL,
+  `course` varchar(200) DEFAULT NULL,
+  `family_dentist_address` longtext DEFAULT NULL,
+  `family_dentist_name` varchar(255) DEFAULT NULL,
+  `family_dentist_phone` varchar(50) DEFAULT NULL,
+  `has_family_dentist` tinyint(1) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `api_dentalinformationrecord`
+--
+
+INSERT INTO `api_dentalinformationrecord` (`id`, `semester`, `patient_name`, `age`, `sex`, `year_section`, `date`, `name_of_previous_dentist`, `last_dental_visit`, `date_of_last_cleaning`, `oral_hygiene_instructions`, `gums_bleed_brushing`, `teeth_sensitive_hot_cold`, `feel_pain_teeth`, `difficult_extractions_past`, `orthodontic_treatment`, `prolonged_bleeding_extractions`, `frequent_headaches`, `clench_grind_teeth`, `allergic_to_following`, `allergic_penicillin`, `allergic_amoxicillin`, `allergic_local_anesthetic`, `allergic_sulfa_drugs`, `allergic_latex`, `allergic_others`, `is_woman`, `menstruation_today`, `pregnant`, `taking_birth_control`, `smoke`, `under_medical_treatment`, `medical_treatment_condition`, `hospitalized`, `hospitalization_when_why`, `taking_prescription_medication`, `prescription_medication_details`, `high_blood_pressure`, `low_blood_pressure`, `epilepsy_convulsions`, `aids_hiv_positive`, `sexually_transmitted_disease`, `stomach_trouble_ulcers`, `fainting_seizure`, `rapid_weight_loss`, `radiation_therapy`, `joint_replacement_implant`, `heart_surgery`, `heart_attack`, `thyroid_problem`, `heart_disease`, `heart_murmur`, `hepatitis_liver_disease`, `rheumatic_fever`, `hay_fever_allergies`, `respiratory_problems`, `hepatitis_jaundice`, `tuberculosis`, `swollen_ankles`, `kidney_disease`, `diabetes`, `chest_pain`, `stroke`, `cancer_tumors`, `anemia`, `angina`, `asthma`, `emphysema`, `blood_diseases`, `head_injuries`, `arthritis_rheumatism`, `other_conditions`, `patient_signature`, `signature_date`, `created_at`, `updated_at`, `patient_id`, `school_year_id`, `education_level`, `year_level`, `course`, `family_dentist_address`, `family_dentist_name`, `family_dentist_phone`, `has_family_dentist`) VALUES
+(6, '1st_semester', 'FAMINIANO, CHRISTIAN, CHRISTIAN JUDE', 12, 'Male', 'Grade 8', '2025-07-19', '', '', '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '', 0, NULL, NULL, NULL, 0, 0, '', 0, '', 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, '', 'FAMINIANO, CHRISTIAN, CHRISTIAN JUDE', '2025-07-19', '2025-07-19 19:53:22.476937', '2025-07-19 19:53:22.476949', 47, 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(7, '1st_semester', 'Rei, Jhn M', NULL, NULL, NULL, '2025-07-22', 'No', 'no', 'no', 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL, 1, 0, 0, 0, 0, 'ss', 0, NULL, NULL, NULL, 0, 0, '', 0, '', 0, '', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, '', 'Rei, Jhn M', '2025-07-22', '2025-07-22 00:25:11.479224', '2025-07-22 00:25:11.479243', 48, 20, NULL, NULL, NULL, '', '', '', 0);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `api_dentalmedicinesupply`
+--
+
+CREATE TABLE `api_dentalmedicinesupply` (
+  `id` bigint(20) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `type` varchar(20) NOT NULL,
+  `description` longtext DEFAULT NULL,
+  `unit` varchar(20) NOT NULL,
+  `is_active` tinyint(1) NOT NULL,
+  `created_at` datetime(6) NOT NULL,
+  `updated_at` datetime(6) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `api_dentalmedicinesupply`
+--
+
+INSERT INTO `api_dentalmedicinesupply` (`id`, `name`, `type`, `description`, `unit`, `is_active`, `created_at`, `updated_at`) VALUES
+(1, 'Lidocaine 2%', 'anesthetic', 'Local anesthetic for dental procedures', 'ml', 1, '2025-07-16 03:09:14.718303', '2025-07-16 03:09:14.718303'),
+(2, 'Articaine 4%', 'anesthetic', 'Local anesthetic with epinephrine', 'ml', 1, '2025-07-16 03:09:14.725169', '2025-07-16 03:09:14.725169'),
+(3, 'Benzocaine gel', 'anesthetic', 'Topical anesthetic gel', 'g', 1, '2025-07-16 03:09:14.730849', '2025-07-16 03:09:14.730849'),
+(4, 'Amoxicillin 500mg', 'antibiotic', 'Antibiotic for dental infections', 'capsule', 1, '2025-07-16 03:09:14.737255', '2025-07-16 03:09:14.737255'),
+(5, 'Clindamycin 300mg', 'antibiotic', 'Alternative antibiotic for penicillin-allergic patients', 'capsule', 1, '2025-07-16 03:09:14.740397', '2025-07-16 03:09:14.740397'),
+(6, 'Metronidazole 400mg', 'antibiotic', 'Antibiotic for anaerobic infections', 'tablet', 1, '2025-07-16 03:09:14.745552', '2025-07-16 03:09:14.745552'),
+(7, 'Ibuprofen 400mg', 'medicine', 'Anti-inflammatory pain reliever', 'tablet', 1, '2025-07-16 03:09:14.747582', '2025-07-16 03:09:14.747582'),
+(8, 'Paracetamol 500mg', 'medicine', 'Pain reliever and fever reducer', 'tablet', 1, '2025-07-16 03:09:14.750629', '2025-07-16 03:09:14.750629'),
+(9, 'Mefenamic acid 250mg', 'medicine', 'NSAID for pain relief', 'capsule', 1, '2025-07-16 03:09:14.753779', '2025-07-16 03:09:14.753779'),
+(10, 'Composite resin', 'dental_supply', 'Tooth-colored filling material', 'syringe', 1, '2025-07-16 03:09:14.755872', '2025-07-16 03:09:14.755872'),
+(11, 'Dental amalgam', 'dental_supply', 'Silver filling material', 'capsule', 1, '2025-07-16 03:09:14.757905', '2025-07-16 03:09:14.757905'),
+(12, 'Fluoride varnish', 'dental_supply', 'Topical fluoride treatment', 'ml', 1, '2025-07-16 03:09:14.761348', '2025-07-16 03:09:14.761348'),
+(13, 'Dental cement', 'dental_supply', 'Temporary filling material', 'g', 1, '2025-07-16 03:09:14.761348', '2025-07-16 03:09:14.761348'),
+(14, 'Cotton rolls', 'material', 'Absorbent cotton for isolation', 'pcs', 1, '2025-07-16 03:09:14.761348', '2025-07-16 03:09:14.761348'),
+(15, 'Gauze pads', 'material', 'Sterile gauze for bleeding control', 'pcs', 1, '2025-07-16 03:09:14.771091', '2025-07-16 03:09:14.771091'),
+(16, 'Disposable gloves', 'material', 'Latex-free examination gloves', 'pair', 1, '2025-07-16 03:09:14.772742', '2025-07-16 03:09:14.772742'),
+(17, 'Dental floss', 'material', 'Waxed dental floss', 'pack', 1, '2025-07-16 03:09:14.776756', '2025-07-16 03:09:14.776756'),
+(18, 'Dental probe', 'equipment', 'Periodontal probe for examination', 'pcs', 1, '2025-07-16 03:09:14.779955', '2025-07-16 03:09:14.779955'),
+(19, 'Dental mirror', 'equipment', 'Mouth mirror for examination', 'pcs', 1, '2025-07-16 03:09:14.783094', '2025-07-16 03:09:14.783094'),
+(20, 'Dental scaler', 'equipment', 'Hand scaler for cleaning', 'pcs', 1, '2025-07-16 03:09:14.788436', '2025-07-16 03:09:14.789693'),
+(21, 'Lidocaine HCl 2%', 'anesthetic', 'Local anesthetic for dental procedures', 'cartridge', 1, '2025-07-16 03:35:52.695607', '2025-07-16 03:35:52.695607'),
+(22, 'Articaine HCl 4%', 'anesthetic', 'Long-acting local anesthetic', 'cartridge', 1, '2025-07-16 03:35:52.711417', '2025-07-16 03:35:52.711417'),
+(23, 'Benzocaine 20%', 'anesthetic', 'Topical anesthetic gel', 'tube', 1, '2025-07-16 03:35:52.711417', '2025-07-16 03:35:52.711417'),
+(24, 'Amoxicillin 500mg', 'medicine', 'Antibiotic for dental infections', 'capsule', 1, '2025-07-16 03:35:52.727477', '2025-07-16 03:35:52.727477'),
+(25, 'Chlorhexidine Mouthwash', 'medicine', 'Antiseptic mouth rinse', 'bottle', 1, '2025-07-16 03:35:52.739395', '2025-07-16 03:35:52.739395'),
+(26, 'Azithromycin 250mg', 'antibiotic', 'Antibiotic for respiratory and dental infections', 'tablet', 1, '2025-07-16 03:35:52.743024', '2025-07-16 03:35:52.743024'),
+(27, 'Glass Ionomer Cement', 'dental_supply', 'Fluoride-releasing filling material', 'capsule', 1, '2025-07-16 03:35:52.757146', '2025-07-16 03:35:52.757146'),
+(28, 'Dental Floss', 'dental_supply', 'Oral hygiene tool', 'roll', 1, '2025-07-16 03:35:52.763120', '2025-07-16 03:35:52.763120'),
+(29, 'Impression Material', 'dental_supply', 'Material for taking dental impressions', 'cartridge', 1, '2025-07-16 03:35:52.773471', '2025-07-16 03:35:52.773471'),
+(30, 'Disposable Gloves', 'equipment', 'Latex-free examination gloves', 'box', 1, '2025-07-16 03:35:52.777471', '2025-07-16 03:35:52.779708'),
+(31, 'Face Masks', 'equipment', 'Surgical face masks', 'box', 1, '2025-07-16 03:35:52.788514', '2025-07-16 03:35:52.788514'),
+(32, 'Dental Bib', 'equipment', 'Patient protection bib', 'pack', 1, '2025-07-16 03:35:52.795586', '2025-07-16 03:35:52.795586'),
+(33, 'Gauze Pads', 'equipment', 'Sterile gauze for wound care', 'pack', 1, '2025-07-16 03:35:52.801173', '2025-07-16 03:35:52.801173'),
+(34, 'Dental Wax', 'material', 'Wax for dental procedures', 'stick', 1, '2025-07-16 03:35:52.802237', '2025-07-16 03:35:52.802237'),
+(35, 'Polishing Paste', 'material', 'Abrasive paste for tooth polishing', 'tube', 1, '2025-07-16 03:35:52.816055', '2025-07-16 03:35:52.816055'),
+(36, 'Etching Gel', 'material', 'Acid gel for tooth preparation', 'syringe', 1, '2025-07-16 03:35:52.822859', '2025-07-16 03:35:52.822859'),
+(37, 'Bonding Agent', 'material', 'Adhesive for dental restorations', 'bottle', 1, '2025-07-16 03:35:52.825468', '2025-07-16 03:35:52.825468'),
+(38, 'Test', 'medicine', '', 'mg', 1, '2025-07-16 03:51:53.890810', '2025-07-16 03:51:53.890810');
 
 -- --------------------------------------------------------
 
@@ -368,7 +539,8 @@ CREATE TABLE `api_dentalwaiver` (
   `user_id` bigint(20) NOT NULL,
   `guardian_name` varchar(100) DEFAULT NULL,
   `guardian_signature` longtext DEFAULT NULL,
-  `patient_id` bigint(20) DEFAULT NULL
+  `patient_id` bigint(20) DEFAULT NULL,
+  `semester` varchar(20) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -393,9 +565,9 @@ CREATE TABLE `api_dentistschedule` (
 --
 
 INSERT INTO `api_dentistschedule` (`id`, `dentist_name`, `campus`, `available_days`, `time_slots`, `is_active`, `created_at`, `updated_at`) VALUES
-(4, 'Dr. Maria Santos', 'a', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', '[\"08:00-09:00\", \"09:00-10:00\", \"10:00-11:00\", \"13:00-14:00\", \"14:00-15:00\", \"15:00-16:00\"]', 1, '2025-07-02 18:35:38.334430', '2025-07-08 01:46:50.349745'),
-(5, 'Dr. Smith', 'a', '[\"Monday\", \"Wednesday\", \"Friday\"]', '[\"08:00-09:00\", \"09:00-10:00\", \"10:00-11:00\", \"14:00-15:00\"]', 1, '2025-07-06 06:23:20.997129', '2025-07-08 01:46:50.358053'),
-(6, 'Dr. Johnson', 'b', '[\"Tuesday\", \"Thursday\"]', '[\"08:00-09:00\", \"09:00-10:00\", \"10:00-11:00\", \"14:00-15:00\"]', 1, '2025-07-06 06:23:21.014010', '2025-07-08 01:46:50.366205');
+(4, 'Dr. Maria Santos', 'a', '[\"Monday\", \"Tuesday\", \"Wednesday\", \"Thursday\", \"Friday\"]', '[\"08:00-09:00\", \"09:00-10:00\", \"10:00-11:00\", \"13:00-14:00\", \"14:00-15:00\", \"15:00-16:00\"]', 1, '2025-07-02 18:35:38.334430', '2025-07-21 17:38:17.452937'),
+(5, 'Dr. Smith', 'a', '[\"Monday\", \"Wednesday\", \"Friday\"]', '[\"08:00-09:00\", \"09:00-10:00\", \"10:00-11:00\", \"14:00-15:00\"]', 1, '2025-07-06 06:23:20.997129', '2025-07-21 17:38:17.457142'),
+(6, 'Dr. Johnson', 'b', '[\"Tuesday\", \"Thursday\"]', '[\"08:00-09:00\", \"09:00-10:00\", \"10:00-11:00\", \"14:00-15:00\"]', 1, '2025-07-06 06:23:21.014010', '2025-07-21 17:38:17.460475');
 
 -- --------------------------------------------------------
 
@@ -421,13 +593,13 @@ CREATE TABLE `api_documentrequirement` (
 --
 
 INSERT INTO `api_documentrequirement` (`id`, `field_name`, `display_name`, `description`, `is_required`, `validity_period_months`, `specific_courses`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'chest_xray', 'Chest X-Ray', 'Recent chest X-ray results', 1, 6, '[]', 1, '2025-07-02 18:13:27.062772', '2025-07-08 01:46:50.349745'),
-(2, 'cbc', 'Complete Blood Count (CBC)', 'Complete blood count laboratory results', 1, 6, '[]', 1, '2025-07-02 18:13:27.067627', '2025-07-08 01:46:50.358053'),
-(3, 'blood_typing', 'Blood Typing', 'Blood type and Rh factor test results', 1, 12, '[]', 1, '2025-07-02 18:13:27.071764', '2025-07-08 01:46:50.341434'),
-(4, 'urinalysis', 'Urinalysis', 'Complete urinalysis test results', 1, 6, '[]', 1, '2025-07-02 18:13:27.080367', '2025-07-08 01:46:50.383300'),
-(5, 'drug_test', 'Drug Test', 'Drug screening test results', 1, 12, '[]', 1, '2025-07-02 18:13:27.085766', '2025-07-08 01:46:50.366205'),
-(6, 'hepa_b', 'Hepatitis B Test', 'Hepatitis B surface antigen test results', 0, 12, '[\"College of Medicine\", \"College of Nursing\", \"College of Home Economics\", \"College of Criminal Justice Education\", \"BS Food Technology\", \"BS Biology\"]', 1, '2025-07-02 18:13:27.090196', '2025-07-08 01:46:50.374470'),
-(7, 'medical_certificate', 'Medical Certificate', 'Medical certificate from licensed physician', 1, 12, '[]', 1, '2025-07-06 06:23:20.963974', '2025-07-08 01:46:50.374470');
+(1, 'chest_xray', 'Chest X-Ray', 'Recent chest X-ray results', 1, 6, '[]', 1, '2025-07-02 18:13:27.062772', '2025-07-21 17:38:17.459532'),
+(2, 'cbc', 'Complete Blood Count (CBC)', 'Complete blood count laboratory results', 1, 6, '[]', 1, '2025-07-02 18:13:27.067627', '2025-07-21 17:38:17.462871'),
+(3, 'blood_typing', 'Blood Typing', 'Blood type and Rh factor test results', 1, 12, '[]', 1, '2025-07-02 18:13:27.071764', '2025-07-21 17:38:17.455157'),
+(4, 'urinalysis', 'Urinalysis', 'Complete urinalysis test results', 1, 6, '[]', 1, '2025-07-02 18:13:27.080367', '2025-07-21 17:38:17.472537'),
+(5, 'drug_test', 'Drug Test', 'Drug screening test results', 1, 12, '[]', 1, '2025-07-02 18:13:27.085766', '2025-07-21 17:38:17.465659'),
+(6, 'hepa_b', 'Hepatitis B Test', 'Hepatitis B surface antigen test results', 0, 12, '[\"College of Medicine\", \"College of Nursing\", \"College of Home Economics\", \"College of Criminal Justice Education\", \"BS Food Technology\", \"BS Biology\"]', 1, '2025-07-02 18:13:27.090196', '2025-07-21 17:38:17.467415'),
+(7, 'medical_certificate', 'Medical Certificate', 'Medical certificate from licensed physician', 1, 12, '[]', 1, '2025-07-06 06:23:20.963974', '2025-07-21 17:38:17.469317');
 
 -- --------------------------------------------------------
 
@@ -442,52 +614,56 @@ CREATE TABLE `api_familymedicalhistoryitem` (
   `is_enabled` tinyint(1) NOT NULL,
   `display_order` int(11) NOT NULL,
   `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL
+  `updated_at` datetime(6) NOT NULL,
+  `has_sub_options` tinyint(1) NOT NULL,
+  `requires_specification` tinyint(1) NOT NULL,
+  `specification_placeholder` varchar(200) NOT NULL,
+  `sub_options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`sub_options`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `api_familymedicalhistoryitem`
 --
 
-INSERT INTO `api_familymedicalhistoryitem` (`id`, `name`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 'Diabetes', '', 0, 0, '2025-07-04 18:06:46.168469', '2025-07-08 01:46:52.031346'),
-(2, 'Hypertension', '', 0, 1, '2025-07-04 18:06:46.168469', '2025-07-08 01:46:52.058467'),
-(3, 'Heart Disease', '', 0, 2, '2025-07-04 18:06:46.168469', '2025-07-08 01:46:52.065750'),
-(4, 'Stroke', '', 0, 3, '2025-07-04 18:06:46.184492', '2025-07-08 01:46:52.075046'),
-(5, 'Cancer', '', 0, 4, '2025-07-04 18:06:46.184492', '2025-07-08 01:46:52.091814'),
-(6, 'Asthma', '', 0, 5, '2025-07-04 18:06:46.184492', '2025-07-08 01:46:52.091814'),
-(7, 'Allergies', '', 0, 6, '2025-07-04 18:06:46.184492', '2025-07-08 01:46:52.140975'),
-(8, 'Kidney Disease', '', 0, 7, '2025-07-04 18:06:46.200531', '2025-07-08 01:46:52.149705'),
-(9, 'Liver Disease', '', 0, 8, '2025-07-04 18:06:46.206360', '2025-07-08 01:46:52.149705'),
-(10, 'Thyroid Disorders', '', 0, 9, '2025-07-04 18:06:46.210861', '2025-07-08 01:46:52.166746'),
-(11, 'Epilepsy', '', 0, 10, '2025-07-04 18:06:46.213875', '2025-07-08 01:46:52.197966'),
-(12, 'Mental Health Conditions', '', 0, 11, '2025-07-04 18:06:46.213875', '2025-07-08 01:46:52.224885'),
-(13, 'Autoimmune Disorders', '', 0, 12, '2025-07-04 18:06:46.213875', '2025-07-08 01:46:52.224885'),
-(14, 'Blood Disorders', '', 0, 13, '2025-07-04 18:06:46.213875', '2025-07-08 01:46:52.258450'),
-(15, 'Genetic Disorders', '', 0, 14, '2025-07-04 18:06:46.229974', '2025-07-08 01:46:52.283167'),
-(16, 'Obesity', '', 0, 15, '2025-07-04 18:06:46.229974', '2025-07-08 01:46:52.299612'),
-(17, 'Osteoporosis', '', 0, 16, '2025-07-04 18:06:46.229974', '2025-07-08 01:46:52.316319'),
-(18, 'Arthritis', '', 0, 17, '2025-07-04 18:06:46.229974', '2025-07-08 01:46:52.331498'),
-(19, 'High Cholesterol', '', 1, 18, '2025-07-04 18:06:46.245861', '2025-07-08 01:46:52.357289'),
-(20, 'Glaucoma', '', 0, 19, '2025-07-04 18:06:46.245861', '2025-07-08 01:46:52.375411'),
-(21, 'Alzheimer\'s Disease', '', 0, 20, '2025-07-04 18:06:46.245861', '2025-07-08 01:46:52.397937'),
-(22, 'Parkinson\'s Disease', '', 0, 21, '2025-07-04 18:06:46.245861', '2025-07-08 01:46:52.441643'),
-(23, 'Huntington\'s Disease', '', 0, 22, '2025-07-04 18:06:46.261634', '2025-07-08 01:46:52.441643'),
-(24, 'Sickle Cell Disease', '', 0, 23, '2025-07-04 18:06:46.261634', '2025-07-08 01:46:52.450127'),
-(25, 'Thalassemia', '', 0, 24, '2025-07-04 18:06:46.261634', '2025-07-08 01:46:52.460518'),
-(26, 'High Blood Pressure', 'Family medical history: High Blood Pressure', 0, 5, '2025-07-05 18:41:03.060781', '2025-07-08 01:46:52.116955'),
-(27, 'Mental Health Disorders', 'Family medical history: Mental Health Disorders', 0, 8, '2025-07-05 18:41:03.076023', '2025-07-08 01:46:52.141954'),
-(28, 'Thyroid Disease', 'Family medical history: Thyroid Disease', 0, 11, '2025-07-05 18:41:03.086719', '2025-07-08 01:46:52.216758'),
-(29, 'Tuberculosis', 'Family medical history: Tuberculosis', 0, 12, '2025-07-05 18:41:03.090882', '2025-07-08 01:46:52.222852'),
-(30, 'Autoimmune Diseases', 'Family medical history: Autoimmune Diseases', 0, 13, '2025-07-05 18:41:03.096436', '2025-07-08 01:46:52.216758'),
-(31, 'Bone/Joint Problems', 'Family medical history: Bone/Joint Problems', 0, 15, '2025-07-05 18:41:03.096436', '2025-07-08 01:46:52.266701'),
-(32, 'Eye Problems', 'Family medical history: Eye Problems', 0, 16, '2025-07-05 18:41:03.096436', '2025-07-08 01:46:52.299612'),
-(33, 'Hearing Problems', 'Family medical history: Hearing Problems', 1, 17, '2025-07-05 18:41:03.110179', '2025-07-08 01:46:52.339822'),
-(34, 'Skin Conditions', 'Family medical history: Skin Conditions', 1, 18, '2025-07-05 18:41:03.110179', '2025-07-08 01:46:52.366699'),
-(35, 'Substance Abuse', 'Family medical history: Substance Abuse', 0, 19, '2025-07-05 18:41:03.110179', '2025-07-08 01:46:52.391381'),
-(36, 'Other Genetic Conditions', 'Family medical history: Other Genetic Conditions', 0, 20, '2025-07-05 18:41:03.126220', '2025-07-08 01:46:52.407999'),
-(37, 'None Known', 'Family medical history: None Known', 0, 21, '2025-07-05 18:41:03.128931', '2025-07-08 01:46:52.422822'),
-(38, 'Mental Illness', '', 0, 0, '2025-07-06 06:23:21.311023', '2025-07-08 01:46:52.041548');
+INSERT INTO `api_familymedicalhistoryitem` (`id`, `name`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`, `has_sub_options`, `requires_specification`, `specification_placeholder`, `sub_options`) VALUES
+(1, 'Diabetes', '', 1, 0, '2025-07-04 18:06:46.168469', '2025-07-21 17:38:18.228608', 0, 0, '', '[]'),
+(2, 'Hypertension', '', 0, 1, '2025-07-04 18:06:46.168469', '2025-07-21 17:38:18.277630', 0, 0, '', '[]'),
+(3, 'Heart Disease', '', 0, 2, '2025-07-04 18:06:46.168469', '2025-07-21 17:38:18.264351', 0, 0, '', '[]'),
+(4, 'Stroke', '', 0, 3, '2025-07-04 18:06:46.184492', '2025-07-21 17:38:18.344890', 0, 0, '', '[]'),
+(5, 'Cancer', '', 0, 4, '2025-07-04 18:06:46.184492', '2025-07-21 17:38:18.229238', 0, 0, '', '[]'),
+(6, 'Asthma', '', 0, 5, '2025-07-04 18:06:46.184492', '2025-07-21 17:38:18.158262', 0, 0, '', '[]'),
+(7, 'Allergies', '', 1, 6, '2025-07-04 18:06:46.184492', '2025-07-21 17:38:18.145820', 1, 0, '', '[\"opt1 \", \"opt2\"]'),
+(8, 'Kidney Disease', '', 0, 7, '2025-07-04 18:06:46.200531', '2025-07-21 17:38:18.286727', 0, 0, '', '[]'),
+(9, 'Liver Disease', '', 0, 8, '2025-07-04 18:06:46.206360', '2025-07-21 17:38:18.300516', 0, 0, '', '[]'),
+(10, 'Thyroid Disorders', '', 0, 9, '2025-07-04 18:06:46.210861', '2025-07-21 17:38:18.361968', 0, 0, '', '[]'),
+(11, 'Epilepsy', '', 0, 10, '2025-07-04 18:06:46.213875', '2025-07-21 17:38:18.244421', 0, 0, '', '[]'),
+(12, 'Mental Health Conditions', '', 0, 11, '2025-07-04 18:06:46.213875', '2025-07-21 17:38:18.295631', 0, 0, '', '[]'),
+(13, 'Autoimmune Disorders', '', 0, 12, '2025-07-04 18:06:46.213875', '2025-07-21 17:38:18.178234', 0, 0, '', '[]'),
+(14, 'Blood Disorders', '', 0, 13, '2025-07-04 18:06:46.213875', '2025-07-21 17:38:18.181964', 0, 0, '', '[]'),
+(15, 'Genetic Disorders', '', 0, 14, '2025-07-04 18:06:46.229974', '2025-07-21 17:38:18.244038', 0, 0, '', '[]'),
+(16, 'Obesity', '', 0, 15, '2025-07-04 18:06:46.229974', '2025-07-21 17:38:18.314565', 0, 0, '', '[]'),
+(17, 'Osteoporosis', '', 0, 16, '2025-07-04 18:06:46.229974', '2025-07-21 17:38:18.328841', 0, 0, '', '[]'),
+(18, 'Arthritis', '', 0, 17, '2025-07-04 18:06:46.229974', '2025-07-21 17:38:18.153680', 0, 0, '', '[]'),
+(19, 'High Cholesterol', '', 0, 18, '2025-07-04 18:06:46.245861', '2025-07-21 17:38:18.272680', 0, 0, '', '[]'),
+(20, 'Glaucoma', '', 0, 19, '2025-07-04 18:06:46.245861', '2025-07-21 17:38:18.247701', 0, 0, '', '[]'),
+(21, 'Alzheimer\'s Disease', '', 0, 20, '2025-07-04 18:06:46.245861', '2025-07-21 17:38:18.156352', 0, 0, '', '[]'),
+(22, 'Parkinson\'s Disease', '', 0, 21, '2025-07-04 18:06:46.245861', '2025-07-21 17:38:18.334337', 0, 0, '', '[]'),
+(23, 'Huntington\'s Disease', '', 0, 22, '2025-07-04 18:06:46.261634', '2025-07-21 17:38:18.272073', 0, 0, '', '[]'),
+(24, 'Sickle Cell Disease', '', 0, 23, '2025-07-04 18:06:46.261634', '2025-07-21 17:38:18.341433', 0, 0, '', '[]'),
+(25, 'Thalassemia', '', 0, 24, '2025-07-04 18:06:46.261634', '2025-07-21 17:38:18.359882', 0, 0, '', '[]'),
+(26, 'High Blood Pressure', 'Family medical history: High Blood Pressure', 0, 5, '2025-07-05 18:41:03.060781', '2025-07-21 17:38:18.271068', 0, 0, '', '[]'),
+(27, 'Mental Health Disorders', 'Family medical history: Mental Health Disorders', 0, 8, '2025-07-05 18:41:03.076023', '2025-07-21 17:38:18.300051', 0, 0, '', '[]'),
+(28, 'Thyroid Disease', 'Family medical history: Thyroid Disease', 0, 11, '2025-07-05 18:41:03.086719', '2025-07-21 17:38:18.363682', 0, 0, '', '[]'),
+(29, 'Tuberculosis', 'Family medical history: Tuberculosis', 0, 12, '2025-07-05 18:41:03.090882', '2025-07-21 17:38:18.363255', 0, 0, '', '[]'),
+(30, 'Autoimmune Diseases', 'Family medical history: Autoimmune Diseases', 0, 13, '2025-07-05 18:41:03.096436', '2025-07-21 17:38:18.175184', 0, 0, '', '[]'),
+(31, 'Bone/Joint Problems', 'Family medical history: Bone/Joint Problems', 0, 15, '2025-07-05 18:41:03.096436', '2025-07-21 17:38:18.223920', 0, 0, '', '[]'),
+(32, 'Eye Problems', 'Family medical history: Eye Problems', 0, 16, '2025-07-05 18:41:03.096436', '2025-07-21 17:38:18.242899', 0, 0, '', '[]'),
+(33, 'Hearing Problems', 'Family medical history: Hearing Problems', 0, 17, '2025-07-05 18:41:03.110179', '2025-07-21 17:38:18.257984', 0, 0, '', '[]'),
+(34, 'Skin Conditions', 'Family medical history: Skin Conditions', 0, 18, '2025-07-05 18:41:03.110179', '2025-07-21 17:38:18.339556', 0, 0, '', '[]'),
+(35, 'Substance Abuse', 'Family medical history: Substance Abuse', 0, 19, '2025-07-05 18:41:03.110179', '2025-07-21 17:38:18.360499', 0, 0, '', '[]'),
+(36, 'Other Genetic Conditions', 'Family medical history: Other Genetic Conditions', 0, 20, '2025-07-05 18:41:03.126220', '2025-07-21 17:38:18.335046', 0, 0, '', '[]'),
+(37, 'None Known', 'Family medical history: None Known', 0, 21, '2025-07-05 18:41:03.128931', '2025-07-21 17:38:18.315185', 0, 0, '', '[]'),
+(38, 'Mental Illness', '', 1, 0, '2025-07-06 06:23:21.311023', '2025-07-21 17:38:18.310330', 0, 0, '', '[]');
 
 -- --------------------------------------------------------
 
@@ -537,13 +713,6 @@ CREATE TABLE `api_medicaldocument` (
   `advised_for_consultation_by_id` bigint(20) DEFAULT NULL,
   `consultation_reason` longtext DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `api_medicaldocument`
---
-
-INSERT INTO `api_medicaldocument` (`id`, `chest_xray`, `cbc`, `blood_typing`, `urinalysis`, `drug_test`, `hepa_b`, `uploaded_at`, `updated_at`, `patient_id`, `status`, `rejection_reason`, `reviewed_at`, `reviewed_by_id`, `submitted_for_review`, `certificate_issued_at`, `medical_certificate`, `academic_year_id`, `advised_for_consultation_at`, `advised_for_consultation_by_id`, `consultation_reason`) VALUES
-(37, 'medical_documents/chest_xray/cutekitten_fBLoZKz.png', 'medical_documents/cbc/dog1_MNhXEH3.png', 'medical_documents/blood_typing/cutekitten_Morimkf.png', 'medical_documents/urinalysis/dog2.png', 'medical_documents/drug_test/cutekitten_IzT5Ddm.png', '', '2025-07-08 05:01:47.946290', '2025-07-08 05:09:38.549799', 31, 'issued', NULL, '2025-07-08 05:09:29.014255', 8, 0, '2025-07-08 05:09:37.869946', 'medical_certificates/medical_certificate_Magno_Rezier_20250708_050938.pdf', NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -602,13 +771,6 @@ CREATE TABLE `api_medicalformdata` (
   `urinalysis_results` longtext DEFAULT NULL,
   `weight_kg` decimal(5,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `api_medicalformdata`
---
-
-INSERT INTO `api_medicalformdata` (`id`, `file_no`, `surname`, `first_name`, `middle_name`, `age`, `sex`, `blood_pressure`, `pulse_rate`, `temperature`, `respiratory_rate`, `weight`, `height`, `chief_complaint`, `present_illness`, `past_medical_history`, `family_history`, `allergies`, `medications`, `general_appearance`, `heent`, `cardiovascular`, `respiratory`, `gastrointestinal`, `genitourinary`, `neurological`, `musculoskeletal`, `integumentary`, `diagnosis`, `treatment_plan`, `recommendations`, `follow_up`, `examined_by`, `examiner_license`, `date`, `created_at`, `updated_at`, `appointment_id`, `patient_id`, `academic_year_id`, `bmi`, `cbc_results`, `chest_xray_results`, `height_cm`, `hepatitis_b_screening`, `other_tests`, `physical_examination_notes`, `urinalysis_results`, `weight_kg`) VALUES
-(2, 'TEMP-51', 'Magno', 'Rezier', 'John O.', 7, 'Female', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', 'Return for follow-up consultation as needed.', 'Rezier John O Magno', '23398', '2025-07-08', '2025-07-08 05:03:50.763308', '2025-07-08 05:03:50.763308', 49, 31, 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -694,70 +856,77 @@ CREATE TABLE `api_pastmedicalhistoryitem` (
   `is_enabled` tinyint(1) NOT NULL,
   `display_order` int(11) NOT NULL,
   `created_at` datetime(6) NOT NULL,
-  `updated_at` datetime(6) NOT NULL
+  `updated_at` datetime(6) NOT NULL,
+  `has_sub_options` tinyint(1) NOT NULL,
+  `requires_specification` tinyint(1) NOT NULL,
+  `specification_placeholder` varchar(200) NOT NULL,
+  `sub_options` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`sub_options`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `api_pastmedicalhistoryitem`
 --
 
-INSERT INTO `api_pastmedicalhistoryitem` (`id`, `name`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 'Asthma', '', 0, 0, '2025-07-04 18:06:46.055977', '2025-07-08 01:46:51.357261'),
-(2, 'Allergic Rhinitis', '', 0, 1, '2025-07-04 18:06:46.055977', '2025-07-08 01:46:51.500094'),
-(3, 'Skin Allergies', '', 0, 2, '2025-07-04 18:06:46.067579', '2025-07-08 01:46:51.524851'),
-(4, 'Food Allergies', '', 0, 3, '2025-07-04 18:06:46.071579', '2025-07-08 01:46:51.552957'),
-(5, 'Drug Allergies', '', 0, 4, '2025-07-04 18:06:46.073534', '2025-07-08 01:46:51.581479'),
-(6, 'Hypertension', '', 0, 5, '2025-07-04 18:06:46.073534', '2025-07-08 01:46:51.592196'),
-(7, 'Diabetes', '', 0, 6, '2025-07-04 18:06:46.073534', '2025-07-08 01:46:51.625020'),
-(8, 'Heart Disease', '', 0, 7, '2025-07-04 18:06:46.073534', '2025-07-08 01:46:51.641703'),
-(9, 'Kidney Disease', '', 0, 8, '2025-07-04 18:06:46.089304', '2025-07-08 01:46:51.666585'),
-(10, 'Liver Disease', '', 0, 9, '2025-07-04 18:06:46.089304', '2025-07-08 01:46:51.700049'),
-(11, 'Thyroid Disorders', '', 0, 10, '2025-07-04 18:06:46.089304', '2025-07-08 01:46:51.733282'),
-(12, 'Epilepsy/Seizures', '', 0, 11, '2025-07-04 18:06:46.089304', '2025-07-08 01:46:51.724240'),
-(13, 'Mental Health Conditions', '', 0, 12, '2025-07-04 18:06:46.105270', '2025-07-08 01:46:51.783249'),
-(14, 'Cancer', '', 0, 13, '2025-07-04 18:06:46.121089', '2025-07-08 01:46:51.791386'),
-(15, 'Stroke', '', 0, 14, '2025-07-04 18:06:46.121089', '2025-07-08 01:46:51.800112'),
-(16, 'Tuberculosis', '', 0, 15, '2025-07-04 18:06:46.121089', '2025-07-08 01:46:51.856303'),
-(17, 'Hepatitis', '', 0, 16, '2025-07-04 18:06:46.121089', '2025-07-08 01:46:51.850100'),
-(18, 'Pneumonia', '', 0, 17, '2025-07-04 18:06:46.137005', '2025-07-08 01:46:51.866703'),
-(19, 'Surgeries', '', 0, 18, '2025-07-04 18:06:46.137005', '2025-07-08 01:46:51.866703'),
-(20, 'Hospitalizations', '', 0, 19, '2025-07-04 18:06:46.137005', '2025-07-08 01:46:51.945838'),
-(21, 'Blood Transfusions', '', 0, 20, '2025-07-04 18:06:46.137005', '2025-07-08 01:46:51.933403'),
-(22, 'Chronic Pain', '', 0, 21, '2025-07-04 18:06:46.152672', '2025-07-08 01:46:51.950229'),
-(23, 'Autoimmune Disorders', '', 0, 22, '2025-07-04 18:06:46.152672', '2025-07-08 01:46:51.966509'),
-(24, 'Gastrointestinal Disorders', '', 0, 23, '2025-07-04 18:06:46.152672', '2025-07-08 01:46:51.991776'),
-(25, 'Respiratory Conditions', '', 0, 24, '2025-07-04 18:06:46.168469', '2025-07-08 01:46:52.016853'),
-(26, 'Allergic Reactions', 'Past medical history: Allergic Reactions', 0, 0, '2025-07-05 18:41:02.942142', '2025-07-08 01:46:51.342278'),
-(27, 'Chickenpox', 'Past medical history: Chickenpox', 0, 2, '2025-07-05 18:41:02.947757', '2025-07-08 01:46:51.524851'),
-(28, 'Dengue Fever', 'Past medical history: Dengue Fever', 0, 3, '2025-07-05 18:41:02.956207', '2025-07-08 01:46:51.552957'),
-(29, 'Fractures', 'Past medical history: Fractures', 0, 5, '2025-07-05 18:41:02.963509', '2025-07-08 01:46:51.584234'),
-(30, 'Heart Problems', 'Past medical history: Heart Problems', 0, 6, '2025-07-05 18:41:02.970074', '2025-07-08 01:46:51.650036'),
-(31, 'High Blood Pressure', 'Past medical history: High Blood Pressure', 0, 8, '2025-07-05 18:41:02.976368', '2025-07-08 01:46:51.650036'),
-(32, 'Hospitalization', 'Past medical history: Hospitalization', 0, 9, '2025-07-05 18:41:02.976368', '2025-07-08 01:46:51.675000'),
-(33, 'Injuries', 'Past medical history: Injuries', 0, 10, '2025-07-05 18:41:02.985991', '2025-07-08 01:46:51.716966'),
-(34, 'Kidney Problems', 'Past medical history: Kidney Problems', 0, 11, '2025-07-05 18:41:02.993609', '2025-07-08 01:46:51.742089'),
-(35, 'Liver Problems', 'Past medical history: Liver Problems', 0, 12, '2025-07-05 18:41:02.995341', '2025-07-08 01:46:51.766628'),
-(36, 'Malaria', 'Past medical history: Malaria', 0, 13, '2025-07-05 18:41:02.999635', '2025-07-08 01:46:51.783249'),
-(37, 'Measles', 'Past medical history: Measles', 0, 14, '2025-07-05 18:41:03.006383', '2025-07-08 01:46:51.800112'),
-(38, 'Operations/Surgery', 'Past medical history: Operations/Surgery', 0, 15, '2025-07-05 18:41:03.010732', '2025-07-08 01:46:51.850100'),
-(39, 'Skin Conditions', 'Past medical history: Skin Conditions', 0, 17, '2025-07-05 18:41:03.019124', '2025-07-08 01:46:51.874865'),
-(40, 'Typhoid', 'Past medical history: Typhoid', 0, 18, '2025-07-05 18:41:03.025155', '2025-07-08 01:46:51.916486'),
-(41, 'Urinary Tract Infections', 'Past medical history: Urinary Tract Infections', 0, 20, '2025-07-05 18:41:03.032694', '2025-07-08 01:46:51.925002'),
-(42, 'Vision Problems', 'Past medical history: Vision Problems', 0, 21, '2025-07-05 18:41:03.034704', '2025-07-08 01:46:51.945838'),
-(43, 'Other Medical Conditions', 'Past medical history: Other Medical Conditions', 0, 22, '2025-07-05 18:41:03.042600', '2025-07-08 01:46:51.991776'),
-(44, 'None', 'Past medical history: None', 0, 23, '2025-07-05 18:41:03.052163', '2025-07-08 01:46:52.008141'),
-(45, 'Surgery', '', 1, 0, '2025-07-06 06:23:21.188125', '2025-07-08 01:46:51.465742'),
-(46, 'Allergic Reaction', '', 0, 0, '2025-07-06 06:23:21.204683', '2025-07-08 01:46:51.350124'),
-(47, 'Blood Transfusion', '', 0, 0, '2025-07-06 06:23:21.216976', '2025-07-08 01:46:51.375505'),
-(48, 'Fracture', '', 0, 0, '2025-07-06 06:23:21.229824', '2025-07-08 01:46:51.399943'),
-(49, 'Serious Injury', '', 0, 0, '2025-07-06 06:23:21.246322', '2025-07-08 01:46:51.474924'),
-(50, 'Pregnancy', '', 0, 0, '2025-07-06 06:23:21.258643', '2025-07-08 01:46:51.448028'),
-(51, 'Mental Health Treatment', '', 0, 0, '2025-07-06 06:23:21.269343', '2025-07-08 01:46:51.416467'),
-(52, 'Serious Illness', '', 0, 0, '2025-07-06 06:45:50.455419', '2025-07-08 01:46:51.449910'),
-(53, 'Chronic Conditions', '', 0, 0, '2025-07-06 06:45:50.462013', '2025-07-08 01:46:51.391337'),
-(54, 'Substance Abuse Treatment', '', 1, 0, '2025-07-06 06:45:50.478061', '2025-07-08 01:46:51.474924'),
-(55, 'Organ Transplant', '', 0, 0, '2025-07-06 06:45:50.489576', '2025-07-08 01:46:51.406355'),
-(56, 'Major Injury', '', 0, 0, '2025-07-06 06:45:50.496962', '2025-07-08 01:46:51.399943');
+INSERT INTO `api_pastmedicalhistoryitem` (`id`, `name`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`, `has_sub_options`, `requires_specification`, `specification_placeholder`, `sub_options`) VALUES
+(1, 'Asthma', '', 1, 0, '2025-07-04 18:06:46.055977', '2025-07-21 17:38:17.881133', 0, 0, '', '[]'),
+(2, 'Allergic Rhinitis', '', 0, 1, '2025-07-04 18:06:46.055977', '2025-07-21 17:38:17.871643', 0, 0, '', '[]'),
+(3, 'Skin Allergies', '', 0, 2, '2025-07-04 18:06:46.067579', '2025-07-21 17:38:18.094988', 0, 0, '', '[]'),
+(4, 'Food Allergies', '', 0, 3, '2025-07-04 18:06:46.071579', '2025-07-21 17:38:17.938494', 0, 0, '', '[]'),
+(5, 'Drug Allergies', '', 0, 4, '2025-07-04 18:06:46.073534', '2025-07-21 17:38:17.940235', 0, 0, '', '[]'),
+(6, 'Hypertension', '', 0, 5, '2025-07-04 18:06:46.073534', '2025-07-21 17:38:17.991430', 0, 0, '', '[]'),
+(7, 'Diabetes', '', 0, 6, '2025-07-04 18:06:46.073534', '2025-07-21 17:38:17.925357', 0, 0, '', '[]'),
+(8, 'Heart Disease', '', 0, 7, '2025-07-04 18:06:46.073534', '2025-07-21 17:38:17.961652', 0, 0, '', '[]'),
+(9, 'Kidney Disease', '', 0, 8, '2025-07-04 18:06:46.089304', '2025-07-21 17:38:17.989624', 0, 0, '', '[]'),
+(10, 'Liver Disease', '', 0, 9, '2025-07-04 18:06:46.089304', '2025-07-21 17:38:18.008049', 0, 0, '', '[]'),
+(11, 'Thyroid Disorders', '', 0, 10, '2025-07-04 18:06:46.089304', '2025-07-21 17:38:18.124915', 0, 0, '', '[]'),
+(12, 'Epilepsy/Seizures', '', 0, 11, '2025-07-04 18:06:46.089304', '2025-07-21 17:38:17.937354', 0, 0, '', '[]'),
+(13, 'Mental Health Conditions', '', 0, 12, '2025-07-04 18:06:46.105270', '2025-07-21 17:38:18.036536', 0, 0, '', '[]'),
+(14, 'Cancer', '', 0, 13, '2025-07-04 18:06:46.121089', '2025-07-21 17:38:17.903549', 0, 0, '', '[]'),
+(15, 'Stroke', '', 0, 14, '2025-07-04 18:06:46.121089', '2025-07-21 17:38:18.099372', 0, 0, '', '[]'),
+(16, 'Tuberculosis', '', 0, 15, '2025-07-04 18:06:46.121089', '2025-07-21 17:38:18.128042', 0, 0, '', '[]'),
+(17, 'Hepatitis', '', 0, 16, '2025-07-04 18:06:46.121089', '2025-07-21 17:38:17.965105', 0, 0, '', '[]'),
+(18, 'Pneumonia', '', 0, 17, '2025-07-04 18:06:46.137005', '2025-07-21 17:38:18.061903', 0, 0, '', '[]'),
+(19, 'Surgeries', '', 0, 18, '2025-07-04 18:06:46.137005', '2025-07-21 17:38:18.106379', 0, 0, '', '[]'),
+(20, 'Hospitalizations', '', 0, 19, '2025-07-04 18:06:46.137005', '2025-07-21 17:38:17.981376', 0, 0, '', '[]'),
+(21, 'Blood Transfusions', '', 0, 20, '2025-07-04 18:06:46.137005', '2025-07-21 17:38:17.898334', 0, 0, '', '[]'),
+(22, 'Chronic Pain', '', 0, 21, '2025-07-04 18:06:46.152672', '2025-07-21 17:38:17.919967', 0, 0, '', '[]'),
+(23, 'Autoimmune Disorders', '', 0, 22, '2025-07-04 18:06:46.152672', '2025-07-21 17:38:17.878360', 0, 0, '', '[]'),
+(24, 'Gastrointestinal Disorders', '', 0, 23, '2025-07-04 18:06:46.152672', '2025-07-21 17:38:17.949437', 0, 0, '', '[]'),
+(25, 'Respiratory Conditions', '', 0, 24, '2025-07-04 18:06:46.168469', '2025-07-21 17:38:18.075617', 0, 0, '', '[]'),
+(26, 'Allergic Reactions', 'Past medical history: Allergic Reactions', 1, 0, '2025-07-05 18:41:02.942142', '2025-07-21 17:38:17.864928', 0, 0, '', '[]'),
+(27, 'Chickenpox', 'Past medical history: Chickenpox', 0, 2, '2025-07-05 18:41:02.947757', '2025-07-21 17:38:17.900615', 0, 0, '', '[]'),
+(28, 'Dengue Fever', 'Past medical history: Dengue Fever', 0, 3, '2025-07-05 18:41:02.956207', '2025-07-21 17:38:17.925801', 0, 0, '', '[]'),
+(29, 'Fractures', 'Past medical history: Fractures', 1, 5, '2025-07-05 18:41:02.963509', '2025-07-21 17:38:17.953938', 0, 0, '', '[]'),
+(30, 'Heart Problems', 'Past medical history: Heart Problems', 0, 6, '2025-07-05 18:41:02.970074', '2025-07-21 17:38:17.967147', 0, 0, '', '[]'),
+(31, 'High Blood Pressure', 'Past medical history: High Blood Pressure', 0, 8, '2025-07-05 18:41:02.976368', '2025-07-21 17:38:17.986157', 0, 0, '', '[]'),
+(32, 'Hospitalization', 'Past medical history: Hospitalization', 0, 9, '2025-07-05 18:41:02.976368', '2025-07-21 17:38:17.978032', 0, 0, '', '[]'),
+(33, 'Injuries', 'Past medical history: Injuries', 0, 10, '2025-07-05 18:41:02.985991', '2025-07-21 17:38:17.995867', 0, 0, '', '[]'),
+(34, 'Kidney Problems', 'Past medical history: Kidney Problems', 0, 11, '2025-07-05 18:41:02.993609', '2025-07-21 17:38:18.008470', 0, 0, '', '[]'),
+(35, 'Liver Problems', 'Past medical history: Liver Problems', 0, 12, '2025-07-05 18:41:02.995341', '2025-07-21 17:38:18.007582', 0, 0, '', '[]'),
+(36, 'Malaria', 'Past medical history: Malaria', 0, 13, '2025-07-05 18:41:02.999635', '2025-07-21 17:38:18.015987', 0, 0, '', '[]'),
+(37, 'Measles', 'Past medical history: Measles', 0, 14, '2025-07-05 18:41:03.006383', '2025-07-21 17:38:18.026307', 0, 0, '', '[]'),
+(38, 'Operations/Surgery', 'Past medical history: Operations/Surgery', 0, 15, '2025-07-05 18:41:03.010732', '2025-07-21 17:38:18.042497', 0, 0, '', '[]'),
+(39, 'Skin Conditions', 'Past medical history: Skin Conditions', 0, 17, '2025-07-05 18:41:03.019124', '2025-07-21 17:38:18.096181', 0, 0, '', '[]'),
+(40, 'Typhoid', 'Past medical history: Typhoid', 0, 18, '2025-07-05 18:41:03.025155', '2025-07-21 17:38:18.129154', 0, 0, '', '[]'),
+(41, 'Urinary Tract Infections', 'Past medical history: Urinary Tract Infections', 0, 20, '2025-07-05 18:41:03.032694', '2025-07-21 17:38:18.136628', 0, 0, '', '[]'),
+(42, 'Vision Problems', 'Past medical history: Vision Problems', 0, 21, '2025-07-05 18:41:03.034704', '2025-07-21 17:38:18.144781', 0, 0, '', '[]'),
+(43, 'Other Medical Conditions', 'Past medical history: Other Medical Conditions', 0, 22, '2025-07-05 18:41:03.042600', '2025-07-21 17:38:18.053169', 0, 0, '', '[]'),
+(44, 'None', 'Past medical history: None', 0, 23, '2025-07-05 18:41:03.052163', '2025-07-21 17:38:18.037615', 0, 0, '', '[]'),
+(45, 'Surgery', '', 0, 0, '2025-07-06 06:23:21.188125', '2025-07-21 17:38:18.111579', 0, 0, '', '[]'),
+(46, 'Allergic Reaction', '', 1, 0, '2025-07-06 06:23:21.204683', '2025-07-21 17:38:17.863653', 0, 0, '', '[\"asdas\"]'),
+(47, 'Blood Transfusion', '', 0, 0, '2025-07-06 06:23:21.216976', '2025-07-21 17:38:17.882557', 0, 0, '', '[]'),
+(48, 'Fracture', '', 0, 0, '2025-07-06 06:23:21.229824', '2025-07-21 17:38:17.951443', 0, 0, '', '[]'),
+(49, 'Serious Injury', '', 0, 0, '2025-07-06 06:23:21.246322', '2025-07-21 17:38:18.080691', 0, 0, '', '[]'),
+(50, 'Pregnancy', '', 0, 0, '2025-07-06 06:23:21.258643', '2025-07-21 17:38:18.068655', 0, 0, '', '[]'),
+(51, 'Mental Health Treatment', '', 0, 0, '2025-07-06 06:23:21.269343', '2025-07-21 17:38:18.040372', 0, 0, '', '[]'),
+(52, 'Serious Illness', '', 1, 0, '2025-07-06 06:45:50.455419', '2025-07-21 17:38:18.069058', 0, 0, '', '[]'),
+(53, 'Chronic Conditions', '', 0, 0, '2025-07-06 06:45:50.462013', '2025-07-21 17:38:17.909214', 0, 0, '', '[]'),
+(54, 'Substance Abuse Treatment', '', 0, 0, '2025-07-06 06:45:50.478061', '2025-07-21 17:38:18.110644', 0, 0, '', '[]'),
+(55, 'Organ Transplant', '', 1, 0, '2025-07-06 06:45:50.489576', '2025-07-21 17:38:18.051188', 0, 0, '', '[]'),
+(56, 'Major Injury', '', 0, 0, '2025-07-06 06:45:50.496962', '2025-07-21 17:38:18.021037', 0, 0, '', '[]'),
+(57, 'Accidents', 'Major accidents or injuries', 0, 4, '2025-07-21 15:36:20.226339', '2025-07-21 17:38:17.850018', 0, 0, '', '[]'),
+(58, 'Chronic Medications', 'Long-term medication use', 0, 5, '2025-07-21 15:36:20.229699', '2025-07-21 17:38:17.913508', 0, 0, '', '[]'),
+(59, 'Serious Infections', 'Major infections requiring treatment', 1, 7, '2025-07-21 15:36:20.232100', '2025-07-21 17:38:18.077618', 0, 0, '', '[]');
 
 -- --------------------------------------------------------
 
@@ -829,16 +998,23 @@ CREATE TABLE `api_patient` (
   `record_completion_status` varchar(20) NOT NULL,
   `staff_notes` longtext DEFAULT NULL,
   `semester_id` int(11) DEFAULT NULL,
-  `semester` varchar(20) DEFAULT NULL
+  `semester` varchar(20) DEFAULT NULL,
+  `user_type` varchar(50) DEFAULT NULL,
+  `employee_id` varchar(50) DEFAULT NULL,
+  `position_type` varchar(50) DEFAULT NULL,
+  `strand` varchar(100) DEFAULT NULL,
+  `hospital_admission_year` varchar(20) DEFAULT NULL,
+  `menstrual_symptoms_other` longtext DEFAULT NULL,
+  `comorbid_illness_details` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`comorbid_illness_details`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `api_patient`
 --
 
-INSERT INTO `api_patient` (`id`, `student_id`, `name`, `gender`, `date_of_birth`, `age`, `department`, `contact_number`, `address`, `emergency_contact_first_name`, `emergency_contact_number`, `blood_type`, `allergies`, `created_at`, `updated_at`, `user_id`, `civil_status`, `comorbid_illnesses`, `email`, `emergency_contact_address`, `emergency_contact_middle_name`, `emergency_contact_relationship`, `emergency_contact_surname`, `family_medical_history`, `first_name`, `hospital_admission_or_surgery`, `maintenance_medications`, `middle_name`, `nationality`, `past_medical_history`, `photo`, `religion`, `suffix`, `barangay`, `city_municipality`, `street`, `emergency_contact_barangay`, `emergency_contact_street`, `school_year_id`, `vaccination_history`, `hospital_admission_details`, `surname`, `sex`, `course`, `year_level`, `birthday`, `city_address`, `provincial_address`, `emergency_contact_name`, `emergency_contact_city_address`, `covid19_vaccination_status`, `menstruation_age_began`, `menstruation_regular`, `menstruation_irregular`, `number_of_pregnancies`, `number_of_live_children`, `menstrual_symptoms`, `past_conditions_this_year`, `hospital_admissions`, `uhs_template_compliant`, `record_completion_status`, `staff_notes`, `semester_id`, `semester`) VALUES
-(31, 'TEMP-51', 'Magno, Rezier', 'Female', '2018-05-16', 7, 'Incoming Freshman', '09702402180', 'asdasdasas, dasdasd, Zamboanga City', 'Rezier', '09702402180', 'A-', NULL, '2025-07-08 04:59:46.068642', '2025-07-08 05:33:33.854630', 51, 'single', NULL, 'johnmagno332@gmail.com', 'asdasdasdasd, 1212412, Zamboanga City', 'asdas', 'Parent', 'asad', NULL, 'Rezier', 0, NULL, 'John O.', 'Filipino', NULL, 'patient_photos/cutekitten_z1qfbCt.png', 'Roman Catholic', NULL, 'dasdasd', 'Zamboanga City', 'asdasdasas', '1212412', 'asdasdasdasd', 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, NULL, NULL, NULL, NULL, NULL, 1, 'incomplete', NULL, NULL, NULL),
-(32, 'TEST-001', 'Dela Cruz, Juan', 'Male', NULL, 20, 'Computer Science', NULL, NULL, NULL, NULL, NULL, NULL, '2025-07-08 05:47:52.826700', '2025-07-08 05:47:52.826700', 53, NULL, NULL, 'test.patient@wmsu.edu', NULL, NULL, NULL, NULL, NULL, 'Juan', 0, NULL, NULL, NULL, NULL, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1, 0, NULL, NULL, NULL, NULL, NULL, 1, 'incomplete', NULL, NULL, NULL);
+INSERT INTO `api_patient` (`id`, `student_id`, `name`, `gender`, `date_of_birth`, `age`, `department`, `contact_number`, `address`, `emergency_contact_first_name`, `emergency_contact_number`, `blood_type`, `allergies`, `created_at`, `updated_at`, `user_id`, `civil_status`, `comorbid_illnesses`, `email`, `emergency_contact_address`, `emergency_contact_middle_name`, `emergency_contact_relationship`, `emergency_contact_surname`, `family_medical_history`, `first_name`, `hospital_admission_or_surgery`, `maintenance_medications`, `middle_name`, `nationality`, `past_medical_history`, `photo`, `religion`, `suffix`, `barangay`, `city_municipality`, `street`, `emergency_contact_barangay`, `emergency_contact_street`, `school_year_id`, `vaccination_history`, `hospital_admission_details`, `surname`, `sex`, `course`, `year_level`, `birthday`, `city_address`, `provincial_address`, `emergency_contact_name`, `emergency_contact_city_address`, `covid19_vaccination_status`, `menstruation_age_began`, `menstruation_regular`, `menstruation_irregular`, `number_of_pregnancies`, `number_of_live_children`, `menstrual_symptoms`, `past_conditions_this_year`, `hospital_admissions`, `uhs_template_compliant`, `record_completion_status`, `staff_notes`, `semester_id`, `semester`, `user_type`, `employee_id`, `position_type`, `strand`, `hospital_admission_year`, `menstrual_symptoms_other`, `comorbid_illness_details`) VALUES
+(47, 'TEMP-68', 'FAMINIANO, CHRISTIAN, CHRISTIAN', 'Other', NULL, 0, 'Incoming Freshman', '', NULL, NULL, NULL, NULL, NULL, '2025-07-19 19:48:45.703766', '2025-07-19 19:48:45.703778', 68, NULL, NULL, 'faminianochristianjude@gmail.com', NULL, NULL, NULL, NULL, NULL, 'CHRISTIAN', 0, NULL, 'JUDE', NULL, NULL, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 20, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, 0, NULL, NULL, NULL, NULL, NULL, 0, 'incomplete', NULL, NULL, 'summer', NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(48, 'TEMP-69', 'Rei', 'Female', '2008-03-05', 17, 'Nursing', '09214091204', 'asdas, asdasdas, Zamboanga City', 'Asdasd', '09102950125', 'A+', NULL, '2025-07-21 12:11:13.486522', '2025-07-21 18:17:37.821196', 69, 'single', '[\"Test Illness\", \"Schizophrenia\", \"Psychiatric Illness\", \"Food Allergies\", \"Allergies\"]', 'eh202201151@wmsu.edu.ph', 'asdasdsadas, asdasdas, Zamboanga City', 'Asdasdas', 'Parent', 'Asdasd', '[\"Allergies\"]', 'Jhn', 1, '[{\"drug\": \"\", \"dose\": \"\", \"unit\": \"\", \"frequency\": \"\", \"duration\": \"\", \"duration_type\": \"\", \"custom_duration\": \"\"}]', 'M', 'Filipino', NULL, 'patient_photos/NAT_etsSpQb.jpg', 'Seventh-day Adventist', NULL, 'asdasdas', 'Zamboanga City', 'asdas', 'asdasdas', 'asdasdsadas', 20, NULL, 'asdas', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 3, 1, 0, 2, 2, '[\"Migraine\"]', NULL, NULL, 0, 'incomplete', NULL, NULL, 'summer', 'Employee', '125', 'Teaching', NULL, 'asdas', NULL, '{\"food_allergies\": {\"sub_options\": [\"Shellfish\"]}, \"allergies\": {\"sub_options\": [\"eat\"], \"specification\": \"sadas\"}}');
 
 -- --------------------------------------------------------
 
@@ -863,26 +1039,42 @@ CREATE TABLE `api_profilerequirement` (
 --
 
 INSERT INTO `api_profilerequirement` (`id`, `field_name`, `display_name`, `description`, `category`, `is_required`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, 'name', 'Last Name', 'Patient surname/family name', 'personal', 1, 1, '2025-07-02 18:13:26.970083', '2025-07-08 01:46:50.424320'),
-(2, 'first_name', 'First Name', 'Patient first name', 'personal', 1, 1, '2025-07-02 18:13:26.978322', '2025-07-08 01:46:50.416075'),
-(3, 'middle_name', 'Middle Name', 'Patient middle name', 'personal', 0, 1, '2025-07-02 18:13:26.979319', '2025-07-08 01:46:50.432729'),
-(4, 'date_of_birth', 'Date of Birth', 'Patient birthdate', 'personal', 1, 1, '2025-07-02 18:13:26.979319', '2025-07-08 01:46:50.408046'),
-(5, 'gender', 'Gender', 'Patient gender', 'personal', 1, 1, '2025-07-02 18:13:26.997188', '2025-07-08 01:46:50.416075'),
-(6, 'blood_type', 'Blood Type', 'Patient blood type', 'health', 1, 1, '2025-07-02 18:13:27.003861', '2025-07-08 01:46:50.383300'),
-(7, 'city_municipality', 'City/Municipality', 'City or municipality', 'personal', 1, 1, '2025-07-02 18:13:27.013470', '2025-07-08 01:46:50.399603'),
-(8, 'barangay', 'Barangay', 'Barangay/district', 'personal', 1, 1, '2025-07-02 18:13:27.019685', '2025-07-08 01:46:50.399603'),
-(9, 'street', 'Street', 'Street address', 'personal', 1, 1, '2025-07-02 18:13:27.025594', '2025-07-08 01:46:50.432729'),
-(10, 'covid_vaccination_status', 'COVID Vaccination Status', 'COVID-19 vaccination status', 'health', 1, 1, '2025-07-02 18:13:27.031941', '2025-07-08 01:46:50.391415'),
-(11, 'hospital_admission_or_surgery', 'Hospital Admission/Surgery History', 'History of hospital admissions or surgeries', 'health', 1, 1, '2025-07-02 18:13:27.038071', '2025-07-08 01:46:50.391415'),
-(12, 'emergency_contact_first_name', 'Emergency Contact First Name', 'Emergency contact first name', 'emergency', 1, 1, '2025-07-02 18:13:27.042240', '2025-07-08 01:46:50.349745'),
-(13, 'emergency_contact_last_name', 'Emergency Contact Last Name', 'Emergency contact last name', 'emergency', 1, 1, '2025-07-02 18:13:27.046058', '2025-07-08 01:46:50.358053'),
-(14, 'emergency_contact_phone', 'Emergency Contact Phone', 'Emergency contact phone number', 'emergency', 1, 1, '2025-07-02 18:13:27.053937', '2025-07-08 01:46:50.374470'),
-(15, 'last_name', 'Last Name', 'Patient last name', 'personal', 1, 1, '2025-07-06 06:23:20.881708', '2025-07-08 01:46:50.424320'),
-(16, 'contact_number', 'Contact Number', 'Patient contact number', 'personal', 1, 1, '2025-07-06 06:23:20.922344', '2025-07-08 01:46:50.408046'),
-(17, 'emergency_contact', 'Emergency Contact', 'Emergency contact information', 'emergency', 1, 1, '2025-07-06 06:23:20.936932', '2025-07-08 01:46:50.341434'),
-(18, 'emergency_contact_name', 'Emergency Contact Name', 'Emergency contact person\'s name', 'emergency', 1, 1, '2025-07-06 06:45:25.066261', '2025-07-08 01:46:50.366205'),
-(19, 'emergency_contact_number', 'Emergency Contact Number', 'Emergency contact person\'s phone number', 'emergency', 1, 1, '2025-07-06 06:45:25.082276', '2025-07-08 01:46:50.374470'),
-(20, 'allergies', 'Allergies', 'Patient\'s known allergies', 'health', 0, 1, '2025-07-06 06:45:25.090085', '2025-07-08 01:46:50.383300');
+(1, 'name', 'Last Name', 'Patient surname/family name', 'personal', 1, 1, '2025-07-02 18:13:26.970083', '2025-07-21 17:38:17.511783'),
+(2, 'first_name', 'First Name', 'Patient first name', 'personal', 1, 1, '2025-07-02 18:13:26.978322', '2025-07-21 17:38:17.508835'),
+(3, 'middle_name', 'Middle Name', 'Patient middle name', 'personal', 0, 1, '2025-07-02 18:13:26.979319', '2025-07-21 17:38:17.514804'),
+(4, 'date_of_birth', 'Date of Birth', 'Patient birthdate', 'personal', 1, 1, '2025-07-02 18:13:26.979319', '2025-07-21 17:38:17.505667'),
+(5, 'gender', 'Gender', 'Patient gender', 'personal', 1, 1, '2025-07-02 18:13:26.997188', '2025-07-21 17:38:17.510373'),
+(6, 'blood_type', 'Blood Type', 'Patient blood type', 'health', 1, 1, '2025-07-02 18:13:27.003861', '2025-07-21 17:38:17.484417'),
+(7, 'city_municipality', 'City/Municipality', 'City or municipality', 'personal', 1, 1, '2025-07-02 18:13:27.013470', '2025-07-21 17:38:17.500453'),
+(8, 'barangay', 'Barangay', 'Barangay/district', 'personal', 1, 1, '2025-07-02 18:13:27.019685', '2025-07-21 17:38:17.498739'),
+(9, 'street', 'Street', 'Street address', 'personal', 1, 1, '2025-07-02 18:13:27.025594', '2025-07-21 17:38:17.519994'),
+(10, 'covid_vaccination_status', 'COVID Vaccination Status', 'COVID-19 vaccination status', 'health', 1, 1, '2025-07-02 18:13:27.031941', '2025-07-21 17:38:17.489315'),
+(11, 'hospital_admission_or_surgery', 'Hospital Admission/Surgery History', 'History of hospital admissions or surgeries', 'health', 1, 1, '2025-07-02 18:13:27.038071', '2025-07-21 17:38:17.492653'),
+(12, 'emergency_contact_first_name', 'Emergency Contact First Name', 'Emergency contact first name', 'emergency', 1, 1, '2025-07-02 18:13:27.042240', '2025-07-21 17:38:17.461626'),
+(13, 'emergency_contact_last_name', 'Emergency Contact Last Name', 'Emergency contact last name', 'emergency', 1, 1, '2025-07-02 18:13:27.046058', '2025-07-21 17:38:17.464628'),
+(14, 'emergency_contact_phone', 'Emergency Contact Phone', 'Emergency contact phone number', 'emergency', 1, 1, '2025-07-02 18:13:27.053937', '2025-07-21 17:38:17.475482'),
+(15, 'last_name', 'Last Name', 'Patient last name', 'personal', 1, 1, '2025-07-06 06:23:20.881708', '2025-07-21 17:38:17.513359'),
+(16, 'contact_number', 'Contact Number', 'Patient contact number', 'personal', 1, 1, '2025-07-06 06:23:20.922344', '2025-07-21 17:38:17.504160'),
+(17, 'emergency_contact', 'Emergency Contact', 'Emergency contact information', 'emergency', 1, 1, '2025-07-06 06:23:20.936932', '2025-07-21 17:38:17.452133'),
+(18, 'emergency_contact_name', 'Emergency Contact Name', 'Emergency contact person\'s name', 'emergency', 1, 1, '2025-07-06 06:45:25.066261', '2025-07-21 17:38:17.471072'),
+(19, 'emergency_contact_number', 'Emergency Contact Number', 'Emergency contact person\'s phone number', 'emergency', 1, 1, '2025-07-06 06:45:25.082276', '2025-07-21 17:38:17.473667'),
+(20, 'allergies', 'Allergies', 'Patient\'s known allergies', 'health', 0, 1, '2025-07-06 06:45:25.090085', '2025-07-21 17:38:17.482518'),
+(21, 'suffix', 'Suffix', 'Name suffix (Jr., Sr., III, etc.)', 'personal', 0, 1, '2025-07-21 15:26:15.553303', '2025-07-21 17:38:17.521652'),
+(22, 'age', 'Age', 'Student\'s current age', 'personal', 1, 1, '2025-07-21 15:26:15.560046', '2025-07-21 17:38:17.497293'),
+(23, 'religion', 'Religion', 'Student\'s religion', 'personal', 0, 1, '2025-07-21 15:26:15.563101', '2025-07-21 17:38:17.518135'),
+(24, 'nationality', 'Nationality', 'Student\'s nationality', 'personal', 1, 1, '2025-07-21 15:26:15.564936', '2025-07-21 17:38:17.516343'),
+(25, 'civil_status', 'Civil Status', 'Student\'s civil status', 'personal', 1, 1, '2025-07-21 15:26:15.566936', '2025-07-21 17:38:17.502226'),
+(26, 'email', 'Email Address', 'Student\'s email address', 'personal', 1, 1, '2025-07-21 15:26:15.568728', '2025-07-21 17:38:17.507210'),
+(27, 'emergency_contact_surname', 'Emergency Contact Last Name', 'Emergency contact\'s last name', 'emergency', 1, 1, '2025-07-21 15:26:15.573033', '2025-07-21 17:38:17.466605'),
+(28, 'emergency_contact_middle_name', 'Emergency Contact Middle Name', 'Emergency contact\'s middle name', 'emergency', 0, 1, '2025-07-21 15:26:15.575528', '2025-07-21 17:38:17.468358'),
+(29, 'emergency_contact_relationship', 'Emergency Contact Relationship', 'Relationship to emergency contact', 'emergency', 1, 1, '2025-07-21 15:26:15.578337', '2025-07-21 17:38:17.477108'),
+(30, 'emergency_contact_street', 'Emergency Contact Street', 'Emergency contact street address', 'emergency', 0, 1, '2025-07-21 15:26:15.580504', '2025-07-21 17:38:17.478622'),
+(31, 'emergency_contact_barangay', 'Emergency Contact Barangay', 'Emergency contact barangay', 'emergency', 0, 1, '2025-07-21 15:26:15.582858', '2025-07-21 17:38:17.456675'),
+(32, 'medications', 'Current Medications', 'Current medications being taken', 'health', 0, 1, '2025-07-21 15:26:15.585518', '2025-07-21 17:38:17.491039'),
+(33, 'comorbid_illnesses', 'Comorbid Illnesses', 'Existing medical conditions', 'health', 0, 1, '2025-07-21 15:26:15.587169', '2025-07-21 17:38:17.487090'),
+(34, 'vaccinations', 'Vaccinations', 'Vaccination history', 'health', 0, 1, '2025-07-21 15:26:15.589182', '2025-07-21 17:38:17.495762'),
+(35, 'past_medical_history', 'Past Medical History', 'Previous medical conditions and treatments', 'health', 0, 1, '2025-07-21 15:26:15.590978', '2025-07-21 17:38:17.494196'),
+(36, 'family_medical_history', 'Family Medical History', 'Family history of medical conditions', 'family', 0, 1, '2025-07-21 15:26:15.593598', '2025-07-21 17:38:17.480588');
 
 -- --------------------------------------------------------
 
@@ -911,9 +1103,7 @@ CREATE TABLE `api_staffdetails` (
 
 INSERT INTO `api_staffdetails` (`id`, `signature`, `full_name`, `position`, `license_number`, `ptr_number`, `campus_assigned`, `created_at`, `updated_at`, `user_id`, `phone_number`, `assigned_campuses`) VALUES
 (20, '', 'Updated Admin User', 'Updated System Administrator', 'ADMIN123', 'PTR123', 'a', '2025-07-07 02:08:09.331016', '2025-07-07 02:10:31.187360', 31, '123-456-7890', 'a,b'),
-(21, 'staff_signatures/signature_vsmxbN8.png', 'Rezier John O Magno', 'Staff', '23398', '12984291', 'a', '2025-07-07 02:16:13.559363', '2025-07-08 02:55:59.632003', 8, '019240912920', 'a'),
-(24, '', 'Dr. Maria Santos', 'Chief Dentist', 'DDS-12345', 'PTR-67890', 'a', '2025-07-08 05:45:11.207654', '2025-07-08 05:45:11.207654', 52, '+639123456789', 'a'),
-(25, '', 'Dr. Felicitas C. Elago', 'Chief Medical Officer', 'MD-12345', '', 'a', '2025-07-15 21:11:21.000000', '2025-07-15 21:11:21.000000', 55, '+639123456789', 'a');
+(21, 'staff_signatures/signature_vsmxbN8.png', 'Rezier John O Magno', 'Staff', '23398', '12984291', 'a', '2025-07-07 02:16:13.559363', '2025-07-08 02:55:59.632003', 8, '019240912920', 'a');
 
 -- --------------------------------------------------------
 
@@ -953,41 +1143,41 @@ CREATE TABLE `api_vaccination` (
 --
 
 INSERT INTO `api_vaccination` (`id`, `name`, `description`, `is_enabled`, `display_order`, `created_at`, `updated_at`) VALUES
-(1, 'COVID-19', '', 0, 0, '2025-07-04 18:06:45.990368', '2025-07-08 01:46:50.875207'),
-(2, 'Influenza (Flu)', '', 0, 1, '2025-07-04 18:06:45.990368', '2025-07-08 01:46:51.032521'),
-(3, 'Hepatitis B', '', 0, 2, '2025-07-04 18:06:45.990368', '2025-07-08 01:46:50.916724'),
-(4, 'Hepatitis A', '', 0, 3, '2025-07-04 18:06:46.006114', '2025-07-08 01:46:50.915915'),
-(5, 'Tetanus', '', 0, 4, '2025-07-04 18:06:46.006114', '2025-07-08 01:46:51.224206'),
-(6, 'Measles, Mumps, Rubella (MMR)', '', 0, 5, '2025-07-04 18:06:46.013935', '2025-07-08 01:46:51.050018'),
-(7, 'Polio', '', 0, 6, '2025-07-04 18:06:46.013935', '2025-07-08 01:46:51.141676'),
-(8, 'Pneumococcal', '', 0, 7, '2025-07-04 18:06:46.013935', '2025-07-08 01:46:51.150209'),
-(9, 'Meningococcal', '', 0, 8, '2025-07-04 18:06:46.013935', '2025-07-08 01:46:51.064809'),
-(10, 'Human Papillomavirus (HPV)', '', 0, 9, '2025-07-04 18:06:46.031313', '2025-07-08 01:46:50.950059'),
-(11, 'Varicella (Chickenpox)', '', 0, 10, '2025-07-04 18:06:46.031313', '2025-07-08 01:46:51.333367'),
-(12, 'Tuberculosis (BCG)', '', 0, 11, '2025-07-04 18:06:46.040161', '2025-07-08 01:46:51.216970'),
-(13, 'Japanese Encephalitis', '', 0, 12, '2025-07-04 18:06:46.040161', '2025-07-08 01:46:51.008167'),
-(14, 'Rabies', '', 0, 13, '2025-07-04 18:06:46.048847', '2025-07-08 01:46:51.158321'),
-(15, 'Typhoid', '', 0, 14, '2025-07-04 18:06:46.048847', '2025-07-08 01:46:51.300003'),
-(16, 'BCG (Bacillus Calmette-Guérin)', 'Standard vaccination: BCG (Bacillus Calmette-Guérin)', 0, 0, '2025-07-05 18:41:02.879496', '2025-07-08 01:46:50.858674'),
-(17, 'DPT (Diphtheria, Pertussis, Tetanus)', 'Standard vaccination: DPT (Diphtheria, Pertussis, Tetanus)', 0, 2, '2025-07-05 18:41:02.884012', '2025-07-08 01:46:50.891768'),
-(18, 'OPV (Oral Polio Vaccine)', 'Standard vaccination: OPV (Oral Polio Vaccine)', 0, 3, '2025-07-05 18:41:02.888150', '2025-07-08 01:46:51.124768'),
-(19, 'IPV (Inactivated Polio Vaccine)', 'Standard vaccination: IPV (Inactivated Polio Vaccine)', 0, 4, '2025-07-05 18:41:02.894629', '2025-07-08 01:46:51.008167'),
-(20, 'HIB (Haemophilus influenzae type b)', 'Standard vaccination: HIB (Haemophilus influenzae type b)', 0, 5, '2025-07-05 18:41:02.898796', '2025-07-08 01:46:50.932529'),
-(21, 'PCV (Pneumococcal Conjugate Vaccine)', 'Standard vaccination: PCV (Pneumococcal Conjugate Vaccine)', 0, 6, '2025-07-05 18:41:02.904468', '2025-07-08 01:46:51.133517'),
-(22, 'MMR (Measles, Mumps, Rubella)', 'Standard vaccination: MMR (Measles, Mumps, Rubella)', 0, 7, '2025-07-05 18:41:02.910644', '2025-07-08 01:46:51.075261'),
-(23, 'Influenza (Annual)', 'Standard vaccination: Influenza (Annual)', 0, 10, '2025-07-05 18:41:02.910644', '2025-07-08 01:46:51.000212'),
-(24, 'HPV (Human Papillomavirus)', 'Standard vaccination: HPV (Human Papillomavirus)', 0, 11, '2025-07-05 18:41:02.910644', '2025-07-08 01:46:50.958422'),
-(25, 'Tdap (Tetanus, Diphtheria, Pertussis)', 'Standard vaccination: Tdap (Tetanus, Diphtheria, Pertussis)', 1, 13, '2025-07-05 18:41:02.923126', '2025-07-08 01:46:51.191701'),
-(26, 'Other', 'Standard vaccination: Other', 0, 15, '2025-07-05 18:41:02.934668', '2025-07-08 01:46:51.133517'),
-(27, 'Influenza', '', 0, 0, '2025-07-06 06:23:21.102895', '2025-07-08 01:46:50.983282'),
-(28, 'MMR', '', 0, 0, '2025-07-06 06:23:21.121519', '2025-07-08 01:46:51.066831'),
-(29, 'HPV', '', 0, 0, '2025-07-06 06:23:21.140176', '2025-07-08 01:46:50.942280'),
-(30, 'Varicella', '', 1, 0, '2025-07-06 06:23:21.158413', '2025-07-08 01:46:51.316809'),
-(31, 'Tdap', '', 0, 0, '2025-07-06 06:23:21.172852', '2025-07-08 01:46:51.208374'),
-(32, 'Measles', '', 0, 0, '2025-07-06 06:45:50.417792', '2025-07-08 01:46:51.050018'),
-(33, 'Mumps', '', 0, 0, '2025-07-06 06:45:50.430294', '2025-07-08 01:46:51.091273'),
-(34, 'Rubella', '', 0, 0, '2025-07-06 06:45:50.433810', '2025-07-08 01:46:51.190794'),
-(35, 'asd', '', 1, 0, '2025-07-06 13:08:29.155521', '2025-07-08 01:46:50.834730');
+(1, 'COVID-19', '', 0, 0, '2025-07-04 18:06:45.990368', '2025-07-21 17:38:17.712002'),
+(2, 'Influenza (Flu)', '', 0, 1, '2025-07-04 18:06:45.990368', '2025-07-21 17:38:17.749847'),
+(3, 'Hepatitis B', '', 0, 2, '2025-07-04 18:06:45.990368', '2025-07-21 17:38:17.725418'),
+(4, 'Hepatitis A', '', 0, 3, '2025-07-04 18:06:46.006114', '2025-07-21 17:38:17.726017'),
+(5, 'Tetanus', '', 0, 4, '2025-07-04 18:06:46.006114', '2025-07-21 17:38:17.840131'),
+(6, 'Measles, Mumps, Rubella (MMR)', '', 0, 5, '2025-07-04 18:06:46.013935', '2025-07-21 17:38:17.775320'),
+(7, 'Polio', '', 0, 6, '2025-07-04 18:06:46.013935', '2025-07-21 17:38:17.813148'),
+(8, 'Pneumococcal', '', 0, 7, '2025-07-04 18:06:46.013935', '2025-07-21 17:38:17.812388'),
+(9, 'Meningococcal', '', 0, 8, '2025-07-04 18:06:46.013935', '2025-07-21 17:38:17.774782'),
+(10, 'Human Papillomavirus (HPV)', '', 0, 9, '2025-07-04 18:06:46.031313', '2025-07-21 17:38:17.747963'),
+(11, 'Varicella (Chickenpox)', '', 0, 10, '2025-07-04 18:06:46.031313', '2025-07-21 17:38:17.849551'),
+(12, 'Tuberculosis (BCG)', '', 0, 11, '2025-07-04 18:06:46.040161', '2025-07-21 17:38:17.835633'),
+(13, 'Japanese Encephalitis', '', 0, 12, '2025-07-04 18:06:46.040161', '2025-07-21 17:38:17.765019'),
+(14, 'Rabies', '', 0, 13, '2025-07-04 18:06:46.048847', '2025-07-21 17:38:17.815922'),
+(15, 'Typhoid', '', 0, 14, '2025-07-04 18:06:46.048847', '2025-07-21 17:38:17.841790'),
+(16, 'BCG (Bacillus Calmette-Gu??rin)', 'Standard vaccination: BCG (Bacillus Calmette-Gu??rin)', 0, 0, '2025-07-05 18:41:02.879496', '2025-07-21 17:38:17.711616'),
+(17, 'DPT (Diphtheria, Pertussis, Tetanus)', 'Standard vaccination: DPT (Diphtheria, Pertussis, Tetanus)', 0, 2, '2025-07-05 18:41:02.884012', '2025-07-21 17:38:17.719573'),
+(18, 'OPV (Oral Polio Vaccine)', 'Standard vaccination: OPV (Oral Polio Vaccine)', 0, 3, '2025-07-05 18:41:02.888150', '2025-07-21 17:38:17.801572'),
+(19, 'IPV (Inactivated Polio Vaccine)', 'Standard vaccination: IPV (Inactivated Polio Vaccine)', 0, 4, '2025-07-05 18:41:02.894629', '2025-07-21 17:38:17.761623'),
+(20, 'HIB (Haemophilus influenzae type b)', 'Standard vaccination: HIB (Haemophilus influenzae type b)', 0, 5, '2025-07-05 18:41:02.898796', '2025-07-21 17:38:17.726342'),
+(21, 'PCV (Pneumococcal Conjugate Vaccine)', 'Standard vaccination: PCV (Pneumococcal Conjugate Vaccine)', 0, 6, '2025-07-05 18:41:02.904468', '2025-07-21 17:38:17.800862'),
+(22, 'MMR (Measles, Mumps, Rubella)', 'Standard vaccination: MMR (Measles, Mumps, Rubella)', 0, 7, '2025-07-05 18:41:02.910644', '2025-07-21 17:38:17.788496'),
+(23, 'Influenza (Annual)', 'Standard vaccination: Influenza (Annual)', 0, 10, '2025-07-05 18:41:02.910644', '2025-07-21 17:38:17.757851'),
+(24, 'HPV (Human Papillomavirus)', 'Standard vaccination: HPV (Human Papillomavirus)', 0, 11, '2025-07-05 18:41:02.910644', '2025-07-21 17:38:17.737843'),
+(25, 'Tdap (Tetanus, Diphtheria, Pertussis)', 'Standard vaccination: Tdap (Tetanus, Diphtheria, Pertussis)', 0, 13, '2025-07-05 18:41:02.923126', '2025-07-21 17:38:17.827694'),
+(26, 'Other', 'Standard vaccination: Other', 0, 15, '2025-07-05 18:41:02.934668', '2025-07-21 17:38:17.802756'),
+(27, 'Influenza', '', 0, 0, '2025-07-06 06:23:21.102895', '2025-07-21 17:38:17.748820'),
+(28, 'MMR', '', 0, 0, '2025-07-06 06:23:21.121519', '2025-07-21 17:38:17.783979'),
+(29, 'HPV', '', 0, 0, '2025-07-06 06:23:21.140176', '2025-07-21 17:38:17.739294'),
+(30, 'Varicella', '', 1, 0, '2025-07-06 06:23:21.158413', '2025-07-21 17:38:17.857764'),
+(31, 'Tdap', '', 0, 0, '2025-07-06 06:23:21.172852', '2025-07-21 17:38:17.826775'),
+(32, 'Measles', '', 0, 0, '2025-07-06 06:45:50.417792', '2025-07-21 17:38:17.777329'),
+(33, 'Mumps', '', 0, 0, '2025-07-06 06:45:50.430294', '2025-07-21 17:38:17.791483'),
+(34, 'Rubella', '', 0, 0, '2025-07-06 06:45:50.433810', '2025-07-21 17:38:17.827139'),
+(35, 'asd', '', 1, 0, '2025-07-06 13:08:29.155521', '2025-07-21 17:38:17.699293');
 
 -- --------------------------------------------------------
 
@@ -1010,7 +1200,8 @@ CREATE TABLE `api_waiver` (
 
 INSERT INTO `api_waiver` (`id`, `full_name`, `date_signed`, `signature`, `created_at`, `user_id`) VALUES
 (4, 'Adonis, AOASJD AOID', '2025-07-06', 'data:image/png;base64,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', '2025-07-06 06:47:32.006545', 8),
-(11, 'Magno, Rezier John O.', '2025-07-08', 'data:image/png;base64,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', '2025-07-08 05:00:15.399287', 51);
+(18, 'FAMINIANO, CHRISTIAN, CHRISTIAN JUDE', '2025-07-20', 'data:image/png;base64,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', '2025-07-19 19:50:05.531938', 68),
+(19, 'Rei, Jhn M', '2025-07-21', 'data:image/png;base64,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', '2025-07-21 13:24:48.435293', 69);
 
 -- --------------------------------------------------------
 
@@ -1180,7 +1371,15 @@ INSERT INTO `auth_permission` (`id`, `name`, `content_type_id`, `codename`) VALU
 (125, 'Can add dental waiver', 31, 'add_dentalwaiver'),
 (126, 'Can change dental waiver', 31, 'change_dentalwaiver'),
 (127, 'Can delete dental waiver', 31, 'delete_dentalwaiver'),
-(128, 'Can view dental waiver', 31, 'view_dentalwaiver');
+(128, 'Can view dental waiver', 31, 'view_dentalwaiver'),
+(129, 'Can add dental information record', 32, 'add_dentalinformationrecord'),
+(130, 'Can change dental information record', 32, 'change_dentalinformationrecord'),
+(131, 'Can delete dental information record', 32, 'delete_dentalinformationrecord'),
+(132, 'Can view dental information record', 32, 'view_dentalinformationrecord'),
+(133, 'Can add Dental Medicine/Supply', 33, 'add_dentalmedicinesupply'),
+(134, 'Can change Dental Medicine/Supply', 33, 'change_dentalmedicinesupply'),
+(135, 'Can delete Dental Medicine/Supply', 33, 'delete_dentalmedicinesupply'),
+(136, 'Can view Dental Medicine/Supply', 33, 'view_dentalmedicinesupply');
 
 -- --------------------------------------------------------
 
@@ -1226,6 +1425,8 @@ INSERT INTO `django_content_type` (`id`, `app_label`, `model`) VALUES
 (6, 'api', 'customuser'),
 (29, 'api', 'dentalappointmentmedication'),
 (14, 'api', 'dentalformdata'),
+(32, 'api', 'dentalinformationrecord'),
+(33, 'api', 'dentalmedicinesupply'),
 (31, 'api', 'dentalwaiver'),
 (20, 'api', 'dentistschedule'),
 (17, 'api', 'documentrequirement'),
@@ -1280,65 +1481,21 @@ INSERT INTO `django_migrations` (`id`, `app`, `name`, `applied`) VALUES
 (12, 'auth', '0010_alter_group_name_max_length', '2025-06-20 01:53:21.655514'),
 (13, 'auth', '0011_update_proxy_permissions', '2025-06-20 01:53:21.670129'),
 (14, 'auth', '0012_alter_user_first_name_max_length', '2025-06-20 01:53:21.681633'),
-(15, 'api', '0001_initial', '2025-06-20 01:53:22.909759'),
 (16, 'admin', '0001_initial', '2025-06-20 01:53:23.094197'),
 (17, 'admin', '0002_logentry_remove_auto_add', '2025-06-20 01:53:23.137418'),
 (18, 'admin', '0003_logentry_add_action_flag_choices', '2025-06-20 01:53:23.176606'),
 (19, 'sessions', '0001_initial', '2025-06-20 01:53:23.258409'),
-(20, 'api', '0002_customuser_user_type', '2025-06-20 02:30:28.121422'),
-(21, 'api', '0003_waiver', '2025-06-20 07:35:18.016308'),
-(22, 'api', '0004_customuser_middle_name', '2025-06-20 08:00:24.014645'),
-(23, 'api', '0005_rename_emergency_contact_name_patient_emergency_contact_first_name_and_more', '2025-06-20 11:41:32.442611'),
-(24, 'api', '0006_medicaldocument_waiver_unique_waiver_per_user_and_more', '2025-06-20 19:06:50.091988'),
-(25, 'api', '0007_appointment_concern_appointment_type', '2025-06-20 19:13:42.518706'),
-(26, 'api', '0008_appointment_rejection_reason', '2025-06-21 09:49:04.436496'),
-(27, 'api', '0009_dentalformdata', '2025-06-21 10:43:57.397867'),
-(28, 'api', '0010_medicaldocument_status', '2025-06-21 15:41:45.521305'),
-(29, 'api', '0011_medicaldocument_rejection_reason_and_more', '2025-06-23 07:29:11.160852'),
-(30, 'api', '0012_medicaldocument_certificate_issued_at_and_more', '2025-06-23 07:29:22.832662'),
-(31, 'api', '0013_appointment_campus_staffdetails_and_more', '2025-06-23 07:48:12.739075'),
-(32, 'api', '0014_medicalformdata', '2025-06-24 07:32:29.247094'),
-(33, 'api', '0015_patient_barangay_patient_city_municipality_and_more', '2025-07-02 17:26:11.184407'),
-(34, 'api', '0016_remove_patient_provincial_address_and_more', '2025-07-02 17:40:32.705036'),
-(35, 'api', '0017_campusschedule_documentrequirement_and_more', '2025-07-02 18:11:30.507956'),
-(36, 'api', '0018_alter_campusschedule_campus_and_more', '2025-07-02 18:19:21.331575'),
-(37, 'api', '0019_alter_appointment_campus_and_more', '2025-07-02 18:40:34.335786'),
-(38, 'api', '0002_academicsemester', '2025-07-03 10:37:53.209465'),
-(39, 'api', '0020_academicsemester_academicyear', '2025-07-04 07:22:21.104833'),
-(40, 'api', '0021_rename_academicyear_academicschoolyear_and_more', '2025-07-04 09:50:15.498939'),
-(41, 'api', '0022_alter_patient_student_id_alter_patient_user_and_more', '2025-07-04 10:14:30.550455'),
-(42, 'api', '0023_staffdetails_phone_number', '2025-07-04 11:42:10.057972'),
-(43, 'api', '0024_staffdetails_assigned_campuses', '2025-07-04 11:50:18.446667'),
-(44, 'api', '0025_customuser_blocked_at_customuser_blocked_by_and_more', '2025-07-04 13:00:32.083897'),
-(45, 'api', '0026_remove_customuser_blocked_reason_and_more', '2025-07-04 13:10:46.149259'),
-(46, 'api', '0027_comorbidillness_familymedicalhistoryitem_and_more', '2025-07-04 18:05:40.642869'),
-(47, 'api', '0028_alter_patient_gender_alter_patient_name_and_more', '2025-07-04 20:51:54.504999'),
-(48, 'api', '0029_patient_vaccination_history', '2025-07-04 21:25:17.997399'),
-(49, 'api', '0030_remove_covid_vaccination_status', '2025-07-04 21:33:40.137047'),
-(50, 'api', '0031_alter_patient_gender_alter_patient_name_and_more', '2025-07-04 22:02:37.697868'),
-(51, 'api', '0032_appointment_is_rescheduled_appointment_original_date_and_more', '2025-07-05 00:48:25.974521'),
-(52, 'api', '0033_add_dental_form_fields', '2025-07-05 11:23:19.134042'),
-(53, 'api', '0034_remove_medicaldocument_unique_medical_document_per_patient_and_more', '2025-07-05 20:34:22.621218'),
-(55, 'api', '0035_add_academic_year_to_forms', '2025-07-05 23:10:45.139341'),
-(56, 'api', '0036_alter_dentalformdata_academic_year_and_more', '2025-07-05 23:11:12.216793'),
-(57, 'api', '0037_add_academic_year_to_medicaldocument', '2025-07-05 23:14:17.063956'),
-(58, 'api', '0038_alter_medicaldocument_patient', '2025-07-06 08:22:06.009734'),
-(59, 'api', '0039_patient_hospital_admission_details', '2025-07-07 16:21:09.914917'),
-(60, 'api', '0040_remove_other_specification_fields', '2025-07-07 16:21:09.937170'),
-(61, 'api', '0041_medicaldocument_advised_for_consultation_at_and_more', '2025-07-07 23:37:54.028045'),
-(62, 'api', '0042_dentalformdata_examiner_license_and_more', '2025-07-08 05:41:46.191473'),
-(63, 'api', '0043_add_semester_tracking', '2025-07-15 13:13:09.461900'),
-(64, 'api', '0044_add_medication_inventory_and_education_levels', '2025-07-15 13:13:26.355905'),
-(65, 'api', '0045_uhs_patient_record_template_compliance', '2025-07-15 13:13:28.160140'),
-(66, 'api', '0046_add_dental_consultations_record', '2025-07-15 13:13:28.830407'),
-(67, 'api', '0047_alter_patient_address', '2025-07-15 13:13:28.883957'),
-(68, 'api', '0048_remove_uhs_staff_only_fields', '2025-07-15 13:13:29.381688'),
-(69, 'api', '0049_add_staff_only_fields_to_dental_form', '2025-07-15 13:13:29.723157'),
-(70, 'api', '0050_move_staff_fields_to_medical_form', '2025-07-15 13:13:30.505879'),
-(71, 'api', '0043_add_semester_fields_to_academic_year', '2025-07-15 14:23:32.733122'),
-(72, 'api', '0044_add_semester_to_appointment', '2025-07-15 14:44:07.352706'),
-(73, 'api', '0045_add_dental_waiver_model', '2025-07-15 16:34:55.163138'),
-(74, 'api', '0046_add_semester_to_patient', '2025-07-15 16:37:48.053330');
+(94, 'api', '0001_production_schema', '2025-07-19 19:13:35.000000'),
+(95, 'api', '0002_add_patient_user_type_fields', '2025-07-19 19:01:47.051881'),
+(96, 'api', '0003_familymedicalhistoryitem_has_sub_options_and_more', '2025-07-21 16:25:06.092128'),
+(97, 'api', '0004_patient_hospital_admission_year', '2025-07-21 17:05:33.498777'),
+(98, 'api', '0005_auto_20250722_0116', '2025-07-21 17:20:27.382407'),
+(99, 'api', '0006_patient_menstrual_symptoms_other_and_more', '2025-07-21 17:20:27.464995'),
+(100, 'api', '0007_comorbidillness_has_sub_options_and_more', '2025-07-21 17:27:01.850366'),
+(101, 'api', '0008_add_comorbid_illness_details', '2025-07-21 17:51:20.645091'),
+(102, 'api', '0009_add_family_dentist_fields', '2025-07-21 23:53:04.000823'),
+(103, 'api', '0010_make_age_sex_optional', '2025-07-22 00:01:28.089875'),
+(104, 'api', '0011_acknowledge_existing_dental_fields', '2025-07-22 01:49:06.861811');
 
 -- --------------------------------------------------------
 
@@ -1515,12 +1672,27 @@ ALTER TABLE `api_dentalformdata`
   ADD KEY `api_dentalformdata_academic_year_id_352478ae` (`academic_year_id`);
 
 --
+-- Indexes for table `api_dentalinformationrecord`
+--
+ALTER TABLE `api_dentalinformationrecord`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `api_dentalinformationrec_patient_id_school_year_i_b18af192_uniq` (`patient_id`,`school_year_id`,`semester`),
+  ADD KEY `api_dentalinformatio_school_year_id_de355a15_fk_api_acade` (`school_year_id`);
+
+--
+-- Indexes for table `api_dentalmedicinesupply`
+--
+ALTER TABLE `api_dentalmedicinesupply`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `api_dentalwaiver`
 --
 ALTER TABLE `api_dentalwaiver`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_dental_waiver_per_user` (`user_id`),
-  ADD KEY `api_dentalwaiver_patient_id_9f154893_fk_api_patient_id` (`patient_id`);
+  ADD KEY `api_dentalwaiver_patient_id_9f154893_fk_api_patient_id` (`patient_id`),
+  ADD KEY `api_dentalwaiver_user_id_e5992a5d` (`user_id`);
 
 --
 -- Indexes for table `api_dentistschedule`
@@ -1727,7 +1899,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `api_academicschoolyear`
 --
 ALTER TABLE `api_academicschoolyear`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `api_academicsemester`
@@ -1739,7 +1911,7 @@ ALTER TABLE `api_academicsemester`
 -- AUTO_INCREMENT for table `api_appointment`
 --
 ALTER TABLE `api_appointment`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- AUTO_INCREMENT for table `api_campusschedule`
@@ -1751,13 +1923,13 @@ ALTER TABLE `api_campusschedule`
 -- AUTO_INCREMENT for table `api_comorbidillness`
 --
 ALTER TABLE `api_comorbidillness`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `api_customuser`
 --
 ALTER TABLE `api_customuser`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=70;
 
 --
 -- AUTO_INCREMENT for table `api_customuser_groups`
@@ -1781,13 +1953,25 @@ ALTER TABLE `api_dentalappointmentmedication`
 -- AUTO_INCREMENT for table `api_dentalformdata`
 --
 ALTER TABLE `api_dentalformdata`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
+
+--
+-- AUTO_INCREMENT for table `api_dentalinformationrecord`
+--
+ALTER TABLE `api_dentalinformationrecord`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+
+--
+-- AUTO_INCREMENT for table `api_dentalmedicinesupply`
+--
+ALTER TABLE `api_dentalmedicinesupply`
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=39;
 
 --
 -- AUTO_INCREMENT for table `api_dentalwaiver`
 --
 ALTER TABLE `api_dentalwaiver`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `api_dentistschedule`
@@ -1817,13 +2001,13 @@ ALTER TABLE `api_inventory`
 -- AUTO_INCREMENT for table `api_medicaldocument`
 --
 ALTER TABLE `api_medicaldocument`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=41;
 
 --
 -- AUTO_INCREMENT for table `api_medicalformdata`
 --
 ALTER TABLE `api_medicalformdata`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `api_medicalrecord`
@@ -1847,25 +2031,25 @@ ALTER TABLE `api_medicationrestockrecord`
 -- AUTO_INCREMENT for table `api_pastmedicalhistoryitem`
 --
 ALTER TABLE `api_pastmedicalhistoryitem`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- AUTO_INCREMENT for table `api_patient`
 --
 ALTER TABLE `api_patient`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
 
 --
 -- AUTO_INCREMENT for table `api_profilerequirement`
 --
 ALTER TABLE `api_profilerequirement`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=37;
 
 --
 -- AUTO_INCREMENT for table `api_staffdetails`
 --
 ALTER TABLE `api_staffdetails`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=26;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=27;
 
 --
 -- AUTO_INCREMENT for table `api_systemconfiguration`
@@ -1883,7 +2067,7 @@ ALTER TABLE `api_vaccination`
 -- AUTO_INCREMENT for table `api_waiver`
 --
 ALTER TABLE `api_waiver`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=20;
 
 --
 -- AUTO_INCREMENT for table `auth_group`
@@ -1901,7 +2085,7 @@ ALTER TABLE `auth_group_permissions`
 -- AUTO_INCREMENT for table `auth_permission`
 --
 ALTER TABLE `auth_permission`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=129;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=137;
 
 --
 -- AUTO_INCREMENT for table `django_admin_log`
@@ -1913,13 +2097,13 @@ ALTER TABLE `django_admin_log`
 -- AUTO_INCREMENT for table `django_content_type`
 --
 ALTER TABLE `django_content_type`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `django_migrations`
 --
 ALTER TABLE `django_migrations`
-  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
+  MODIFY `id` bigint(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=105;
 
 --
 -- AUTO_INCREMENT for table `inventory`
@@ -1986,6 +2170,13 @@ ALTER TABLE `api_dentalappointmentmedication`
 ALTER TABLE `api_dentalformdata`
   ADD CONSTRAINT `api_dentalformdata_appointment_id_8463eab9_fk_api_appointment_id` FOREIGN KEY (`appointment_id`) REFERENCES `api_appointment` (`id`),
   ADD CONSTRAINT `api_dentalformdata_patient_id_842b814e_fk_api_patient_id` FOREIGN KEY (`patient_id`) REFERENCES `api_patient` (`id`);
+
+--
+-- Constraints for table `api_dentalinformationrecord`
+--
+ALTER TABLE `api_dentalinformationrecord`
+  ADD CONSTRAINT `api_dentalinformatio_patient_id_637002ef_fk_api_patie` FOREIGN KEY (`patient_id`) REFERENCES `api_patient` (`id`),
+  ADD CONSTRAINT `api_dentalinformatio_school_year_id_de355a15_fk_api_acade` FOREIGN KEY (`school_year_id`) REFERENCES `api_academicschoolyear` (`id`);
 
 --
 -- Constraints for table `api_dentalwaiver`

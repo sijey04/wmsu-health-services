@@ -29,6 +29,13 @@ class CustomUser(AbstractUser):
     blocked_by = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='blocked_users', help_text='Admin who blocked this user')
     block_reason = models.TextField(blank=True, null=True, help_text='Reason for blocking the user')
     
+    # Additional fields that match production database
+    education_level = models.CharField(max_length=20, blank=True, null=True)
+    education_year = models.IntegerField(blank=True, null=True)
+    education_program = models.CharField(max_length=200, blank=True, null=True)
+    department_college = models.CharField(max_length=200, blank=True, null=True)
+    employee_position = models.CharField(max_length=200, blank=True, null=True)
+    
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username']
     
@@ -217,6 +224,9 @@ class Patient(models.Model):
     
     # Health History
     comorbid_illnesses = models.JSONField(blank=True, null=True, help_text='List of comorbid illnesses')
+    # Enhanced ComorbidIllness fields - stores sub-options and specifications dynamically
+    # Format: {'illness_name_sub': ['selected_sub_option1', 'selected_sub_option2'], 'illness_name_spec': 'specification_text'}
+    comorbid_illness_details = models.JSONField(blank=True, null=True, help_text='Enhanced comorbid illness sub-options and specifications')
     maintenance_medications = models.JSONField(blank=True, null=True, help_text='List of maintenance medications')
     vaccination_history = models.JSONField(blank=True, null=True, help_text='Vaccination history for all vaccines')
     
@@ -224,6 +234,7 @@ class Patient(models.Model):
     past_medical_history = models.JSONField(blank=True, null=True, help_text='List of past medical/surgical history')
     hospital_admission_or_surgery = models.BooleanField(default=False)
     hospital_admission_details = models.TextField(blank=True, null=True, help_text='Details of hospital admission or surgery when answer is Yes')
+    hospital_admission_year = models.CharField(max_length=20, blank=True, null=True, help_text='Year of hospital admission or surgery')
     
     # Family Medical History
     family_medical_history = models.JSONField(blank=True, null=True, help_text='List of family medical history')
@@ -235,6 +246,38 @@ class Patient(models.Model):
     allergies = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    # Additional fields that match production database
+    surname = models.CharField(max_length=100, blank=True, null=True)
+    sex = models.CharField(max_length=10, blank=True, null=True)
+    course = models.CharField(max_length=200, blank=True, null=True)
+    year_level = models.CharField(max_length=50, blank=True, null=True)
+    
+    # User type specific fields
+    user_type = models.CharField(max_length=50, blank=True, null=True, help_text='User type from signup (Employee, College, etc.)')
+    employee_id = models.CharField(max_length=50, blank=True, null=True, help_text='Employee ID for Employee user type')
+    position_type = models.CharField(max_length=50, blank=True, null=True, help_text='Teaching or Non-Teaching for Employee user type')
+    strand = models.CharField(max_length=100, blank=True, null=True, help_text='Strand for Senior High School user type')
+    
+    birthday = models.DateField(blank=True, null=True)
+    city_address = models.TextField(blank=True, null=True)
+    provincial_address = models.TextField(blank=True, null=True)
+    emergency_contact_name = models.CharField(max_length=200, blank=True, null=True)
+    emergency_contact_city_address = models.TextField(blank=True, null=True)
+    covid19_vaccination_status = models.CharField(max_length=50, blank=True, null=True)
+    menstruation_age_began = models.IntegerField(blank=True, null=True)
+    menstruation_regular = models.BooleanField(default=False)
+    menstruation_irregular = models.BooleanField(default=False)
+    number_of_pregnancies = models.IntegerField(blank=True, null=True)
+    number_of_live_children = models.IntegerField(blank=True, null=True)
+    menstrual_symptoms = models.JSONField(blank=True, null=True)
+    menstrual_symptoms_other = models.TextField(blank=True, null=True, help_text='Specification for other menstrual symptoms')
+    past_conditions_this_year = models.TextField(blank=True, null=True)
+    hospital_admissions = models.TextField(blank=True, null=True)
+    uhs_template_compliant = models.BooleanField(default=False)
+    record_completion_status = models.CharField(max_length=20, default='incomplete')
+    staff_notes = models.TextField(blank=True, null=True)
+    semester_id = models.IntegerField(blank=True, null=True)
     
     class Meta:
         unique_together = ['user', 'school_year', 'semester']
@@ -765,6 +808,22 @@ class DentalFormData(models.Model):
     # Medicine Usage (JSON field to store medicine usage data)
     used_medicines = models.JSONField(blank=True, null=True, help_text='List of medicines used during the appointment')
     
+    # Consultation tracking fields (required by database schema)
+    consultations_record = models.JSONField(blank=True, null=True, help_text='Record of all consultations')
+    current_consultation_date = models.DateField(blank=True, null=True)
+    current_signs_symptoms = models.TextField(blank=True, null=True)
+    current_hr = models.CharField(max_length=10, blank=True, null=True, help_text='Heart Rate')
+    current_rr = models.CharField(max_length=10, blank=True, null=True, help_text='Respiratory Rate')
+    current_temp = models.CharField(max_length=10, blank=True, null=True, help_text='Temperature')
+    current_o2_sat = models.CharField(max_length=10, blank=True, null=True, help_text='Oxygen Saturation')
+    current_bp = models.CharField(max_length=15, blank=True, null=True, help_text='Blood Pressure')
+    current_test_results = models.TextField(blank=True, null=True)
+    current_diagnosis = models.TextField(blank=True, null=True)
+    current_management = models.TextField(blank=True, null=True)
+    current_nurse_physician = models.CharField(max_length=100, blank=True, null=True)
+    total_consultations = models.IntegerField(default=1, help_text='Total number of consultations')
+    consultation_template_compliant = models.BooleanField(default=True, help_text='Whether the consultation follows template')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1229,6 +1288,12 @@ class ComorbidIllness(models.Model):
     is_enabled = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
     
+    # Sub-options and specification features
+    has_sub_options = models.BooleanField(default=False, help_text='Whether this illness has sub-options (checkboxes)')
+    sub_options = models.JSONField(blank=True, null=True, help_text='List of sub-options for this illness')
+    requires_specification = models.BooleanField(default=False, help_text='Whether this illness requires text specification')
+    specification_placeholder = models.CharField(max_length=200, blank=True, null=True, help_text='Placeholder text for specification field')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1263,6 +1328,12 @@ class PastMedicalHistoryItem(models.Model):
     is_enabled = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
     
+    # Sub-options configuration
+    has_sub_options = models.BooleanField(default=False, help_text="Whether this item has sub-checkboxes")
+    sub_options = models.JSONField(default=list, blank=True, help_text="List of sub-option names")
+    requires_specification = models.BooleanField(default=False, help_text="Whether this item requires text specification")
+    specification_placeholder = models.CharField(max_length=200, blank=True, help_text="Placeholder text for specification field")
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -1279,6 +1350,12 @@ class FamilyMedicalHistoryItem(models.Model):
     description = models.TextField(blank=True)
     is_enabled = models.BooleanField(default=True)
     display_order = models.IntegerField(default=0)
+    
+    # Sub-options configuration
+    has_sub_options = models.BooleanField(default=False, help_text="Whether this item has sub-checkboxes")
+    sub_options = models.JSONField(default=list, blank=True, help_text="List of sub-option names")
+    requires_specification = models.BooleanField(default=False, help_text="Whether this item requires text specification")
+    specification_placeholder = models.CharField(max_length=200, blank=True, help_text="Placeholder text for specification field")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -1318,8 +1395,8 @@ class DentalInformationRecord(models.Model):
     
     # Personal Information
     patient_name = models.CharField(max_length=255)
-    age = models.IntegerField()
-    sex = models.CharField(max_length=20)  # Changed from gender to sex
+    age = models.IntegerField(null=True, blank=True)
+    sex = models.CharField(max_length=20, null=True, blank=True)  # Changed from gender to sex
     
     # Education Information
     education_level = models.CharField(
@@ -1346,6 +1423,12 @@ class DentalInformationRecord(models.Model):
     name_of_previous_dentist = models.CharField(max_length=255, blank=True, null=True)
     last_dental_visit = models.CharField(max_length=255, blank=True, null=True)
     date_of_last_cleaning = models.CharField(max_length=255, blank=True, null=True)
+    
+    # Family Dentist Information
+    has_family_dentist = models.BooleanField(null=True, blank=True)
+    family_dentist_name = models.CharField(max_length=255, blank=True, null=True)
+    family_dentist_address = models.TextField(blank=True, null=True)
+    family_dentist_phone = models.CharField(max_length=50, blank=True, null=True)
     
     # Medical History - Yes/No Questions
     oral_hygiene_instructions = models.BooleanField(null=True, blank=True)
@@ -1463,3 +1546,111 @@ class DentalMedicineSupply(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_type_display()})"
+
+
+class UserTypeInformation(models.Model):
+    """
+    Model to store user type configurations for profile setup
+    This controls what fields are required and available options for each user type
+    """
+    name = models.CharField(max_length=100, unique=True, help_text='Name of the user type (e.g., Employee, College, etc.)')
+    enabled = models.BooleanField(default=True, help_text='Whether this user type is available for selection')
+    description = models.TextField(blank=True, null=True, help_text='Description of this user type')
+    
+    # JSON fields to store arrays of strings
+    required_fields = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of field names that are required for this user type'
+    )
+    available_courses = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available courses for this user type (for College/Incoming Freshman)'
+    )
+    available_departments = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available departments for this user type (for Employee)'
+    )
+    available_strands = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available strands for this user type (for Senior High School)'
+    )
+    year_levels = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available year/grade levels for this user type'
+    )
+    position_types = models.JSONField(
+        default=list, 
+        blank=True,
+        help_text='List of available position types for this user type (for Employee)'
+    )
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='created_user_types'
+    )
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'User Type Information'
+        verbose_name_plural = 'User Type Information'
+    
+    def __str__(self):
+        return self.name
+    
+    def get_required_fields_display(self):
+        """Return a comma-separated string of required fields"""
+        return ', '.join(self.required_fields) if self.required_fields else 'None'
+    
+    def is_field_required(self, field_name):
+        """Check if a specific field is required for this user type"""
+        return field_name in self.required_fields
+    
+    def get_available_options(self, option_type):
+        """Get available options for a specific type (courses, departments, etc.)"""
+        option_map = {
+            'courses': self.available_courses,
+            'departments': self.available_departments,
+            'strands': self.available_strands,
+            'year_levels': self.year_levels,
+            'position_types': self.position_types
+        }
+        return option_map.get(option_type, [])
+    
+    def add_required_field(self, field_name):
+        """Add a field to the required fields list"""
+        if field_name not in self.required_fields:
+            self.required_fields.append(field_name)
+            self.save()
+    
+    def remove_required_field(self, field_name):
+        """Remove a field from the required fields list"""
+        if field_name in self.required_fields:
+            self.required_fields.remove(field_name)
+            self.save()
+    
+    def add_option(self, option_type, option_value):
+        """Add an option to a specific option type"""
+        options = getattr(self, f'available_{option_type}', None)
+        if options is not None and option_value not in options:
+            options.append(option_value)
+            setattr(self, f'available_{option_type}', options)
+            self.save()
+    
+    def remove_option(self, option_type, option_value):
+        """Remove an option from a specific option type"""
+        options = getattr(self, f'available_{option_type}', None)
+        if options is not None and option_value in options:
+            options.remove(option_value)
+            setattr(self, f'available_{option_type}', options)
+            self.save()

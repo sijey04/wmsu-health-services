@@ -423,7 +423,7 @@ export default function DentalWaiverPage() {
                   style={{ fontSize: '1.1rem' }}
                   required
                 />
-                <p className="text-center text-sm mt-1">Patient's Full Name</p>
+                <p className="text-center text-sm mt-1">Patient&apos;s Full Name</p>
               </div>
               {/* Signature */}
               <div className="relative flex flex-col items-center">
@@ -442,7 +442,7 @@ export default function DentalWaiverPage() {
                 >
                   Clear
                 </button>
-                <p className="text-center text-sm mt-1">Patient's Signature</p>
+                <p className="text-center text-sm mt-1">Patient&apos;s Signature</p>
               </div>
               {/* Date Signed */}
               <div className="flex flex-col items-center">

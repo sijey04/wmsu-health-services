@@ -141,7 +141,7 @@ export default function PatientProfileDetails() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 <div className="flex items-center">
                   <input id="bronchial-asthma" type="checkbox" defaultChecked className="h-4 w-4 text-[#800000] border-gray-300 rounded focus:ring-[#800000]" />
-                  <label htmlFor="bronchial-asthma" className="ml-2 block text-sm text-gray-900">Bronchial Asthma ("Hika")</label>
+                  <label htmlFor="bronchial-asthma" className="ml-2 block text-sm text-gray-900">Bronchial Asthma (&ldquo;Hika&rdquo;)</label>
                 </div>
                 <div className="flex items-center">
                   <input id="food-allergies" type="checkbox" defaultChecked className="h-4 w-4 text-[#800000] border-gray-300 rounded focus:ring-[#800000]" />
@@ -489,7 +489,7 @@ export default function PatientProfileDetails() {
                 </div>
                 <div className="flex items-center">
                   <input id="family-bronchial-asthma" type="checkbox" defaultChecked className="h-4 w-4 text-[#800000] border-gray-300 rounded focus:ring-[#800000]" />
-                  <label htmlFor="family-bronchial-asthma" className="ml-2 block text-sm text-gray-900">Bronchial Asthma ("Hika")</label>
+                  <label htmlFor="family-bronchial-asthma" className="ml-2 block text-sm text-gray-900">Bronchial Asthma (&ldquo;Hika&rdquo;)</label>
                 </div>
                 <div className="flex items-center">
                   <input id="family-chronic-obstructive-pulmonary-disease" type="checkbox" defaultChecked className="h-4 w-4 text-[#800000] border-gray-300 rounded focus:ring-[#800000]" />

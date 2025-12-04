@@ -203,7 +203,7 @@ export default function WaiverPage() {
           {/* Body */}
           <div className="space-y-4 text-sm text-justify">
             <p>
-              In consideration of Western Mindanao State University Health Services Center's collecting and processing of
+              In consideration of Western Mindanao State University Health Services Center&apos;s collecting and processing of
               personal and sensitive health information, the undersigned individual, hereby agrees to the following terms and conditions:
             </p>
             
@@ -284,7 +284,7 @@ export default function WaiverPage() {
                   style={{ fontSize: '1.1rem' }}
                   required
                 />
-                <p className="text-center text-sm mt-1">Individual's Full Name</p>
+                <p className="text-center text-sm mt-1">Individual&apos;s Full Name</p>
               </div>
               {/* Signature */}
               <div className="relative flex flex-col items-center">
@@ -303,7 +303,7 @@ export default function WaiverPage() {
                 >
                   Clear
                 </button>
-                <p className="text-center text-sm mt-1">Individual's Signature</p>
+                <p className="text-center text-sm mt-1">Individual&apos;s Signature</p>
               </div>
               {/* Date Signed */}
               <div className="flex flex-col items-center">

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Link from 'next/link';
 import Modal from './Modal'; // Import the Modal component
 
 export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin }: { 
@@ -204,6 +205,8 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
               <option value="">Select User Type</option>
                 <option value="Kindergarten">Kindergarten</option>
                 <option value="Elementary">Elementary</option>
+                <option value="High School">High School</option>
+                <option value="Senior High School">Senior High School</option>
                 <option value="College">College</option>
                 <option value="Employee">Employee</option>
                 <option value="Incoming Freshman">Incoming Freshman</option>
@@ -411,7 +414,7 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Account Created Successfully!</h3>
           <p className="text-sm text-gray-600 mb-4">
-            We've sent a verification email to{' '}
+            We&apos;ve sent a verification email to{' '}
             <span className="font-medium text-[#800000]">{userEmail}</span>
           </p>
           <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-md text-sm mb-6">
@@ -433,10 +436,10 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
               Go to Sign In
             </button>
             <p className="text-xs text-gray-500">
-              Didn't receive the email?{' '}
-              <a href="/resend-verification" className="text-[#800000] hover:underline">
+              Didn&apos;t receive the email?{' '}
+              <Link href="/resend-verification" className="text-[#800000] hover:underline">
                 Resend verification email
-              </a>
+              </Link>
             </p>
           </div>
         </div>

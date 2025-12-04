@@ -556,7 +556,7 @@ export default function PatientProfile() {
               </div>
             ) : (
               <div className="text-center py-8">
-                <p className="text-gray-600 mb-4">You don't have a profile yet.</p>
+                <p className="text-gray-600 mb-4">You don&apos;t have a profile yet.</p>
                 <button
                   onClick={() => setEditing(true)}
                   className="bg-red-800 text-white px-6 py-3 rounded-md hover:bg-red-700"
