@@ -301,3 +301,4 @@ For technical issues or questions about the enhanced appointment scheduling syst
 - API documentation: `/api/appointments-v2/` endpoints
 - Test script: `test_appointment_scheduling.py`
 - Source code: `backend/django_api/api/views2.py`
+

@@ -14,7 +14,8 @@ from .models import (
     MedicalDocument, DentalFormData, MedicalFormData, StaffDetails,
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
-    ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem
+    ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
+    DentalInformationRecord
 )
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
@@ -26,7 +27,7 @@ from .serializers import (
     DocumentRequirementSerializer, CampusScheduleSerializer, DentistScheduleSerializer,
     AcademicSchoolYearSerializer, UserManagementSerializer, UserBlockSerializer,
     ComorbidIllnessSerializer, VaccinationSerializer, PastMedicalHistoryItemSerializer,
-    FamilyMedicalHistoryItemSerializer
+    FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer
 )
 from rest_framework.views import APIView
 from django.db.models import Q, Count
@@ -760,6 +761,7 @@ class PatientViewSet(viewsets.ModelViewSet):
             'last_name': user.last_name or '',
             'middle_name': user.middle_name or '',
             'name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
+            'patient_name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
             'student_id': f"TEMP-{user.id}",
             'has_existing_profile': existing_profile is not None,
             'current_school_year': current_school_year.id if current_school_year else None,
@@ -769,22 +771,24 @@ class PatientViewSet(viewsets.ModelViewSet):
             'autofilled_from_semester': autofilled_from_semester,
         }
         
-        # If we have a source profile (current or previous), include comprehensive autofill data
+        # If we have a source profile (current or previous), include basic autofill data
         if source_profile:
-            # Basic personal information
+            # Basic personal information - focus on name, age, sex
             profile_data = {
                 'existing_profile_id': source_profile.id if existing_profile else None,
                 'existing_student_id': source_profile.student_id,
                 'existing_name': source_profile.name,
                 
-                # Personal Information
-                'first_name': source_profile.first_name or user.first_name or '',
+                # Key fields for dental form
                 'patient_name': source_profile.name or f"{user.first_name} {user.last_name}".strip() or '',
+                'age': source_profile.age or '',
+                'sex': source_profile.gender or '',  # Maps to sex field in dental form
+                'date_of_birth': source_profile.date_of_birth.isoformat() if source_profile.date_of_birth else '',
+                
+                # Additional personal information (kept for compatibility)
+                'first_name': source_profile.first_name or user.first_name or '',
                 'middle_name': source_profile.middle_name or user.middle_name or '',
                 'suffix': source_profile.suffix or '',
-                'date_of_birth': source_profile.date_of_birth.isoformat() if source_profile.date_of_birth else '',
-                'age': source_profile.age or '',
-                'gender': source_profile.gender or '',
                 'blood_type': source_profile.blood_type or '',
                 'religion': source_profile.religion or '',
                 'nationality': source_profile.nationality or '',
@@ -811,11 +815,11 @@ class PatientViewSet(viewsets.ModelViewSet):
                 # Health History
                 'comorbid_illnesses': source_profile.comorbid_illnesses or [],
                 'past_medical_history': source_profile.past_medical_history or [],
-                'vaccinations': source_profile.vaccinations or [],
-                'medications': source_profile.medications or [],
-                'allergies': source_profile.allergies or [],
+                'vaccinations': source_profile.vaccination_history or [],
+                'medications': source_profile.maintenance_medications or [],
+                'allergies': source_profile.allergies or '',
                 'hospital_admission_or_surgery': source_profile.hospital_admission_or_surgery if source_profile.hospital_admission_or_surgery is not None else '',
-                'surgical_operations': source_profile.surgical_operations or '',
+                'surgical_operations': source_profile.hospital_admission_details or '',
                 
                 # Family History
                 'family_medical_history': source_profile.family_medical_history or [],
@@ -1589,9 +1593,24 @@ class InventoryViewSet(viewsets.ModelViewSet):
         serializer.save()
     
     def perform_update(self, serializer):
-        """Only staff can update inventory items"""
+        """Handle quantity updates for inventory items"""
         if not (self.request.user.is_staff or self.request.user.user_type in ['staff', 'admin']):
             raise PermissionDenied("Only staff can manage inventory")
+        
+        # Check if this is a quantity change request
+        if 'quantity_change' in self.request.data:
+            instance = self.get_object()
+            quantity_change = int(self.request.data['quantity_change'])
+            new_quantity = instance.quantity + quantity_change
+            
+            if new_quantity < 0:
+                raise serializers.ValidationError("Insufficient inventory quantity")
+            
+            # Update the quantity
+            instance.quantity = new_quantity
+            instance.save()
+            return
+        
         serializer.save()
     
     def perform_destroy(self, instance):
@@ -1602,7 +1621,7 @@ class InventoryViewSet(viewsets.ModelViewSet):
 
 
 class WaiverViewSet(viewsets.ModelViewSet):
-    """Waiver management"""
+    """Waiver management - UPDATED"""
     queryset = Waiver.objects.all()
     serializer_class = WaiverSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -1626,6 +1645,35 @@ class WaiverViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError("You already have a waiver on file.")
         
         serializer.save(user=user)
+
+    @action(detail=False, methods=['get'], url_path='check_status', permission_classes=[permissions.IsAuthenticated])
+    def waiver_check_status(self, request):
+        """Check if current user has a waiver"""
+        user = request.user
+        has_waiver = Waiver.objects.filter(user=user).exists()
+        
+        waiver_data = None
+        if has_waiver:
+            waiver = Waiver.objects.filter(user=user).first()
+            waiver_data = {
+                'id': waiver.id,
+                'full_name': waiver.full_name,
+                'date_signed': waiver.date_signed,
+                'created_at': waiver.created_at
+            }
+        
+        return Response({
+            'exists': has_waiver,
+            'waiver': waiver_data
+        })
+
+    @action(detail=False, methods=['get'], url_path='test', permission_classes=[AllowAny])
+    def test_action(self, request):
+        """Test action to verify ViewSet routing"""
+        return Response({
+            'message': 'Test action works!',
+            'viewset': 'WaiverViewSet'
+        })
 
 
 class DentalWaiverViewSet(viewsets.ModelViewSet):
@@ -1656,43 +1704,32 @@ class DentalWaiverViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def check_status(self, request):
-        """Check if current user has signed a dental waiver"""
+        """Check if current user has signed a dental waiver for the current semester"""
         user = request.user
-        has_signed = DentalWaiver.objects.filter(user=user).exists()
+        
+        # Get semester from query parameters, default to 1st_semester
+        semester = request.query_params.get('semester', '1st_semester')
+        
+        # Check if user has signed a dental waiver for the specific semester
+        has_signed = DentalWaiver.objects.filter(user=user, semester=semester).exists()
         
         dental_waiver_data = None
         if has_signed:
-            dental_waiver = DentalWaiver.objects.filter(user=user).first()
+            dental_waiver = DentalWaiver.objects.filter(user=user, semester=semester).first()
             dental_waiver_data = {
                 'id': dental_waiver.id,
                 'patient_name': dental_waiver.patient_name,
                 'date_signed': dental_waiver.date_signed,
+                'semester': dental_waiver.semester,
                 'created_at': dental_waiver.created_at
             }
         
         return Response({
             'has_signed': has_signed,
+            'semester': semester,
             'dental_waiver': dental_waiver_data
         })
-    
-    @action(detail=False, methods=['get'])
-    def check_status(self, request):
-        """Check if current user has a waiver"""
-        user = request.user
-        
-        # Check if user has a waiver
-        waiver = Waiver.objects.filter(user=user).first()
-        
-        if waiver:
-            return Response({
-                'exists': True,
-                'waiver': WaiverSerializer(waiver).data
-            })
-        else:
-            return Response({
-                'exists': False,
-                'waiver': None
-            })
+
 
 class DentalFormDataViewSet(viewsets.ModelViewSet):
     """ViewSet for managing dental form data"""
@@ -1811,14 +1848,18 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
                     # If no comma, use the name as surname
                     surname = patient.name
             
+            # Calculate age from date of birth if available, otherwise use stored age
+            calculated_age = patient.get_age()
+            patient_age = calculated_age if calculated_age is not None else patient.age
+            
             data = {
                 'patient_id': patient.id,
                 'file_no': patient.student_id or '',
                 'surname': surname,
                 'first_name': patient.first_name or '',
                 'middle_name': patient.middle_name or '',
-                'age': patient.age or '',
-                'sex': patient.gender or 'Male',
+                'age': patient_age or '',
+                'sex': 'Male' if patient.gender == 'Other' else (patient.gender or 'Male'),
                 'examined_by': examiner_name,
                 'examiner_position': examiner_position,
                 'examiner_license': examiner_license,
@@ -2392,10 +2433,7 @@ class PastMedicalHistoryItemViewSet(viewsets.ModelViewSet):
             if not item_id:
                 return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
             
-            if not illness_id:
-                return Response({'error': 'ID is required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            illness = ComorbidIllness.objects.get(id=illness_id)
+            illness = ComorbidIllness.objects.get(id=item_id)
             illness.is_enabled = is_enabled
             illness.save()
             
@@ -2713,17 +2751,13 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You don't have permission to view dashboard statistics.")
         
         try:
-            from .models import (
-                Appointment, MedicalDocument, 
-                CustomUser, AcademicSchoolYear
-            )
+            from .models import Appointment, MedicalDocument, AcademicSchoolYear
             
-            # Get current academic year
-            current_semester = None
+            # Get current school year/semester
             try:
-                current_semester = AcademicSchoolYear.objects.filter(is_current=True).first()
-            except:
-                pass
+                current_semester = AcademicSchoolYear.objects.get(is_current=True)
+            except AcademicSchoolYear.DoesNotExist:
+                current_semester = None
             
             # Medical consultations statistics (using Appointment with type='medical')
             medical_total = Appointment.objects.filter(type='medical').count()
@@ -3842,5 +3876,3 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
         appointment.cancelled_at = timezone.now()
         appointment.save()
         
-
-

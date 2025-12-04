@@ -3,12 +3,11 @@ import { djangoApiClient } from '../utils/api';
 
 type Semester = {
   id: number;
+  semester_type: string;
   academic_year: string;
   is_current: boolean;
-  start_date?: string;
-  end_date?: string;
-  created_at?: string;
-  semester_display?: string; // Full display name (e.g., "2024-2025")
+  status: string;
+  semester_display?: string; // Full display name (e.g., "1st Semester 2024-2025")
 };
 
 interface SemesterSelectorProps {
@@ -25,7 +24,7 @@ const SemesterSelector: React.FC<SemesterSelectorProps> = ({ onSemesterChange, c
     const fetchSemesters = async () => {
       setLoading(true);
       try {
-        const response = await djangoApiClient.get('/academic-school-years/');
+        const response = await djangoApiClient.get('/academic-semesters/');
         setSemesters(response.data);
         
         // If there's a current semester, select it by default
@@ -54,13 +53,21 @@ const SemesterSelector: React.FC<SemesterSelectorProps> = ({ onSemesterChange, c
   const formatSemesterDisplay = (semester: Semester) => {
     if (semester.semester_display) return semester.semester_display;
     
-    return `${semester.academic_year}${semester.is_current ? ' (Current)' : ''}`;
+    const semesterTypeMap: Record<string, string> = {
+      '1st': '1st Semester',
+      '2nd': '2nd Semester',
+      'summer': 'Summer',
+      'midyear': 'Midyear',
+    };
+    
+    const semesterType = semesterTypeMap[semester.semester_type] || semester.semester_type;
+    return `${semesterType} ${semester.academic_year}${semester.is_current ? ' (Current)' : ''}`;
   };
 
   return (
     <div className={`semester-selector ${className}`}>
       <label htmlFor="semester-select" className="mr-2 text-gray-700 font-medium">
-        School Year:
+        Semester:
       </label>
       <select
         id="semester-select"
@@ -69,7 +76,7 @@ const SemesterSelector: React.FC<SemesterSelectorProps> = ({ onSemesterChange, c
         className="rounded-md border-gray-300 shadow-sm focus:border-[#800000] focus:ring-[#800000] block"
         disabled={loading}
       >
-        <option value="">All School Years</option>
+        <option value="">All Semesters</option>
         {semesters.map((semester) => (
           <option key={semester.id} value={semester.id}>
             {formatSemesterDisplay(semester)}

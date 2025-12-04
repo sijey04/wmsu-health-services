@@ -34,7 +34,18 @@ export default function Home() {  // Authentication state
       
       if (userData && isAuthenticated) {
         try {
-          setUser(JSON.parse(userData));
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+          
+          // Check if we should show post-login modal after page refresh
+          const shouldShowModal = localStorage.getItem('show_post_login_modal');
+          if (shouldShowModal === 'true') {
+            localStorage.removeItem('show_post_login_modal');
+            // Add a small delay to ensure the page is fully rendered
+            setTimeout(() => {
+              setShowPostLoginModal(true);
+            }, 300);
+          }
         } catch (e) {
           console.error('Error parsing user data:', e);
           localStorage.removeItem('user');
@@ -84,16 +95,22 @@ export default function Home() {  // Authentication state
     if (token && userData) {
       try {
         const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        setIsLoggedIn(true);
-        setShowAuthModal(false);
-        setUserDismissedModal(false); // Reset dismissal state on successful login
         
         // Only show post-login modal for non-staff users
         // Staff users are already redirected to admin pages by LoginForm
         if (gradeLevel && !(parsedUser.is_staff || parsedUser.user_type === 'staff' || parsedUser.user_type === 'admin')) {
-          setShowPostLoginModal(true);
+          // Set flag to show modal after page refresh - do this BEFORE updating state
+          localStorage.setItem('show_post_login_modal', 'true');
+          // Immediately refresh without updating component state
+          window.location.reload();
+          return; // Exit early to prevent any state updates
         }
+        
+        // For staff users, just update state normally
+        setUser(parsedUser);
+        setIsLoggedIn(true);
+        setShowAuthModal(false);
+        setUserDismissedModal(false);
       } catch (e) {
         console.error('Error parsing user data:', e);
       }

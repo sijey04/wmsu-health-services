@@ -31,7 +31,7 @@ export const getPostLoginRedirectPath = (user: User | null): string => {
   if (!user) return '/';
   
   if (isStaffUser(user)) {
-    return '/admin/medical-consultations';
+    return '/admin';
   }
   
   return '/';

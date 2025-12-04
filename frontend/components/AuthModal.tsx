@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import LoginForm from './LoginForm';
 import SignupForm from './SignupForm';
 
@@ -18,11 +18,6 @@ export default function AuthModal({
   initialMode = 'login' 
 }: AuthModalProps) {
   const [mode, setMode] = useState<'login' | 'signup'>(initialMode);
-
-  // Update mode when initialMode prop changes
-  useEffect(() => {
-    setMode(initialMode);
-  }, [initialMode]);
 
   // Don't render if not open
   if (!isOpen) {

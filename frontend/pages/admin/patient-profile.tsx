@@ -33,7 +33,7 @@ export default function AdminPatientProfile() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any>(null);
-  const [patientAppointments, setPatientAppointments] = useState<any[]>([]);
+  const [allPatientProfiles, setAllPatientProfiles] = useState<any[]>([]);
 
   useEffect(() => {
     fetchSemesters();
@@ -191,25 +191,21 @@ export default function AdminPatientProfile() {
     const patient = patients.find((p) => p.id === patientId);
     setSelectedPatient(patient);
     
-    // Fetch patient's appointments across different academic years
-    let patientAppointments = [];
-    if (patient) {
+    // Fetch all patient profiles for this user
+    let allProfiles = [];
+    if (patient && patient.user) {
       try {
-        // Fetch appointments for this patient with school year data
-        const appointmentsResponse = await djangoApiClient.get('/appointments/', {
-          params: { patient: patient.id }
-        });
-        patientAppointments = appointmentsResponse.data || [];
-        
-        // Log for debugging
-        console.log('Fetched appointments:', patientAppointments);
+        const allProfilesResponse = await patientsAPI.getByUserId(patient.user);
+        allProfiles = allProfilesResponse.data;
       } catch (error) {
-        console.error("Failed to fetch patient appointments:", error);
-        patientAppointments = []; // Fallback to empty array
+        console.error("Failed to fetch all patient profiles:", error);
+        allProfiles = [patient]; // Fallback to single profile
       }
+    } else {
+      allProfiles = [patient]; // If no user linked, just use the current profile
     }
     
-    setPatientAppointments(patientAppointments);
+    setAllPatientProfiles(allProfiles);
     setViewModalOpen(true);
   };
 
@@ -719,7 +715,7 @@ export default function AdminPatientProfile() {
       <PatientProfileModal 
         open={viewModalOpen} 
         patient={selectedPatient} 
-        appointments={patientAppointments}
+        allPatientProfiles={allPatientProfiles}
         onClose={() => setViewModalOpen(false)} 
       />
       

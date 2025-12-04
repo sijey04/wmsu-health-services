@@ -74,6 +74,13 @@ class Command(BaseCommand):
                 'is_required': True
             },
             {
+                'field_name': 'covid_vaccination_status',
+                'display_name': 'COVID Vaccination Status',
+                'description': 'COVID-19 vaccination status',
+                'category': 'health',
+                'is_required': True
+            },
+            {
                 'field_name': 'hospital_admission_or_surgery',
                 'display_name': 'Hospital Admission/Surgery History',
                 'description': 'History of hospital admissions or surgeries',

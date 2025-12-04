@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
+import { waiversAPI } from '../utils/api';
 
 interface Patient {
   // Basic info
@@ -80,6 +81,16 @@ interface PatientProfileModalProps {
   onClose: () => void;
 }
 
+interface Waiver {
+  id: number;
+  user: number;
+  patient: number;
+  full_name: string;
+  date_signed: string;
+  signature: string;
+  created_at: string;
+}
+
 const PatientProfileModal: React.FC<PatientProfileModalProps> = ({ 
   open, 
   patient, 
@@ -87,13 +98,33 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   onClose 
 }) => {
   const [selectedProfile, setSelectedProfile] = React.useState<Patient | null>(null);
-  const [activeTab, setActiveTab] = React.useState<'current' | 'history'>('current');
+  const [activeTab, setActiveTab] = React.useState<'current' | 'history' | 'waiver'>('current');
+  const [waiver, setWaiver] = React.useState<Waiver | null>(null);
+  const [loadingWaiver, setLoadingWaiver] = React.useState(false);
 
   React.useEffect(() => {
     if (patient) {
       setSelectedProfile(patient);
+      fetchWaiver();
     }
   }, [patient]);
+
+  const fetchWaiver = async () => {
+    if (!patient?.user) return;
+    
+    setLoadingWaiver(true);
+    try {
+      const response = await waiversAPI.getAll();
+      const waivers = Array.isArray(response.data) ? response.data : [];
+      const userWaiver = waivers.find((w: Waiver) => w.user === patient.user);
+      setWaiver(userWaiver || null);
+    } catch (error) {
+      console.error('Failed to fetch waiver:', error);
+      setWaiver(null);
+    } finally {
+      setLoadingWaiver(false);
+    }
+  };
 
   if (!open || !patient) return null;
 
@@ -711,6 +742,16 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 Profile History ({pastProfiles.length})
               </button>
             )}
+            <button
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                activeTab === 'waiver' 
+                  ? 'border-[#8B0000] text-[#8B0000]' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('waiver')}
+            >
+              Waiver {waiver && '✓'}
+            </button>
           </div>
         </div>
       </div>
@@ -727,6 +768,87 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 </div>
                 {renderProfileContent(displayedProfile)}
               </div>
+            </div>
+          ) : activeTab === 'waiver' ? (
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-lg font-bold text-[#8B0000] mb-4">Signed Waiver</h2>
+              {loadingWaiver ? (
+                <div className="flex justify-center items-center py-12">
+                  <svg className="animate-spin h-8 w-8 text-[#8B0000]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                  </svg>
+                </div>
+              ) : waiver ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-3">Waiver Information</h3>
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <span className="font-medium text-gray-600">Full Name:</span>
+                          <div className="mt-1 text-gray-900">{waiver.full_name}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Date Signed:</span>
+                          <div className="mt-1 text-gray-900">{new Date(waiver.date_signed).toLocaleDateString()}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Submitted On:</span>
+                          <div className="mt-1 text-gray-900">{new Date(waiver.created_at).toLocaleString()}</div>
+                        </div>
+                        <div>
+                          <span className="font-medium text-gray-600">Status:</span>
+                          <div className="mt-1">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                              ✓ Signed
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-3">Signature</h3>
+                      <div className="bg-gray-50 border border-gray-300 rounded p-4 flex items-center justify-center min-h-[150px]">
+                        {waiver.signature ? (
+                          <img 
+                            src={waiver.signature} 
+                            alt="Patient Signature" 
+                            className="max-h-32 max-w-full object-contain"
+                          />
+                        ) : (
+                          <span className="text-gray-400 text-sm">No signature image</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t border-gray-200 pt-4">
+                    <h3 className="font-semibold text-gray-900 mb-3">Waiver Agreement</h3>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        By signing this waiver, the individual has given explicit consent to the University Health Services
+                        Center to collect, use, store, and process their personal and sensitive health information for the purpose 
+                        of promoting and maintaining their health and general well-being as part of the school community.
+                      </p>
+                      <p className="text-sm text-gray-700 leading-relaxed mt-3">
+                        This consent was provided in accordance with the Data Privacy Act of 2012 (Republic Act 10173).
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Waiver Found</h3>
+                  <p className="text-gray-500 text-sm">This patient has not yet signed a waiver for health information collection.</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">

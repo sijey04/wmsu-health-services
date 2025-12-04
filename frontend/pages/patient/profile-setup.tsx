@@ -30,6 +30,13 @@ export default function PatientProfileSetupPage() {
   const [autoFilledFromYear, setAutoFilledFromYear] = useState<string>('');
   const [autoFilledFromSemester, setAutoFilledFromSemester] = useState<string>('');
 
+  // New state for tracking changes and versioning
+  const [originalProfile, setOriginalProfile] = useState<any>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [profileVersion, setProfileVersion] = useState<number>(1);
+  const [existingProfileId, setExistingProfileId] = useState<number | null>(null);
+
   // Medical lists state
   const [comorbidIllnesses, setComorbidIllnesses] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
@@ -122,14 +129,23 @@ export default function PatientProfileSetupPage() {
         if (!profileData.barangay) profileData.barangay = '';
         if (!profileData.street) profileData.street = '';
       }
+      
+      // Store original profile for change tracking
+      setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
       setProfile(profileData);
+      setExistingProfileId(profileData.id);
+      setProfileVersion(profileData.version || 1);
+      setIsEditMode(false);
+      setHasChanges(false);
       
       // Debug photo loading
       if (process.env.NODE_ENV === 'development') {
         console.log('Profile loaded with photo:', {
           photo: profileData.photo,
           photoType: typeof profileData.photo,
-          photoLength: profileData.photo?.length
+          photoLength: profileData.photo?.length,
+          version: profileData.version,
+          id: profileData.id
         });
       }
     } catch (err: any) {
@@ -190,7 +206,13 @@ export default function PatientProfileSetupPage() {
             console.log('Auto-filled profile from:', autofillData.autofilled_from_year, autofillData.autofilled_from_semester);
           }
           
+          // Store as original profile for new autofilled profiles
+          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setProfile(defaultProfile);
+          setExistingProfileId(null);
+          setProfileVersion(1);
+          setIsEditMode(false);
+          setHasChanges(false);
         } catch (autofillErr: any) {
           console.error('Failed to get autofill data:', autofillErr);
           // Fallback to basic user info
@@ -218,7 +240,13 @@ export default function PatientProfileSetupPage() {
             if (user.email) defaultProfile.email = user.email;
           }
           
+          // Store as original profile for fallback profiles too
+          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setProfile(defaultProfile);
+          setExistingProfileId(null);
+          setProfileVersion(1);
+          setIsEditMode(false);
+          setHasChanges(false);
         }
       } else {
         console.error('Error fetching profile:', err);
@@ -585,10 +613,62 @@ export default function PatientProfileSetupPage() {
       if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
         age--;
       }
-      setProfile((prev: any) => ({ ...prev, date_of_birth: value, age: age > 0 ? age : '' }));
+      setProfile((prev: any) => {
+        const newProfile = { ...prev, date_of_birth: value, age: age > 0 ? age : '' };
+        checkForChanges(newProfile);
+        return newProfile;
+      });
       return;
     }
-    setProfile((prev: any) => ({ ...prev, [field]: value }));
+    setProfile((prev: any) => {
+      const newProfile = { ...prev, [field]: value };
+      checkForChanges(newProfile);
+      return newProfile;
+    });
+  };
+
+  // Function to check if there are changes compared to original profile
+  const checkForChanges = (newProfile: any) => {
+    if (!originalProfile) {
+      setHasChanges(false);
+      return;
+    }
+
+    // Compare relevant fields (excluding metadata like id, created_at, etc.)
+    const fieldsToCompare = [
+      'name', 'first_name', 'middle_name', 'suffix', 'date_of_birth', 'age', 'gender', 'blood_type',
+      'religion', 'nationality', 'civil_status', 'email', 'contact_number', 'city_municipality',
+      'barangay', 'street', 'emergency_contact_surname', 'emergency_contact_first_name',
+      'emergency_contact_middle_name', 'emergency_contact_number', 'emergency_contact_relationship',
+      'emergency_contact_barangay', 'emergency_contact_street', 'comorbid_illnesses', 'food_allergy_specify',
+      'other_comorbid_specify', 'maintenance_medications', 'vaccination_records', 'past_medical_history',
+      'past_medical_history_other', 'family_medical_history', 'family_medical_history_other',
+      'family_medical_history_allergies', 'hospital_admission_or_surgery', 'hospital_admission_details'
+    ];
+
+    let hasChanged = false;
+    for (const field of fieldsToCompare) {
+      const originalValue = originalProfile[field];
+      const newValue = newProfile[field];
+
+      // Handle array comparisons
+      if (Array.isArray(originalValue) && Array.isArray(newValue)) {
+        if (JSON.stringify(originalValue.sort()) !== JSON.stringify(newValue.sort())) {
+          hasChanged = true;
+          break;
+        }
+      } else if (originalValue !== newValue) {
+        hasChanged = true;
+        break;
+      }
+    }
+
+    // Check for photo changes
+    if (photoFile) {
+      hasChanged = true;
+    }
+
+    setHasChanges(hasChanged);
   };
 
   const handleProfileSave = async () => {
@@ -622,14 +702,23 @@ export default function PatientProfileSetupPage() {
       }
 
       // Check if we need to create a new profile version or update existing one
-      let shouldCreateNew = false;
+      let shouldCreateNewVersion = false;
       
       if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
         // If the current profile has a different school year OR semester, create new profile
-        shouldCreateNew = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
+        shouldCreateNewVersion = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
       } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
         // If current profile has no school year or semester but we have active ones, create new profile
-        shouldCreateNew = true;
+        shouldCreateNewVersion = true;
+      }
+
+      // If there are changes to an existing profile for the same semester/year, create a new version
+      if (!shouldCreateNewVersion && hasChanges && existingProfileId) {
+        shouldCreateNewVersion = true;
+        // Increment version for same semester/year updates
+        const nextVersion = profileVersion + 1;
+        formData.append('version', nextVersion.toString());
+        formData.append('previous_version_id', existingProfileId.toString());
       }
 
       const getSemesterDisplayName = (sem: string) => {
@@ -641,21 +730,39 @@ export default function PatientProfileSetupPage() {
         }
       };
 
-      if (shouldCreateNew) {
-        // Create a new profile version for the current school year and semester
+      if (shouldCreateNewVersion) {
+        // Create a new profile version
         // Remove the id to force creation of a new record
         formData.delete('id');
-        await patientProfileAPI.create(formData);
+        const response = await patientProfileAPI.create(formData);
         const semesterDisplay = getSemesterDisplayName(currentSemester);
-        setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        
+        if (hasChanges && existingProfileId) {
+          setFeedbackMessage(`Profile updated (v${profileVersion + 1}) for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+          setProfileVersion(profileVersion + 1);
+        } else {
+          setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        }
+        
         setAutoFilledFromYear(currentSchoolYear.academic_year);
         setAutoFilledFromSemester(semesterDisplay);
         setIsAutoFilled(true);
+        
+        // Update tracking variables
+        setExistingProfileId(response.data.id);
+        setOriginalProfile(JSON.parse(JSON.stringify(response.data)));
+        setHasChanges(false);
+        setIsEditMode(false);
       } else {
-        // Update the existing profile
+        // Update the existing profile (rare case)
         await patientProfileAPI.update(formData);
         const semesterDisplay = getSemesterDisplayName(currentSemester);
         setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
+        
+        // Reset change tracking
+        setOriginalProfile(JSON.parse(JSON.stringify(profile)));
+        setHasChanges(false);
+        setIsEditMode(false);
       }
       
       setSuccess(true);
@@ -701,15 +808,35 @@ export default function PatientProfileSetupPage() {
         const idx = arr.indexOf(value);
         if (idx > -1) arr.splice(idx, 1);
       }
-      return { ...prev, [field]: arr };
+      const newProfile = { ...prev, [field]: arr };
+      checkForChanges(newProfile);
+      return newProfile;
     });
+  };
+
+  // Function to enable edit mode
+  const handleEditClick = () => {
+    setIsEditMode(true);
+  };
+
+  // Function to cancel edit mode
+  const handleCancelEdit = () => {
+    if (originalProfile) {
+      setProfile(JSON.parse(JSON.stringify(originalProfile)));
+      setPhotoFile(null);
+      setPhotoPreview(null);
+      setIsEditMode(false);
+      setHasChanges(false);
+    }
   };
 
   const handleMedicationChange = (idx: number, key: string, value: string) => {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [{}];
       meds[idx] = { ...meds[idx], [key]: value };
-      return { ...prev, maintenance_medications: meds };
+      const newProfile = { ...prev, maintenance_medications: meds };
+      checkForChanges(newProfile);
+      return newProfile;
     });
   };
 
@@ -717,7 +844,9 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
       meds.push({ drug: '', dose: '', unit: 'mg', frequency: '' });
-      return { ...prev, maintenance_medications: meds };
+      const newProfile = { ...prev, maintenance_medications: meds };
+      checkForChanges(newProfile);
+      return newProfile;
     });
   };
 
@@ -725,7 +854,9 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
       meds.splice(idx, 1);
-      return { ...prev, maintenance_medications: meds };
+      const newProfile = { ...prev, maintenance_medications: meds };
+      checkForChanges(newProfile);
+      return newProfile;
     });
   };
 
@@ -1326,13 +1457,16 @@ export default function PatientProfileSetupPage() {
                   <div key={idx} className="bg-white p-4 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-gray-800">Medication #{idx + 1}</span>
-                      {(profile?.maintenance_medications || []).length > 1 && (
-                        <button
-                          className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
-                          onClick={() => handleRemoveMedication(idx)}
-                          type="button"
-                        >×</button>
-                      )}
+                      <button
+                        className="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
+                        onClick={() => handleRemoveMedication(idx)}
+                        type="button"
+                        title="Remove this medication"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
                     </div>
                     
                     <div className="space-y-3">
@@ -2092,6 +2226,46 @@ export default function PatientProfileSetupPage() {
           <div className="max-w-4xl mx-auto">
             {/* Mobile-first Header */}
             <div className="text-center mb-4 sm:mb-6">
+              {/* Edit Mode and Changes Indicator */}
+              {existingProfileId && (
+                <div className="flex flex-col sm:flex-row items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg border">
+                  <div className="flex items-center space-x-4 mb-2 sm:mb-0">
+                    <span className="text-sm text-gray-600">
+                      Profile v{profileVersion} • {currentSchoolYear?.academic_year} • {currentSemester?.replace('_', ' ')}
+                    </span>
+                    {hasChanges && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        Unsaved Changes
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    {!isEditMode && !hasChanges && (
+                      <button
+                        onClick={handleEditClick}
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
+                      >
+                        <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit
+                      </button>
+                    )}
+                    {isEditMode && (
+                      <button
+                        onClick={handleCancelEdit}
+                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              
               <div className="flex items-center justify-center mb-3 sm:mb-4">
                 <div className="flex items-center bg-white rounded-full px-3 sm:px-4 py-2 shadow-lg">
                   <span className="inline-block w-8 h-8 sm:w-10 sm:h-10 bg-[#800000] text-white rounded-full flex items-center justify-center font-bold text-lg sm:text-xl mr-2 sm:mr-3">{currentStep}</span>
@@ -2183,12 +2357,33 @@ export default function PatientProfileSetupPage() {
                   >
                     ← Back
                   </button>
-                  <button
-                    onClick={handleNext}
-                    className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] active:bg-[#600000] active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
-                  >
-                    {currentStep === steps.length ? 'Submit Profile' : 'Next →'}
-                  </button>
+                  
+                  <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
+                    {/* Save Changes button for edit mode */}
+                    {hasChanges && existingProfileId && (
+                      <button
+                        onClick={async () => {
+                          await handleProfileSave();
+                          // Refresh profile data after save
+                          if (currentSchoolYear && currentSemester) {
+                            await fetchProfile();
+                          }
+                        }}
+                        disabled={loading}
+                        className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 active:bg-green-800 active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
+                      >
+                        {loading ? 'Saving...' : `Save Changes (v${profileVersion + 1})`}
+                      </button>
+                    )}
+                    
+                    {/* Regular Next/Submit button */}
+                    <button
+                      onClick={handleNext}
+                      className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] active:bg-[#600000] active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
+                    >
+                      {currentStep === steps.length ? 'Submit Profile' : 'Next →'}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
