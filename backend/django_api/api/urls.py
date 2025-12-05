@@ -14,6 +14,7 @@ from .views import (
 from .views1 import MedicalFormDataViewSet, PatientViewSet as GeneralPatientViewSet, DentalInformationRecordViewSet
 from .views2 import AppointmentSchedulingViewSet, DentalMedicineSupplyViewSet
 from .semester_views import AcademicSemesterViewSet, StudentSemesterProfileViewSet
+from .content_views import ContentManagementViewSet
 
 router = DefaultRouter()
 router.register(r'users', UserViewSet)
@@ -38,6 +39,7 @@ router.register(r'comorbid-illnesses', ComorbidIllnessViewSet)
 router.register(r'vaccinations', VaccinationViewSet)
 router.register(r'past-medical-histories', PastMedicalHistoryItemViewSet)
 router.register(r'family-medical-histories', FamilyMedicalHistoryItemViewSet)
+router.register(r'content-management', ContentManagementViewSet, basename='content-management')
 
 auth_router = DefaultRouter()
 auth_router.register(r'auth', AuthViewSet, basename='auth')

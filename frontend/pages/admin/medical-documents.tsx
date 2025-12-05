@@ -1,8 +1,10 @@
 import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
 import FeedbackModal from '../../components/feedbackmodal';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { medicalDocumentsAPI, academicSchoolYearsAPI } from '../../utils/api';
+import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 
 function AdminMedicalDocuments() {
   const [activeTab, setActiveTab] = useState('medicalCertificateRequests');
@@ -39,10 +41,17 @@ function AdminMedicalDocuments() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [completionFilter, setCompletionFilter] = useState('all');
+  const [sortField, setSortField] = useState<'name' | 'date' | 'completion'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Consultation-specific filter states
   const [consultationSearchTerm, setConsultationSearchTerm] = useState('');
   const [consultationSortBy, setConsultationSortBy] = useState('date');
+  
+  // Pagination states for each tab
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   
   // Academic year filtering state
   const [academicYears, setAcademicYears] = useState([]);
@@ -510,6 +519,90 @@ function AdminMedicalDocuments() {
     }
   }, [showImageFullscreen, selectedImageIndex, availableImages]);
 
+  // Enhanced filter function with pagination support
+  const filterAndSortDocuments = useMemo(() => {
+    return (docs: any[]) => {
+      let filtered = docs.filter(doc => {
+        const matchesSearch = !searchTerm || 
+          doc.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          doc.patient_display?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          doc.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
+          
+        const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
+        
+        const matchesDate = dateFilter === 'all' || (() => {
+          const docDate = new Date(doc.uploaded_at || doc.created_at);
+          const now = new Date();
+          const daysDiff = Math.floor((now.getTime() - docDate.getTime()) / (1000 * 60 * 60 * 24));
+          
+          switch (dateFilter) {
+            case 'today':
+              return daysDiff === 0;
+            case 'week':
+              return daysDiff <= 7;
+            case 'month':
+              return daysDiff <= 30;
+            default:
+              return true;
+          }
+        })();
+        
+        const matchesCompletion = completionFilter === 'all' || (() => {
+          const completion = getCompletionPercentage(doc);
+          switch (completionFilter) {
+            case 'complete':
+              return completion === 100;
+            case 'incomplete':
+              return completion < 100;
+            case 'high':
+              return completion >= 75 && completion < 100;
+            case 'medium':
+              return completion >= 50 && completion < 75;
+            case 'low':
+              return completion < 50;
+            default:
+              return true;
+          }
+        })();
+        
+        return matchesSearch && matchesStatus && matchesDate && matchesCompletion;
+      });
+      
+      // Apply sorting
+      filtered.sort((a, b) => {
+        let compareValue = 0;
+        
+        switch (sortField) {
+          case 'name':
+            const nameA = (a.patient_display || a.patient_name || '').toLowerCase();
+            const nameB = (b.patient_display || b.patient_name || '').toLowerCase();
+            compareValue = nameA.localeCompare(nameB);
+            break;
+          case 'completion':
+            compareValue = getCompletionPercentage(a) - getCompletionPercentage(b);
+            break;
+          case 'date':
+          default:
+            const getDateValue = (doc: any) => {
+              if (doc.advised_for_consultation_at) return new Date(doc.advised_for_consultation_at);
+              if (doc.reviewed_at) return new Date(doc.reviewed_at);
+              if (doc.certificate_issued_at) return new Date(doc.certificate_issued_at);
+              if (doc.updated_at) return new Date(doc.updated_at);
+              if (doc.uploaded_at) return new Date(doc.uploaded_at);
+              if (doc.created_at) return new Date(doc.created_at);
+              return new Date(0);
+            };
+            compareValue = getDateValue(a).getTime() - getDateValue(b).getTime();
+            break;
+        }
+        
+        return sortOrder === 'asc' ? compareValue : -compareValue;
+      });
+      
+      return filtered;
+    };
+  }, [searchTerm, statusFilter, dateFilter, completionFilter, sortField, sortOrder]);
+
   // Filter function for consultation documents
   const filterConsultationDocuments = (docs: any[]) => {
     let filtered = docs.filter(doc => {
@@ -538,35 +631,70 @@ function AdminMedicalDocuments() {
 
   // Use state variable for advised consultations instead of hardcoded array
   const advisedForConsultations = filterConsultationDocuments(advisedDocs);
-  const filterDocuments = (docs: any[]) => {
-    return docs.filter(doc => {
-      const matchesSearch = !searchTerm || 
-        doc.patient_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.patient_display?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        doc.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
-        
-      const matchesStatus = statusFilter === 'all' || doc.status === statusFilter;
-      
-      const matchesDate = dateFilter === 'all' || (() => {
-        const docDate = new Date(doc.uploaded_at || doc.created_at);
-        const now = new Date();
-        const daysDiff = Math.floor((now.getTime() - docDate.getTime()) / (1000 * 60 * 60 * 24));
-        
-        switch (dateFilter) {
-          case 'today':
-            return daysDiff === 0;
-          case 'week':
-            return daysDiff <= 7;
-          case 'month':
-            return daysDiff <= 30;
-          default:
-            return true;
-        }
-      })();
-      
-      return matchesSearch && matchesStatus && matchesDate;
-    });
+  
+  // Paginated documents
+  const filteredPendingDocs = useMemo(() => filterAndSortDocuments(pendingDocs), [pendingDocs, filterAndSortDocuments]);
+  const filteredUploadedDocs = useMemo(() => filterAndSortDocuments(uploadedDocs), [uploadedDocs, filterAndSortDocuments]);
+  const filteredIssuedDocs = useMemo(() => filterAndSortDocuments(issuedDocs), [issuedDocs, filterAndSortDocuments]);
+  
+  const totalPages = useMemo(() => {
+    let totalDocs = 0;
+    if (activeTab === 'medicalCertificateRequests') totalDocs = filteredPendingDocs.length;
+    else if (activeTab === 'uploadedDocuments') totalDocs = filteredUploadedDocs.length;
+    else if (activeTab === 'issuedMedicalCertificates') totalDocs = filteredIssuedDocs.length;
+    else if (activeTab === 'advisedForConsultations') totalDocs = advisedForConsultations.length;
+    return Math.ceil(totalDocs / itemsPerPage);
+  }, [activeTab, filteredPendingDocs.length, filteredUploadedDocs.length, filteredIssuedDocs.length, advisedForConsultations.length, itemsPerPage]);
+  
+  const paginatedPendingDocs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredPendingDocs.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredPendingDocs, currentPage, itemsPerPage]);
+  
+  const paginatedUploadedDocs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredUploadedDocs.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredUploadedDocs, currentPage, itemsPerPage]);
+  
+  const paginatedIssuedDocs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredIssuedDocs.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredIssuedDocs, currentPage, itemsPerPage]);
+  
+  const paginatedAdvisedDocs = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return advisedForConsultations.slice(startIndex, startIndex + itemsPerPage);
+  }, [advisedForConsultations, currentPage, itemsPerPage]);
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
+  
+  const handleSortChange = (field: 'name' | 'date' | 'completion') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+  
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFilter('all');
+    setCompletionFilter('all');
+    setSortField('date');
+    setSortOrder('desc');
+    setCurrentPage(1);
+  };
+  
+  // Reset to page 1 when changing tabs
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   return (
     <AdminLayout>
@@ -673,13 +801,37 @@ function AdminMedicalDocuments() {
             
             {activeTab === 'medicalCertificateRequests' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Medical Certificate Requests ({filterDocuments(pendingDocs).length} of {pendingDocs.length})
-                  </h3>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Status:</label>
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by patient name, student ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
@@ -689,10 +841,9 @@ function AdminMedicalDocuments() {
                         <option value="pending">Pending</option>
                         <option value="verified">Verified</option>
                         <option value="rejected">Rejected</option>
+                        <option value="for_consultation">For Consultation</option>
                       </select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Date:</label>
+                      
                       <select
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
@@ -703,29 +854,52 @@ function AdminMedicalDocuments() {
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
                       </select>
+                      
+                      <select
+                        value={completionFilter}
+                        onChange={(e) => setCompletionFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="all">All Completion</option>
+                        <option value="complete">100% Complete</option>
+                        <option value="high">75-99% Complete</option>
+                        <option value="medium">50-74% Complete</option>
+                        <option value="low">Below 50%</option>
+                        <option value="incomplete">&lt;100% Complete</option>
+                      </select>
+                      
+                      <select
+                        value={sortField}
+                        onChange={(e) => setSortField(e.target.value as 'name' | 'date' | 'completion')}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="date">Sort by Date</option>
+                        <option value="name">Sort by Name</option>
+                        <option value="completion">Sort by Completion</option>
+                      </select>
+                      
+                      <button
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                      >
+                        {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
+                      </button>
+                      
+                      {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || completionFilter !== 'all') && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-sm text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search by patient name"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                    />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedPendingDocs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredPendingDocs.length)} of {filteredPendingDocs.length} documents
+                    </div>
                   </div>
                 </div>
 
@@ -742,7 +916,7 @@ function AdminMedicalDocuments() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filterDocuments(pendingDocs).length === 0 ? (
+                      {filteredPendingDocs.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
@@ -757,7 +931,7 @@ function AdminMedicalDocuments() {
                           </td>
                         </tr>
                       ) : (
-                        filterDocuments(pendingDocs).map((doc, index) => (
+                        paginatedPendingDocs.map((doc, index) => (
                           <tr key={`pending-${doc.id}-${index}`} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {doc.patient_display || doc.patient_name || 'N/A'}
@@ -824,18 +998,158 @@ function AdminMedicalDocuments() {
                       )}
                     </tbody>
                   </table>
-                </div>              </div>
+                </div>
+                
+                {/* Pagination */}
+                {filteredPendingDocs.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredPendingDocs.length)}</span> of{' '}
+                            <span className="font-medium">{filteredPendingDocs.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
 
             {activeTab === 'uploadedDocuments' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Uploaded Documents ({filterDocuments(uploadedDocs).length} of {uploadedDocs.length})
-                  </h3>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Status:</label>
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by patient name, student ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
@@ -846,10 +1160,9 @@ function AdminMedicalDocuments() {
                         <option value="verified">Verified</option>
                         <option value="rejected">Rejected</option>
                         <option value="issued">Issued</option>
+                        <option value="for_consultation">For Consultation</option>
                       </select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Date:</label>
+                      
                       <select
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
@@ -860,19 +1173,52 @@ function AdminMedicalDocuments() {
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
                       </select>
+                      
+                      <select
+                        value={completionFilter}
+                        onChange={(e) => setCompletionFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="all">All Completion</option>
+                        <option value="complete">100% Complete</option>
+                        <option value="high">75-99% Complete</option>
+                        <option value="medium">50-74% Complete</option>
+                        <option value="low">Below 50%</option>
+                        <option value="incomplete">&lt;100% Complete</option>
+                      </select>
+                      
+                      <select
+                        value={sortField}
+                        onChange={(e) => setSortField(e.target.value as 'name' | 'date' | 'completion')}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="date">Sort by Date</option>
+                        <option value="name">Sort by Name</option>
+                        <option value="completion">Sort by Completion</option>
+                      </select>
+                      
+                      <button
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                      >
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </button>
+                      
+                      {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || completionFilter !== 'all') && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-sm text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search by patient name..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
-                    />
-                    <svg className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedUploadedDocs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredUploadedDocs.length)} of {filteredUploadedDocs.length} documents
+                    </div>
                   </div>
                 </div>
 
@@ -890,7 +1236,7 @@ function AdminMedicalDocuments() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filterDocuments(uploadedDocs).length === 0 ? (
+                      {filteredUploadedDocs.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
@@ -905,7 +1251,7 @@ function AdminMedicalDocuments() {
                           </td>
                         </tr>
                       ) : (
-                        filterDocuments(uploadedDocs).map((doc: any, index) => (
+                        paginatedUploadedDocs.map((doc: any, index) => (
                           <tr key={`uploaded-${doc.id}-${index}`} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {doc.patient_display || doc.patient_name || 'N/A'}
@@ -985,29 +1331,167 @@ function AdminMedicalDocuments() {
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Pagination */}
+                {filteredUploadedDocs.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUploadedDocs.length)}</span> of{' '}
+                            <span className="font-medium">{filteredUploadedDocs.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'issuedMedicalCertificates' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    Issued Medical Certificates ({filterDocuments(issuedDocs).length} of {issuedDocs.length})
-                  </h3>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Status:</label>
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by patient name, student ID..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
                         className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       >
                         <option value="all">All Status</option>
+                        <option value="verified">Verified</option>
                         <option value="issued">Issued</option>
                       </select>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <label className="text-sm font-medium text-gray-700">Date:</label>
+                      
                       <select
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
@@ -1018,29 +1502,52 @@ function AdminMedicalDocuments() {
                         <option value="week">This Week</option>
                         <option value="month">This Month</option>
                       </select>
+                      
+                      <select
+                        value={completionFilter}
+                        onChange={(e) => setCompletionFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="all">All Completion</option>
+                        <option value="complete">100% Complete</option>
+                        <option value="high">75-99% Complete</option>
+                        <option value="medium">50-74% Complete</option>
+                        <option value="low">Below 50%</option>
+                        <option value="incomplete">&lt;100% Complete</option>
+                      </select>
+                      
+                      <select
+                        value={sortField}
+                        onChange={(e) => setSortField(e.target.value as 'name' | 'date' | 'completion')}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="date">Sort by Date</option>
+                        <option value="name">Sort by Name</option>
+                        <option value="completion">Sort by Completion</option>
+                      </select>
+                      
+                      <button
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                        title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                      >
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </button>
+                      
+                      {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || completionFilter !== 'all') && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-sm text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search by patient name"
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                    />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedIssuedDocs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredIssuedDocs.length)} of {filteredIssuedDocs.length} documents
+                    </div>
                   </div>
                 </div>
 
@@ -1055,7 +1562,7 @@ function AdminMedicalDocuments() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filterDocuments(issuedDocs).length === 0 ? (
+                      {filteredIssuedDocs.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
@@ -1070,7 +1577,7 @@ function AdminMedicalDocuments() {
                           </td>
                         </tr>
                       ) : (
-                        filterDocuments(issuedDocs).map((doc: any, index) => (
+                        paginatedIssuedDocs.map((doc: any, index) => (
                           <tr key={`issued-${doc.id}-${index}`} className="hover:bg-gray-50 transition-colors duration-200">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {doc.patient_display || doc.patient_name || 'N/A'}
@@ -1101,62 +1608,180 @@ function AdminMedicalDocuments() {
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Pagination */}
+                {filteredIssuedDocs.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredIssuedDocs.length)}</span> of{' '}
+                            <span className="font-medium">{filteredIssuedDocs.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'advisedForConsultations' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center justify-between w-full">
-                    <h3 className="text-lg font-semibold text-gray-900">
-                      Advised for Consultations ({advisedForConsultations.length} of {advisedDocs.length})
-                    </h3>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <label htmlFor="sort-by" className="text-gray-700 font-medium">Sort By:</label>
-                        <select
-                          id="sort-by"
-                          value={consultationSortBy}
-                          onChange={(e) => setConsultationSortBy(e.target.value)}
-                          className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                        >
-                          <option value="date">Date Advised (Recent First)</option>
-                          <option value="name">Patient Name (A-Z)</option>
-                        </select>
-                      </div>
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by patient name..."
+                        value={consultationSearchTerm}
+                        onChange={(e) => setConsultationSearchTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
+                      <select
+                        value={consultationSortBy}
+                        onChange={(e) => setConsultationSortBy(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="date">Sort by Date (Recent First)</option>
+                        <option value="name">Sort by Name (A-Z)</option>
+                      </select>
+                      
                       {advisedForConsultations.length > 0 && (
                         <button
                           onClick={handleClearAllAdvice}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 transition-colors duration-200"
+                          className="ml-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 text-sm"
                         >
-                          Clear All
+                          Clear All Advice
                         </button>
                       )}
                     </div>
-                  </div>
-                </div>
-                <div className="flex justify-end mb-4">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search by patient name"
-                      value={consultationSearchTerm}
-                      onChange={(e) => setConsultationSearchTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                    />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedAdvisedDocs.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, advisedForConsultations.length)} of {advisedForConsultations.length} consultations
+                    </div>
                   </div>
                 </div>
 
@@ -1270,6 +1895,121 @@ function AdminMedicalDocuments() {
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Pagination */}
+                {advisedForConsultations.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, advisedForConsultations.length)}</span> of{' '}
+                            <span className="font-medium">{advisedForConsultations.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

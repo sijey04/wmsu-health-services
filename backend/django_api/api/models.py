@@ -1654,3 +1654,112 @@ class UserTypeInformation(models.Model):
             options.remove(option_value)
             setattr(self, f'available_{option_type}', options)
             self.save()
+
+
+class ContentManagement(models.Model):
+    """Model to store dynamic content for the home page and modals"""
+    # Hero Section
+    hero_main_title = models.CharField(max_length=200, default='WMSU Health Services')
+    hero_sub_text = models.CharField(max_length=200, default='Your Health, Our Priority')
+    hero_description = models.TextField(default='Comprehensive healthcare services for the WMSU community')
+    hero_background_type = models.CharField(
+        max_length=20,
+        choices=[('maroon', 'Maroon'), ('image', 'Image')],
+        default='image'
+    )
+    hero_background_image = models.URLField(blank=True, null=True)
+    
+    # Announcements (stored as JSON array)
+    announcements = models.JSONField(default=list, blank=True)
+    
+    # Recent Activities (stored as JSON array)
+    recent_activities = models.JSONField(default=list, blank=True)
+    
+    # Services (stored as JSON array)
+    services = models.JSONField(default=list, blank=True)
+    
+    # Operating Hours
+    operating_hours_monday_friday = models.CharField(max_length=100, default='8:00 AM - 5:00 PM')
+    operating_hours_saturday = models.CharField(max_length=100, default='8:00 AM - 12:00 PM')
+    operating_hours_sunday = models.CharField(max_length=100, default='Closed (Emergency services available)')
+    
+    # Contact Info
+    contact_telephone = models.CharField(max_length=50, default='(062) 991-6736')
+    contact_email = models.EmailField(default='healthservices@wmsu.edu.ph')
+    contact_location = models.TextField(default='Health Services Building, WMSU Campus, Zamboanga City, Philippines')
+    
+    # Call to Action (Not Logged In)
+    cta_title = models.CharField(max_length=200, default='Ready to take charge of your health?')
+    cta_description = models.TextField(default='Sign up or log in to book appointments, access your medical records, view important health announcements, and streamline your healthcare journey with WMSU Health Services. Your well-being is our priority!')
+    
+    # Call to Action (Logged In)
+    logged_in_cta_title = models.CharField(max_length=200, default='Book your appointment now!')
+    logged_in_cta_description = models.TextField(default='Ready to prioritize your health? Click the button below to schedule your consultation, health check-up, or any other service you need. It\'s quick, easy, and ensures you get the care you deserve!')
+    
+    # Post Login Modal Options (stored as JSON array)
+    post_login_options = models.JSONField(default=list, blank=True)
+    
+    # Metadata
+    last_updated = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='content_updates'
+    )
+    
+    class Meta:
+        verbose_name = 'Content Management'
+        verbose_name_plural = 'Content Management'
+    
+    def __str__(self):
+        return f"Content Management (Last updated: {self.last_updated})"
+    
+    @classmethod
+    def get_content(cls):
+        """Get or create the singleton content instance"""
+        content, created = cls.objects.get_or_create(pk=1)
+        if created:
+            # Set default services
+            content.services = [
+                {'id': 1, 'icon': '👶', 'title': 'Primary Care', 'desc': 'Routine check-ups, illness treatment, and health management.'},
+                {'id': 2, 'icon': '💊', 'title': 'Pharmacy', 'desc': 'Prescription medications and expert pharmacist advice.'},
+                {'id': 3, 'icon': '🩺', 'title': 'Screenings', 'desc': 'Regular screenings for common health concerns.'},
+                {'id': 4, 'icon': '🦷', 'title': 'Dental Care', 'desc': 'Dental check-ups, cleanings, and treatments.'},
+                {'id': 5, 'icon': '💉', 'title': 'Vaccinations', 'desc': 'Immunizations for various diseases.'},
+                {'id': 6, 'icon': '📚', 'title': 'Education', 'desc': 'Health knowledge through workshops and consultations.'},
+            ]
+            # Set default post login options
+            content.post_login_options = [
+                {
+                    'key': 'Book Dental Consultation',
+                    'icon': '🦷',
+                    'title': 'Book Dental Consultation',
+                    'description': 'Schedule your routine dental check-up or specific treatment.',
+                    'color': 'text-[#800000] border-[#800000] hover:bg-[#f3eaea]',
+                    'enabled': True,
+                    'show_for_all': True
+                },
+                {
+                    'key': 'Book Medical Consultation',
+                    'icon': '⚕️',
+                    'title': 'Book Medical Consultation',
+                    'description': 'Book an appointment for general medical advice or specific health concerns.',
+                    'color': 'text-[#800000] border-[#800000] hover:bg-[#f3eaea]',
+                    'enabled': True,
+                    'show_for_all': True
+                },
+                {
+                    'key': 'Request Medical Certificate',
+                    'icon': '📜',
+                    'title': 'Request Medical Certificate',
+                    'description': 'For incoming freshmen only. Request an official medical certificate.',
+                    'color': 'text-blue-600 border-blue-600 hover:bg-blue-50',
+                    'enabled': True,
+                    'show_for_all': False,
+                    'show_for_grade_levels': ['freshman', '1st year']
+                }
+            ]
+            content.save()
+        return content

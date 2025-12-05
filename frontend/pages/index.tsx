@@ -18,7 +18,32 @@ export default function Home() {  // Authentication state
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [showPostLoginModal, setShowPostLoginModal] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [userDismissedModal, setUserDismissedModal] = useState(false);  // Check authentication status when component mounts
+  const [userDismissedModal, setUserDismissedModal] = useState(false);
+  
+  // Content Management State
+  const [content, setContent] = useState<any>(null);
+  const [contentLoading, setContentLoading] = useState(true);
+
+  // Fetch dynamic content from API
+  useEffect(() => {
+    const fetchContent = async () => {
+      try {
+        const response = await fetch('http://localhost:8000/api/content-management/get_content/');
+        if (response.ok) {
+          const data = await response.json();
+          setContent(data);
+        }
+      } catch (error) {
+        console.error('Error fetching content:', error);
+      } finally {
+        setContentLoading(false);
+      }
+    };
+    
+    fetchContent();
+  }, []);
+
+  // Check authentication status when component mounts
   useEffect(() => {    const checkAuthStatus = () => {
       // Check for both possible token names
       const token = localStorage.getItem('access_token') || localStorage.getItem('accessToken');
@@ -205,10 +230,10 @@ export default function Home() {  // Authentication state
                   {/* Enhanced text visibility with depth and shadows */}
                   <div className="mb-8 sm:mb-12">
                     <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-light mb-6 tracking-tight leading-tight text-white drop-shadow-2xl" style={{textShadow: '0 4px 8px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.2), 0 16px 32px rgba(0,0,0,0.1)'}}>
-                      WMSU Health Services
+                      {content?.hero_main_title || 'WMSU Health Services'}
                     </h1>
                     <p className="text-xl sm:text-2xl lg:text-3xl text-white/95 font-light drop-shadow-lg" style={{textShadow: '0 2px 4px rgba(0,0,0,0.3), 0 4px 8px rgba(0,0,0,0.2)'}}>
-                      Your Health, Our Priority
+                      {content?.hero_sub_text || 'Your Health, Our Priority'}
                     </p>
                   </div>
                   

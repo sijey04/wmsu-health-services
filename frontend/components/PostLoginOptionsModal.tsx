@@ -13,6 +13,56 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
   const router = useRouter();
   const [hasRequestedCertificate, setHasRequestedCertificate] = useState(false);
   const [checkingCertificate, setCheckingCertificate] = useState(false);
+  const [dynamicOptions, setDynamicOptions] = useState<any[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+
+  // Fetch dynamic options from API
+  useEffect(() => {
+    const fetchOptions = async () => {
+      setLoadingOptions(true);
+      try {
+        const token = localStorage.getItem('access_token');
+        const response = await fetch('http://localhost:8000/api/content-management/post_login_options/', {
+          headers: token ? {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          } : {
+            'Content-Type': 'application/json',
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setDynamicOptions(data.options || []);
+        }
+      } catch (error) {
+        console.error('Error fetching post-login options:', error);
+        // Fallback to default options if API fails
+        setDynamicOptions([
+          {
+            key: 'Book Dental Consultation',
+            icon: '🦷',
+            title: 'Book Dental Consultation',
+            description: 'Schedule your routine dental check-up or specific treatment.',
+            color: 'text-[#800000] border-[#800000] hover:bg-[#f3eaea]',
+          },
+          {
+            key: 'Book Medical Consultation',
+            icon: '⚕️',
+            title: 'Book Medical Consultation',
+            description: 'Book an appointment for general medical advice or specific health concerns.',
+            color: 'text-[#800000] border-[#800000] hover:bg-[#f3eaea]',
+          },
+        ]);
+      } finally {
+        setLoadingOptions(false);
+      }
+    };
+    
+    if (isOpen) {
+      fetchOptions();
+    }
+  }, [isOpen]);
 
   // Check if user has already requested a medical certificate
   useEffect(() => {
@@ -61,36 +111,26 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
     }
   };
 
-  // Build options array
-  const options = [
-    {
-      key: 'Book Dental Consultation',
-      icon: '🦷',
-      title: 'Book Dental Consultation',
-      description: 'Schedule your routine dental check-up or specific treatment.',
-      color: 'text-[#800000] border-[#800000] hover:bg-[#f3eaea]',
-    },
-    {
-      key: 'Book Medical Consultation',
-      icon: '⚕️',
-      title: 'Book Medical Consultation',
-      description: 'Book an appointment for general medical advice or specific health concerns.',
-      color: 'text-[#800000] border-[#800000] hover:bg-[#f3eaea]',
-    },
-  ];
+  // Build options array from dynamic options fetched from API
+  const options = [...dynamicOptions];
 
   // Only show medical certificate option for freshmen who haven't requested one yet
+  // This overrides the API options for freshman-specific logic
   if (userGradeLevel && 
       userGradeLevel.toLowerCase().includes('freshman') && 
       !hasRequestedCertificate && 
       !checkingCertificate) {
-    options.push({
-      key: 'Request Medical Certificate',
-      icon: '📜',
-      title: 'Request Medical Certificate',
-      description: 'For incoming freshmen only. Request an official medical certificate.',
-      color: 'text-blue-600 border-blue-600 hover:bg-blue-50',
-    });
+    // Check if certificate option isn't already in dynamic options
+    const hasCertificateOption = options.some(opt => opt.key === 'Request Medical Certificate');
+    if (!hasCertificateOption) {
+      options.push({
+        key: 'Request Medical Certificate',
+        icon: '📜',
+        title: 'Request Medical Certificate',
+        description: 'For incoming freshmen only. Request an official medical certificate.',
+        color: 'text-blue-600 border-blue-600 hover:bg-blue-50',
+      });
+    }
   }
 
   const gridCols = options.length === 1 
@@ -104,14 +144,14 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
       <div className="text-center px-4">
         <h3 className="text-2xl sm:text-3xl font-bold text-[#800000] mb-8">What would you like to do?</h3>
         
-        {checkingCertificate && userGradeLevel && userGradeLevel.toLowerCase().includes('freshman') && (
+        {(checkingCertificate || loadingOptions) && (
           <div className="mb-4 text-sm text-gray-600">
             <div className="inline-flex items-center">
               <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Checking medical certificate status...
+              {loadingOptions ? 'Loading options...' : 'Checking medical certificate status...'}
             </div>
           </div>
         )}

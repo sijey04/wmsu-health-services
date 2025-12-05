@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
-import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, UserIcon, XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
+import { FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 import { djangoApiClient } from '../../utils/api';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import FeedbackModal from '../../components/feedbackmodal';
@@ -39,6 +40,14 @@ function AdminStaffManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('');
   const [filterCampus, setFilterCampus] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortField, setSortField] = useState<'name' | 'email' | 'role' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [paginatedStaff, setPaginatedStaff] = useState<Staff[]>([]);
 
   // Form state
   const [formData, setFormData] = useState<StaffFormData>({
@@ -260,26 +269,88 @@ function AdminStaffManagement() {
     fetchStaff();
   }, []);
 
-  const filteredStaff = staff.filter(staffMember => {
-    const matchesSearch = `${staffMember.first_name} ${staffMember.last_name} ${staffMember.username} ${staffMember.email}`
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    const matchesRole = !filterRole || staffMember.role === filterRole;
-    const matchesCampus = !filterCampus || (staffMember.campuses && staffMember.campuses.includes(filterCampus));
-    return matchesSearch && matchesRole && matchesCampus;
-  });
+  const filteredStaff = useMemo(() => {
+    return staff.filter(staffMember => {
+      const matchesSearch = `${staffMember.first_name} ${staffMember.last_name} ${staffMember.username} ${staffMember.email} ${staffMember.phone_number || ''}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+      const matchesRole = !filterRole || staffMember.role === filterRole;
+      const matchesCampus = !filterCampus || (staffMember.campuses && staffMember.campuses.includes(filterCampus));
+      const matchesStatus = filterStatus === 'all' || 
+        (filterStatus === 'active' && staffMember.is_active) || 
+        (filterStatus === 'inactive' && !staffMember.is_active);
+      return matchesSearch && matchesRole && matchesCampus && matchesStatus;
+    }).sort((a, b) => {
+      let compareValue = 0;
+      
+      switch (sortField) {
+        case 'name':
+          const nameA = `${a.first_name} ${a.last_name}`.toLowerCase();
+          const nameB = `${b.first_name} ${b.last_name}`.toLowerCase();
+          compareValue = nameA.localeCompare(nameB);
+          break;
+        case 'email':
+          compareValue = (a.email || '').localeCompare(b.email || '');
+          break;
+        case 'role':
+          compareValue = (a.role || '').localeCompare(b.role || '');
+          break;
+        case 'date':
+          const dateA = new Date(a.date_joined || 0).getTime();
+          const dateB = new Date(b.date_joined || 0).getTime();
+          compareValue = dateA - dateB;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+  }, [staff, searchTerm, filterRole, filterCampus, filterStatus, sortField, sortOrder]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredStaff.length / itemsPerPage), [filteredStaff.length, itemsPerPage]);
+
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedStaff(filteredStaff.slice(startIndex, endIndex));
+  }, [filteredStaff, currentPage, itemsPerPage]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleSortChange = (field: 'name' | 'email' | 'role' | 'date') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterRole('');
+    setFilterCampus('');
+    setFilterStatus('all');
+    setSortField('date');
+    setSortOrder('desc');
+    setCurrentPage(1);
+  };
 
   const renderStaffList = () => (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-4">
+      <div className="bg-white rounded-lg shadow p-4 mb-6">
+        <div className="space-y-4">
+          {/* Search Bar */}
           <div className="relative">
             <input
               type="text"
-              placeholder="Search staff..."
+              placeholder="Search by name, email, username, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
             />
             <svg
               className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
@@ -295,34 +366,77 @@ function AdminStaffManagement() {
               />
             </svg>
           </div>
-          <select
-            value={filterRole}
-            onChange={(e) => setFilterRole(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
-          >
-            <option value="">All Roles</option>
-            {roleOptions.map(role => (
-              <option key={role.value} value={role.value}>{role.label}</option>
-            ))}
-          </select>
-          <select
-            value={filterCampus}
-            onChange={(e) => setFilterCampus(e.target.value)}
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
-          >
-            <option value="">All Campuses</option>
-            {campusOptions.map(campus => (
-              <option key={campus.value} value={campus.value}>{campus.label}</option>
-            ))}
-          </select>
+
+          {/* Filter Row */}
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-medium text-gray-700">Filters:</span>
+            
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+            >
+              <option value="">All Roles</option>
+              {roleOptions.map(role => (
+                <option key={role.value} value={role.value}>{role.label}</option>
+              ))}
+            </select>
+            
+            <select
+              value={filterCampus}
+              onChange={(e) => setFilterCampus(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+            >
+              <option value="">All Campuses</option>
+              {campusOptions.map(campus => (
+                <option key={campus.value} value={campus.value}>{campus.label}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+
+            <select
+              value={sortField}
+              onChange={(e) => setSortField(e.target.value as 'name' | 'email' | 'role' | 'date')}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+            >
+              <option value="date">Sort by Date</option>
+              <option value="name">Sort by Name</option>
+              <option value="email">Sort by Email</option>
+              <option value="role">Sort by Role</option>
+            </select>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+              title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
+            </button>
+
+            {(searchTerm || filterRole || filterCampus || filterStatus !== 'all') && (
+              <button
+                onClick={clearFilters}
+                className="text-sm text-red-600 hover:text-red-800 underline"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
+          {/* Results Summary */}
+          <div className="text-sm text-gray-600">
+            Showing {paginatedStaff.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredStaff.length)} of {filteredStaff.length} staff members
+          </div>
         </div>
-        <button
-          onClick={() => setActiveTab('createStaff')}
-          className="bg-[#800000] text-white px-4 py-2 rounded-lg hover:bg-[#600000] transition-colors duration-200 flex items-center space-x-2"
-        >
-          <PlusIcon className="h-5 w-5" />
-          <span>Add New Staff</span>
-        </button>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -336,16 +450,46 @@ function AdminStaffManagement() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-[#800000]">
               <tr>
-                <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Name</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Email</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Role</th>
+                <th 
+                  className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                  onClick={() => handleSortChange('name')}
+                >
+                  <div className="flex items-center">
+                    Name
+                    {sortField === 'name' && (
+                      <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                  onClick={() => handleSortChange('email')}
+                >
+                  <div className="flex items-center">
+                    Email
+                    {sortField === 'email' && (
+                      <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                  onClick={() => handleSortChange('role')}
+                >
+                  <div className="flex items-center">
+                    Role
+                    {sortField === 'role' && (
+                      <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Assigned Campuses</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredStaff.map((staffMember) => (
+              {paginatedStaff.map((staffMember) => (
                 <tr key={staffMember.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -432,6 +576,121 @@ function AdminStaffManagement() {
           </table>
         )}
       </div>
+
+      {/* Pagination */}
+      {filteredStaff.length > 0 && (
+        <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+          <div className="flex-1 flex justify-between sm:hidden">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                currentPage === 1
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                currentPage === totalPages
+                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Next
+            </button>
+          </div>
+          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+            <div className="flex items-center space-x-4">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                  <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredStaff.length)}</span> of{' '}
+                  <span className="font-medium">{filteredStaff.length}</span> results
+                </p>
+              </div>
+              <div>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                >
+                  <option value={5}>5 per page</option>
+                  <option value={10}>10 per page</option>
+                  <option value={25}>25 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                    currentPage === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </button>
+                
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter(page => {
+                    return (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    );
+                  })
+                  .map((page, index, array) => {
+                    if (index > 0 && page - array[index - 1] > 1) {
+                      return (
+                        <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                          ...
+                        </span>
+                      );
+                    }
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                          currentPage === page
+                            ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                            : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-500 hover:bg-gray-50'
+                  }`}
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

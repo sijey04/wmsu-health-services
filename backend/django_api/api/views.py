@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
@@ -16,7 +15,7 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord
+    DentalInformationRecord, ContentManagement
 )
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
@@ -28,7 +27,7 @@ from .serializers import (
     DocumentRequirementSerializer, CampusScheduleSerializer, DentistScheduleSerializer,
     AcademicSchoolYearSerializer, UserManagementSerializer, UserBlockSerializer,
     ComorbidIllnessSerializer, VaccinationSerializer, PastMedicalHistoryItemSerializer,
-    FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer
+    FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer, ContentManagementSerializer
 )
 from rest_framework.views import APIView
 from django.db.models import Q, Count
@@ -3876,8 +3875,7 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
         appointment.cancelled_by = user
         appointment.cancelled_at = timezone.now()
         appointment.save()
-        
-=======
+   
 from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
@@ -8433,6 +8431,7 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
         appointment.cancelled_at = timezone.now()
         appointment.save()
         
-
-
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
+        return Response(
+            AppointmentSerializer(appointment).data,
+            status=status.HTTP_200_OK
+        )

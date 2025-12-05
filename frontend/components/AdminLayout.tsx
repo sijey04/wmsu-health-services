@@ -113,16 +113,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="flex min-h-screen bg-white">
       {/* Sidebar Navigation */}
-      <aside className={`text-[#800000] p-4 sticky top-0 h-screen overflow-y-auto overflow-x-hidden transition-all duration-300 flex flex-col justify-between ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
-        <div>
-          <div className="flex flex-col items-center mb-8">
-            <Image src="/logo.png" alt="WMSU Logo" width={isSidebarCollapsed ? 48 : 80} height={isSidebarCollapsed ? 48 : 80} className="mb-2" />
-            <h2 className={`text-xl font-bold text-center transition-all duration-200 ${isSidebarCollapsed ? 'hidden' : ''}`}>WMSU Health Admin</h2>
-          </div>
-          
+      <aside className={`text-[#800000] sticky top-0 h-screen transition-all duration-300 flex flex-col ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+        {/* Header - Sticky at top */}
+        <div className="flex flex-col items-center p-4 pb-4">
+          <Image src="/logo.png" alt="WMSU Logo" width={isSidebarCollapsed ? 48 : 80} height={isSidebarCollapsed ? 48 : 80} className="mb-2" />
+          <h2 className={`text-xl font-bold text-center transition-all duration-200 ${isSidebarCollapsed ? 'hidden' : ''}`}>WMSU Health Admin</h2>
+        </div>
 
-          
-          <nav>
+        {/* Navigation - Scrollable */}
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4">
             <ul>
               <li className="mb-4">
                 <Link href="/admin">
@@ -234,9 +233,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               </li>
             </ul>
           </nav>
-        </div>
-        {/* Logout button at the bottom */}
-        <div className="mb-2">
+
+        {/* Logout button - Sticky at bottom */}
+        <div className="p-4 pt-2">
           <button
             onClick={handleLogout}
             className="w-full text-left py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center bg-white text-[#800000] border border-[#800000] hover:bg-[#800000] hover:text-white shadow hover:shadow-lg"

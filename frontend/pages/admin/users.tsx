@@ -3,7 +3,8 @@ import AdminLayout from '../../components/AdminLayout';
 import ConfirmationModal from '../../components/ConfirmationModal';
 import { 
   FaUsers, FaUserSlash, FaSearch, FaFilter, FaEye, FaLock, FaUnlock, 
-  FaBan, FaCheck, FaClock, FaUserCheck, FaUserTimes, FaExclamationTriangle
+  FaBan, FaCheck, FaClock, FaUserCheck, FaUserTimes, FaExclamationTriangle,
+  FaChevronLeft, FaChevronRight, FaSortAlphaDown, FaSortAlphaUp
 } from 'react-icons/fa';
 
 interface User {
@@ -49,9 +50,18 @@ export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterVerification, setFilterVerification] = useState('all');
+  const [filterConsultation, setFilterConsultation] = useState('all');
+  const [sortField, setSortField] = useState<'name' | 'date' | 'email'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [blockAction, setBlockAction] = useState<'block' | 'unblock'>('block');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [paginatedUsers, setPaginatedUsers] = useState<User[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -60,7 +70,11 @@ export default function AdminUsers() {
 
   useEffect(() => {
     applyFilters();
-  }, [users, searchTerm, filterType, filterStatus]);
+  }, [users, searchTerm, filterType, filterStatus, filterVerification, filterConsultation, sortField, sortOrder]);
+
+  useEffect(() => {
+    applyPagination();
+  }, [filteredUsers, currentPage, itemsPerPage]);
 
   const fetchUsers = async () => {
     try {
@@ -134,7 +148,8 @@ export default function AdminUsers() {
       filtered = filtered.filter(user => 
         (user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.username || '').toLowerCase().includes(searchTerm.toLowerCase())
+        (user.username || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.grade_level || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -155,13 +170,81 @@ export default function AdminUsers() {
         case 'inactive':
           filtered = filtered.filter(user => !user.is_active);
           break;
-        case 'unverified':
-          filtered = filtered.filter(user => !user.is_email_verified);
-          break;
       }
     }
 
+    // Email verification filter
+    if (filterVerification !== 'all') {
+      filtered = filtered.filter(user => 
+        filterVerification === 'verified' ? user.is_email_verified : !user.is_email_verified
+      );
+    }
+
+    // Consultation access filter
+    if (filterConsultation !== 'all') {
+      filtered = filtered.filter(user => 
+        filterConsultation === 'can_book' ? user.can_book_consultation : !user.can_book_consultation
+      );
+    }
+
+    // Sorting
+    filtered.sort((a, b) => {
+      let compareValue = 0;
+      
+      switch (sortField) {
+        case 'name':
+          const nameA = (a.full_name || a.username || '').toLowerCase();
+          const nameB = (b.full_name || b.username || '').toLowerCase();
+          compareValue = nameA.localeCompare(nameB);
+          break;
+        case 'email':
+          compareValue = (a.email || '').localeCompare(b.email || '');
+          break;
+        case 'date':
+          const dateA = new Date(a.date_joined || 0).getTime();
+          const dateB = new Date(b.date_joined || 0).getTime();
+          compareValue = dateA - dateB;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+
     setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const applyPagination = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedUsers(filteredUsers.slice(startIndex, endIndex));
+  };
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleSortChange = (field: 'name' | 'date' | 'email') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setFilterType('all');
+    setFilterStatus('all');
+    setFilterVerification('all');
+    setFilterConsultation('all');
+    setSortField('date');
+    setSortOrder('desc');
   };
 
   const handleBlockUser = async (reason?: string) => {
@@ -329,21 +412,28 @@ export default function AdminUsers() {
 
         {/* Filters */}
         <div className="bg-white p-4 rounded-lg shadow">
-          <div className="flex flex-wrap items-center space-x-4 space-y-2">
+          <div className="space-y-4">
+            {/* Search Bar */}
             <div className="flex items-center">
               <FaSearch className="text-gray-400 mr-2" />
               <input
                 type="text"
-                placeholder="Search users..."
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                placeholder="Search by name, email, username, or grade level..."
+                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex items-center">
-              <FaFilter className="text-gray-400 mr-2" />
+
+            {/* Filter Row */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center">
+                <FaFilter className="text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-700 mr-2">Filters:</span>
+              </div>
+
               <select
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
               >
@@ -352,10 +442,9 @@ export default function AdminUsers() {
                 <option value="staff">Staff</option>
                 <option value="admin">Admins</option>
               </select>
-            </div>
-            <div className="flex items-center">
+
               <select
-                className="border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -363,8 +452,60 @@ export default function AdminUsers() {
                 <option value="active">Active</option>
                 <option value="blocked">Blocked</option>
                 <option value="inactive">Inactive</option>
+              </select>
+
+              <select
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                value={filterVerification}
+                onChange={(e) => setFilterVerification(e.target.value)}
+              >
+                <option value="all">All Verification</option>
+                <option value="verified">Verified</option>
                 <option value="unverified">Unverified</option>
               </select>
+
+              <select
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                value={filterConsultation}
+                onChange={(e) => setFilterConsultation(e.target.value)}
+              >
+                <option value="all">Consultation Access</option>
+                <option value="can_book">Can Book</option>
+                <option value="cannot_book">Cannot Book</option>
+              </select>
+
+              <select
+                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value as 'name' | 'date' | 'email')}
+              >
+                <option value="date">Sort by Date</option>
+                <option value="name">Sort by Name</option>
+                <option value="email">Sort by Email</option>
+              </select>
+
+              <button
+                onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
+              </button>
+
+              {(searchTerm || filterType !== 'all' || filterStatus !== 'all' || 
+                filterVerification !== 'all' || filterConsultation !== 'all') && (
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-red-600 hover:text-red-800 underline"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+
+            {/* Results Summary */}
+            <div className="text-sm text-gray-600">
+              Showing {paginatedUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
             </div>
           </div>
         </div>
@@ -375,8 +516,16 @@ export default function AdminUsers() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSortChange('name')}
+                  >
+                    <div className="flex items-center">
+                      User
+                      {sortField === 'name' && (
+                        <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Type
@@ -387,8 +536,16 @@ export default function AdminUsers() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Consultation Access
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Joined
+                  <th 
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    onClick={() => handleSortChange('date')}
+                  >
+                    <div className="flex items-center">
+                      Joined
+                      {sortField === 'date' && (
+                        <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </div>
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
@@ -396,7 +553,7 @@ export default function AdminUsers() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.length === 0 ? (
+                {paginatedUsers.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                       <div className="flex flex-col items-center">
@@ -411,7 +568,7 @@ export default function AdminUsers() {
                     </td>
                   </tr>
                 ) : (
-                  filteredUsers.map((user) => (
+                  paginatedUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -481,6 +638,136 @@ export default function AdminUsers() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination */}
+          {filteredUsers.length > 0 && (
+            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                    currentPage === 1
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                    currentPage === totalPages
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Next
+                </button>
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div className="flex items-center space-x-4">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                      <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{' '}
+                      <span className="font-medium">{filteredUsers.length}</span> results
+                    </p>
+                  </div>
+                  <div>
+                    <select
+                      value={itemsPerPage}
+                      onChange={(e) => {
+                        setItemsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                    >
+                      <option value={5}>5 per page</option>
+                      <option value={10}>10 per page</option>
+                      <option value={25}>25 per page</option>
+                      <option value={50}>50 per page</option>
+                      <option value={100}>100 per page</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                        currentPage === 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <FaChevronLeft className="h-4 w-4" />
+                    </button>
+                    
+                    {/* Page Numbers */}
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(page => {
+                        // Show first page, last page, current page, and pages around current
+                        return (
+                          page === 1 ||
+                          page === totalPages ||
+                          (page >= currentPage - 1 && page <= currentPage + 1)
+                        );
+                      })
+                      .map((page, index, array) => {
+                        // Add ellipsis
+                        if (index > 0 && page - array[index - 1] > 1) {
+                          return (
+                            <React.Fragment key={`ellipsis-${page}`}>
+                              <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                ...
+                              </span>
+                              <button
+                                onClick={() => handlePageChange(page)}
+                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                  currentPage === page
+                                    ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            </React.Fragment>
+                          );
+                        }
+                        return (
+                          <button
+                            key={page}
+                            onClick={() => handlePageChange(page)}
+                            className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                              currentPage === page
+                                ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      })}
+                    
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                        currentPage === totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      <FaChevronRight className="h-4 w-4" />
+                    </button>
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Block/Unblock Modal */}

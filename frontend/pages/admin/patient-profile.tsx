@@ -1,6 +1,6 @@
-// frontend/pages/admin/patient-profile.tsx
+
 import AdminLayout from '../../components/AdminLayout';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { djangoApiClient, patientsAPI, academicSemestersAPI } from '../../utils/api';
@@ -12,14 +12,22 @@ import {
   CalendarDaysIcon,
   FunnelIcon,
   ArrowDownTrayIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
+import { FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 
 export default function AdminPatientProfile() {
   const [searchTerm, setSearchTerm] = useState('');
   const [userTypeFilter, setUserTypeFilter] = useState('All User Types');
   const [selectedSemester, setSelectedSemester] = useState<string>('all');
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('all');
+  const [genderFilter, setGenderFilter] = useState('all');
+  const [bloodTypeFilter, setBloodTypeFilter] = useState('all');
+  const [verificationFilter, setVerificationFilter] = useState('all');
+  const [sortField, setSortField] = useState<'name' | 'age' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,6 +36,11 @@ export default function AdminPatientProfile() {
   const [currentSemester, setCurrentSemester] = useState<any>(null);
   const [semesterStats, setSemesterStats] = useState<any>({});
   const router = useRouter();
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [paginatedPatients, setPaginatedPatients] = useState<any[]>([]);
   
   // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -43,6 +56,70 @@ export default function AdminPatientProfile() {
   useEffect(() => {
     fetchPatients();
   }, [searchTerm, userTypeFilter, selectedSemester, selectedAcademicYear]); // Remove fetchPatients dependency to avoid infinite loop
+
+  const filteredPatients = useMemo(() => {
+    return patients.filter(patient => {
+      const matchesGender = genderFilter === 'all' || patient.gender === genderFilter;
+      const matchesBloodType = bloodTypeFilter === 'all' || patient.blood_type === bloodTypeFilter;
+      const matchesVerification = verificationFilter === 'all' || 
+        (verificationFilter === 'verified' && patient.is_verified) ||
+        (verificationFilter === 'unverified' && !patient.is_verified);
+      
+      return matchesGender && matchesBloodType && matchesVerification;
+    }).sort((a, b) => {
+      let compareValue = 0;
+      
+      switch (sortField) {
+        case 'name':
+          compareValue = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'age':
+          compareValue = (a.age || 0) - (b.age || 0);
+          break;
+        case 'date':
+          compareValue = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+          break;
+      }
+      
+      return sortOrder === 'asc' ? compareValue : -compareValue;
+    });
+  }, [patients, genderFilter, bloodTypeFilter, verificationFilter, sortField, sortOrder]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredPatients.length / itemsPerPage), [filteredPatients.length, itemsPerPage]);
+
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    setPaginatedPatients(filteredPatients.slice(startIndex, endIndex));
+  }, [filteredPatients, currentPage, itemsPerPage]);
+
+  const handlePageChange = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
+  };
+
+  const handleSortChange = (field: 'name' | 'age' | 'date') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setUserTypeFilter('All User Types');
+    setSelectedAcademicYear('all');
+    setSelectedSemester('all');
+    setGenderFilter('all');
+    setBloodTypeFilter('all');
+    setVerificationFilter('all');
+    setSortField('date');
+    setSortOrder('desc');
+    setCurrentPage(1);
+  };
 
   const fetchSemesters = async () => {
     try {
@@ -280,23 +357,25 @@ export default function AdminPatientProfile() {
   return (
     <AdminLayout>
       <div className="max-w-7xl mx-auto px-4">
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="p-6">
+        <div className="bg-white rounded-xl overflow-hidden">
+          <div className="">
             {/* Header */}
             <div className="mb-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Profiles</h1>
-                  <p className="text-gray-600">
-                    Manage and organize patient records by academic semester
-                    {semesters.length === 0 && (
-                      <span className="text-orange-600 ml-2">
-                        • Semester tracking will be available when configured
-                      </span>
-                    )}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-4">
+                  <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Profiles</h1>
+                    <p className="text-gray-600">
+                      Manage and organize patient records by academic semester
+                      {semesters.length === 0 && (
+                        <span className="text-orange-600 ml-2">
+                          • Semester tracking will be available when configured
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Current Semester Info */}
                   {currentSemester && semesters.length > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
                       <div className="flex items-center text-blue-700">
@@ -319,26 +398,12 @@ export default function AdminPatientProfile() {
                       </div>
                     </div>
                   )}
-                  <button
-                    onClick={exportPatientsBySemester}
-                    disabled={patients.length === 0}
-                    className="flex items-center px-4 py-2 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
-                  >
-                    <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
-                    Export CSV
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Semester Statistics */}
-            {Object.keys(semesterStats).length > 0 && (
-              <div className="mb-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {Object.values(semesterStats).map((stat: any) => (
-                  <div key={stat.semester.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <AcademicCapIcon className="w-8 h-8 text-blue-600 mr-3" />
+                  
+                  {/* Semester Statistics - Inline */}
+                  {Object.keys(semesterStats).length > 0 && Object.values(semesterStats).map((stat: any) => (
+                    <div key={stat.semester.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg px-4 py-2">
+                      <div className="flex items-center space-x-3">
+                        <AcademicCapIcon className="w-8 h-8 text-blue-600" />
                         <div>
                           <div className="text-sm font-medium text-blue-900">
                             {stat.semester.academic_year}
@@ -347,39 +412,43 @@ export default function AdminPatientProfile() {
                             {stat.semester.semester_type} Semester
                           </div>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600">{stat.totalPatients}</div>
-                        <div className="text-xs text-blue-700">
-                          {stat.verifiedPatients} verified
+                        <div className="text-right border-l border-blue-300 pl-3">
+                          <div className="text-2xl font-bold text-blue-600">{stat.totalPatients}</div>
+                          <div className="text-xs text-blue-700">
+                            {stat.verifiedPatients} verified
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+
+                {/* Export Button */}
+                <button
+                  onClick={exportPatientsBySemester}
+                  disabled={patients.length === 0}
+                  className="flex items-center px-4 py-2 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
+                >
+                  <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+                  Export CSV
+                </button>
               </div>
-            )}
+            </div>
 
             {/* Search and Filter Controls */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6">
-              <div className="flex items-center mb-4">
-                <FunnelIcon className="w-5 h-5 text-gray-600 mr-2" />
-                <h3 className="text-lg font-medium text-gray-900">Filter & Search Options</h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Search Input */}
+            <div className="bg-white rounded-lg shadow p-4 mb-6">
+              <div className="space-y-4">
+                {/* Search Bar */}
                 <div className="relative">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Search Patients</label>
                   <input
                     type="text"
-                    placeholder="Search by name, email..."
-                    className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-full focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
+                    placeholder="Search by name, email, contact number..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                   />
                   <svg
-                    className="absolute left-3 top-8 h-5 w-5 text-gray-400"
+                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -393,13 +462,14 @@ export default function AdminPatientProfile() {
                   </svg>
                 </div>
 
-                {/* User Type Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">User Type</label>
+                {/* Filter Row */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-sm font-medium text-gray-700">Filters:</span>
+                  
                   <select
-                    className="border border-gray-300 rounded-lg px-4 py-2 w-full focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
                     value={userTypeFilter}
                     onChange={(e) => setUserTypeFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                   >
                     <option>All User Types</option>
                     <option>College</option>
@@ -409,33 +479,25 @@ export default function AdminPatientProfile() {
                     <option>staff</option>
                     <option>admin</option>
                   </select>
-                </div>
 
-                {/* Academic Year Filter - Only show if we have semester data */}
-                {semesters.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                  {semesters.length > 0 && (
                     <select
-                      className="border border-gray-300 rounded-lg px-4 py-2 w-full focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
                       value={selectedAcademicYear}
                       onChange={(e) => setSelectedAcademicYear(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                     >
                       <option value="all">All Academic Years</option>
                       {academicYears.map(year => (
                         <option key={year} value={year}>{year}</option>
                       ))}
                     </select>
-                  </div>
-                )}
+                  )}
 
-                {/* Semester Filter - Only show if we have semester data */}
-                {semesters.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Semester</label>
+                  {semesters.length > 0 && (
                     <select
-                      className="border border-gray-300 rounded-lg px-4 py-2 w-full focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
                       value={selectedSemester}
                       onChange={(e) => setSelectedSemester(e.target.value)}
+                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                     >
                       <option value="all">All Semesters</option>
                       {semesters
@@ -448,56 +510,78 @@ export default function AdminPatientProfile() {
                         ))
                       }
                     </select>
-                  </div>
-                )}
-              </div>
+                  )}
 
-              {/* Active Filters Display */}
-              <div className="mt-4 flex flex-wrap gap-2">
-                {searchTerm && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Search: &ldquo;{searchTerm}&rdquo;
-                    <button 
-                      onClick={() => setSearchTerm('')}
-                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-blue-200 hover:bg-blue-300"
+                  <select
+                    value={genderFilter}
+                    onChange={(e) => setGenderFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                  >
+                    <option value="all">All Genders</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+
+                  <select
+                    value={bloodTypeFilter}
+                    onChange={(e) => setBloodTypeFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                  >
+                    <option value="all">All Blood Types</option>
+                    <option value="A+">A+</option>
+                    <option value="A-">A-</option>
+                    <option value="B+">B+</option>
+                    <option value="B-">B-</option>
+                    <option value="AB+">AB+</option>
+                    <option value="AB-">AB-</option>
+                    <option value="O+">O+</option>
+                    <option value="O-">O-</option>
+                  </select>
+
+                  <select
+                    value={verificationFilter}
+                    onChange={(e) => setVerificationFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="verified">Verified</option>
+                    <option value="unverified">Unverified</option>
+                  </select>
+
+                  <select
+                    value={sortField}
+                    onChange={(e) => setSortField(e.target.value as 'name' | 'age' | 'date')}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                  >
+                    <option value="date">Sort by Date</option>
+                    <option value="name">Sort by Name</option>
+                    <option value="age">Sort by Age</option>
+                  </select>
+
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                    title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                  >
+                    {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
+                  </button>
+
+                  {(searchTerm || userTypeFilter !== 'All User Types' || selectedAcademicYear !== 'all' || 
+                    selectedSemester !== 'all' || genderFilter !== 'all' || bloodTypeFilter !== 'all' || 
+                    verificationFilter !== 'all') && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-sm text-red-600 hover:text-red-800 underline"
                     >
-                      ×
+                      Clear Filters
                     </button>
-                  </span>
-                )}
-                {userTypeFilter !== 'All User Types' && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    Type: {userTypeFilter}
-                    <button 
-                      onClick={() => setUserTypeFilter('All User Types')}
-                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-green-200 hover:bg-green-300"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                {selectedAcademicYear !== 'all' && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    Year: {selectedAcademicYear}
-                    <button 
-                      onClick={() => setSelectedAcademicYear('all')}
-                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-purple-200 hover:bg-purple-300"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                {selectedSemester !== 'all' && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                    Semester: {getSemesterLabel(selectedSemester)}
-                    <button 
-                      onClick={() => setSelectedSemester('all')}
-                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full bg-orange-200 hover:bg-orange-300"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
+                  )}
+                </div>
+
+                {/* Results Summary */}
+                <div className="text-sm text-gray-600">
+                  Showing {paginatedPatients.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredPatients.length)} of {filteredPatients.length} patients
+                </div>
               </div>
             </div>
 
@@ -538,16 +622,36 @@ export default function AdminPatientProfile() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#800000]">
                       <tr>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Patient Info</th>
+                        <th 
+                          className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                          onClick={() => handleSortChange('name')}
+                        >
+                          <div className="flex items-center">
+                            Patient Info
+                            {sortField === 'name' && (
+                              <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Academic Period</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Demographics</th>
+                        <th 
+                          className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                          onClick={() => handleSortChange('age')}
+                        >
+                          <div className="flex items-center">
+                            Demographics
+                            {sortField === 'age' && (
+                              <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </div>
+                        </th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Contact Info</th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {patients.length === 0 ? (
+                      {paginatedPatients.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
                             <div className="flex flex-col items-center">
@@ -560,7 +664,7 @@ export default function AdminPatientProfile() {
                           </td>
                         </tr>
                       ) : (
-                        patients.map((patient) => (
+                        paginatedPatients.map((patient) => (
                           <tr key={patient.id} className="hover:bg-gray-50 transition-colors duration-200">
                             {/* Patient Info */}
                             <td className="px-6 py-4 whitespace-nowrap">
@@ -687,29 +791,123 @@ export default function AdminPatientProfile() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination */}
+                {filteredPatients.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredPatients.length)}</span> of{' '}
+                            <span className="font-medium">{filteredPatients.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-
-            {/* Pagination (placeholder) */}
-            <div className="mt-4 flex justify-end">
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <a href="#" className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  Previous
-                </a>
-                <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  1
-                </a>
-                <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  2
-                </a>
-                <a href="#" className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  3
-                </a>
-                <a href="#" className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  Next
-                </a>
-              </nav>
-            </div>
           </div>
         </div>
       </div>
@@ -718,10 +916,9 @@ export default function AdminPatientProfile() {
       <PatientProfileModal 
         open={viewModalOpen} 
         patient={selectedPatient} 
-<<<<<<< HEAD
+
         allPatientProfiles={allPatientProfiles}
-=======
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
+
         onClose={() => setViewModalOpen(false)} 
       />
       

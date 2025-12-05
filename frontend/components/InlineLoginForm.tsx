@@ -42,9 +42,13 @@ export default function InlineLoginForm({ onLogin, showSwitchLink = false, onSwi
           onLogin(data.user.grade_level || '');
         }
         
-        // Redirect to index page after successful login
+        // Redirect based on user role
         setTimeout(() => {
-          router.push('/');
+          if (data.user.is_staff || data.user.is_superuser) {
+            router.push('/admin');
+          } else {
+            router.push('/');
+          }
         }, 1000);
       } else {
         // Handle Django REST framework error format

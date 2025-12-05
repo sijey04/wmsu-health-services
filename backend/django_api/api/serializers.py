@@ -7,7 +7,7 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, DentalMedicineSupply, UserTypeInformation
+    DentalInformationRecord, DentalMedicineSupply, UserTypeInformation, ContentManagement
 )
 
 
@@ -1028,3 +1028,29 @@ class UserTypeInformationSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data['created_by'] = request.user
         return super().create(validated_data)
+
+
+class ContentManagementSerializer(serializers.ModelSerializer):
+    """Serializer for ContentManagement model"""
+    updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True)
+    
+    class Meta:
+        model = ContentManagement
+        fields = [
+            'id', 'hero_main_title', 'hero_sub_text', 'hero_description',
+            'hero_background_type', 'hero_background_image',
+            'announcements', 'recent_activities', 'services',
+            'operating_hours_monday_friday', 'operating_hours_saturday', 
+            'operating_hours_sunday', 'contact_telephone', 'contact_email', 
+            'contact_location', 'cta_title', 'cta_description',
+            'logged_in_cta_title', 'logged_in_cta_description',
+            'post_login_options', 'last_updated', 'updated_by', 'updated_by_name'
+        ]
+        read_only_fields = ['last_updated', 'updated_by', 'updated_by_name']
+    
+    def update(self, instance, validated_data):
+        """Set the updated_by field to the current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['updated_by'] = request.user
+        return super().update(instance, validated_data)

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
 import { appointmentsAPI, patientsAPI, djangoApiClient } from '../../utils/api';
-import { EyeIcon, DocumentTextIcon, XMarkIcon as XIcon, PrinterIcon, UserCircleIcon, CheckCircleIcon, CalendarIcon } from '@heroicons/react/24/outline';
+import { EyeIcon, DocumentTextIcon, XMarkIcon as XIcon, PrinterIcon, UserCircleIcon, CheckCircleIcon, CalendarIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import PatientProfileModal from '../../components/PatientProfileModal';
 import AppointmentDetailsModal from '../../components/AppointmentDetailsModal';
 import ConfirmationModal from '../../components/ConfirmationModal';
@@ -59,6 +59,106 @@ function AdminMedicalConsultations() {
   const [schoolYears, setSchoolYears] = useState([]);
   const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
   const [loadingSchoolYears, setLoadingSchoolYears] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  
+  // Enhanced filter states
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
+
+  // Filter and paginate appointments
+  const filteredAppointments = useMemo(() => {
+    let filtered = medicalAppointments;
+    
+    // Status filter
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(apt => apt.status === statusFilter);
+    }
+    
+    // Date filter
+    if (dateFilter !== 'all') {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      filtered = filtered.filter(apt => {
+        const aptDate = new Date(apt.appointment_date);
+        const daysDiff = Math.floor((aptDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (dateFilter === 'today') return daysDiff === 0;
+        if (dateFilter === 'week') return daysDiff >= 0 && daysDiff <= 7;
+        if (dateFilter === 'month') return daysDiff >= 0 && daysDiff <= 30;
+        return true;
+      });
+    }
+    
+    return filtered;
+  }, [medicalAppointments, statusFilter, dateFilter]);
+  
+  const paginatedAppointments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredAppointments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredAppointments, currentPage, itemsPerPage]);
+  
+  // Filter and paginate today's appointments
+  const filteredTodaysAppointments = useMemo(() => {
+    let filtered = todaysAppointments;
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(apt => apt.status === statusFilter);
+    }
+    
+    return filtered;
+  }, [todaysAppointments, statusFilter]);
+  
+  const paginatedTodaysAppointments = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTodaysAppointments.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTodaysAppointments, currentPage, itemsPerPage]);
+  
+  // Filter and paginate history
+  const filteredHistory = useMemo(() => {
+    let filtered = medicalHistory;
+    
+    // Already filtered by status on the server, but we can add more filters here if needed
+    
+    return filtered;
+  }, [medicalHistory]);
+  
+  const paginatedHistory = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredHistory.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredHistory, currentPage, itemsPerPage]);
+  
+  // Calculate total pages
+  const totalPages = useMemo(() => {
+    let totalItems = 0;
+    if (activeTab === 'medicalAppointments') totalItems = filteredAppointments.length;
+    else if (activeTab === 'todaysAppointments') totalItems = filteredTodaysAppointments.length;
+    else if (activeTab === 'history') totalItems = filteredHistory.length;
+    
+    return Math.ceil(totalItems / itemsPerPage);
+  }, [activeTab, filteredAppointments.length, filteredTodaysAppointments.length, filteredHistory.length, itemsPerPage]);
+  
+  // Pagination handlers
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+  
+  const clearFilters = () => {
+    setSearchAppointmentsTerm('');
+    setSearchHistoryTerm('');
+    setSearchTodaysTerm('');
+    setStatusFilter('all');
+    setDateFilter('all');
+    setCurrentPage(1);
+  };
+  
+  // Reset page when switching tabs
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const fetchMedicalAppointments = (searchTerm = '', sort = 'none', schoolYear = '') => {
     setLoadingAppointments(true);
@@ -564,160 +664,577 @@ function AdminMedicalConsultations() {
           <div className="p-6">
             {activeTab === 'medicalAppointments' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <label htmlFor="sort-by" className="text-gray-700 font-medium">Sort By:</label>
-                      <select 
-                        id="sort-by" 
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by patient name..."
+                        value={searchAppointmentsTerm}
+                        onChange={(e) => setSearchAppointmentsTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                      
+                      <select
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="all">All Dates</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                      </select>
+                      
+                      <select
                         value={sortAppointmentsBy}
                         onChange={(e) => setSortAppointmentsBy(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       >
-                        <option value="none">None</option>
-                        <option value="name">Name</option>
-                        <option value="time">Time</option>
+                        <option value="none">Sort by Date (Recent)</option>
+                        <option value="name">Sort by Name</option>
+                        <option value="time">Sort by Time</option>
                       </select>
+                      
+                      {(searchAppointmentsTerm || statusFilter !== 'all' || dateFilter !== 'all' || sortAppointmentsBy !== 'none') && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-sm text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search by patient name"
-                      value={searchAppointmentsTerm}
-                      onChange={(e) => setSearchAppointmentsTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                    />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedAppointments.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredAppointments.length)} of {filteredAppointments.length} appointments
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                  {renderTable(medicalAppointments, loadingAppointments, appointmentsError)}
+                  {renderTable(paginatedAppointments, loadingAppointments, appointmentsError)}
                 </div>
-                <div className="mt-4 flex justify-end">
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    {/* Pagination controls can be added here */}
-                  </nav>
-                </div>
+                
+                {/* Pagination */}
+                {filteredAppointments.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredAppointments.length)}</span> of{' '}
+                            <span className="font-medium">{filteredAppointments.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'todaysAppointments' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <label htmlFor="time-filter" className="text-gray-700 font-medium">Time Filter:</label>
-                      <select 
-                        id="time-filter" 
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search by patient name..."
+                        value={searchTodaysTerm}
+                        onChange={(e) => setSearchTodaysTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="confirmed">Confirmed</option>
+                        <option value="completed">Completed</option>
+                      </select>
+                      
+                      <select
                         value={timeFilter}
                         onChange={(e) => setTimeFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       >
                         <option value="today">Today</option>
                         <option value="this_week">This Week</option>
                         <option value="this_month">This Month</option>
                       </select>
+                      
+                      {(searchTodaysTerm || statusFilter !== 'all') && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-sm text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search by patient name"
-                      value={searchTodaysTerm}
-                      onChange={(e) => setSearchTodaysTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                    />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedTodaysAppointments.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredTodaysAppointments.length)} of {filteredTodaysAppointments.length} appointments
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                  {renderTable(todaysAppointments, loadingTodaysAppointments, todaysAppointmentsError)}
+                  {renderTable(paginatedTodaysAppointments, loadingTodaysAppointments, todaysAppointmentsError)}
                 </div>
-                <div className="mt-4 flex justify-end">
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    {/* Pagination controls can be added here */}
-                  </nav>
-                </div>
+                
+                {/* Pagination */}
+                {filteredTodaysAppointments.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredTodaysAppointments.length)}</span> of{' '}
+                            <span className="font-medium">{filteredTodaysAppointments.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {activeTab === 'history' && (
               <div>
-                <div className="flex justify-between items-center mb-6">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <label htmlFor="filter-by" className="text-gray-700 font-medium">Filter By:</label>
-                      <select 
-                        id="filter-by" 
+                {/* Filters Section */}
+                <div className="bg-white rounded-lg shadow p-4 mb-6">
+                  <div className="space-y-4">
+                    {/* Search Bar */}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Search history..."
+                        value={searchHistoryTerm}
+                        onChange={(e) => setSearchHistoryTerm(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      />
+                      <svg
+                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                      </svg>
+                    </div>
+
+                    {/* Filter Row */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                      
+                      <select
                         value={filterHistoryBy}
                         onChange={(e) => setFilterHistoryBy(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       >
-                        <option value="all">All</option>
+                        <option value="all">All Records</option>
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                       </select>
+                      
+                      {(searchHistoryTerm || filterHistoryBy !== 'all') && (
+                        <button
+                          onClick={clearFilters}
+                          className="text-sm text-red-600 hover:text-red-800 underline"
+                        >
+                          Clear Filters
+                        </button>
+                      )}
                     </div>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search history..."
-                      value={searchHistoryTerm}
-                      onChange={(e) => setSearchHistoryTerm(e.target.value)}
-                      className="border border-gray-300 rounded-lg pl-10 pr-4 py-2 w-80 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none transition-all duration-200"
-                    />
-                    <svg
-                      className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
+
+                    {/* Results Summary */}
+                    <div className="text-sm text-gray-600">
+                      Showing {paginatedHistory.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredHistory.length)} of {filteredHistory.length} records
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
-                   {renderTable(medicalHistory, loadingHistory, historyError, true)}
+                   {renderTable(paginatedHistory, loadingHistory, historyError, true)}
                 </div>
-                <div className="mt-4 flex justify-end">
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                     {/* Pagination controls can be added here */}
-                  </nav>
-                </div>
+                
+                {/* Pagination */}
+                {filteredHistory.length > 0 && (
+                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                    <div className="flex-1 flex justify-between sm:hidden">
+                      <button
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === 1
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
+                          currentPage === totalPages
+                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        Next
+                      </button>
+                    </div>
+                    <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                      <div className="flex items-center space-x-4">
+                        <div>
+                          <p className="text-sm text-gray-700">
+                            Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                            <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredHistory.length)}</span> of{' '}
+                            <span className="font-medium">{filteredHistory.length}</span> results
+                          </p>
+                        </div>
+                        <div>
+                          <select
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                              setItemsPerPage(Number(e.target.value));
+                              setCurrentPage(1);
+                            }}
+                            className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                          >
+                            <option value={5}>5 per page</option>
+                            <option value={10}>10 per page</option>
+                            <option value={25}>25 per page</option>
+                            <option value={50}>50 per page</option>
+                            <option value={100}>100 per page</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                          <button
+                            onClick={() => handlePageChange(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                          </button>
+                          
+                          {Array.from({ length: totalPages }, (_, i) => i + 1)
+                            .filter(page => {
+                              return (
+                                page === 1 ||
+                                page === totalPages ||
+                                (page >= currentPage - 1 && page <= currentPage + 1)
+                              );
+                            })
+                            .map((page, index, array) => {
+                              if (index > 0 && page - array[index - 1] > 1) {
+                                return (
+                                  <span key={`ellipsis-${page}`} className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
+                                    ...
+                                  </span>
+                                );
+                              }
+                              return (
+                                <button
+                                  key={page}
+                                  onClick={() => handlePageChange(page)}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
+                                    currentPage === page
+                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {page}
+                                </button>
+                              );
+                            })}
+                          
+                          <button
+                            onClick={() => handlePageChange(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-white text-gray-500 hover:bg-gray-50'
+                            }`}
+                          >
+                            <ChevronRightIcon className="h-5 w-5" />
+                          </button>
+                        </nav>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
