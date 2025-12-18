@@ -608,29 +608,30 @@ function AdminDashboard() {
 
   return (
     <AdminLayout>
-      <div className="flex-1 space-y-6 p-6 pt-6">
+      <div className="flex-1 space-y-4 sm:space-y-6 p-4 sm:p-6 pt-4 sm:pt-6">
         {/* Header with Enhanced Information */}
-        <div className="rounded-xl border bg-white shadow p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
             <div className="space-y-1">
-              <h2 className="text-2xl font-semibold tracking-tight text-[#800000]">
+              <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-[#800000]">
                 Admin Dashboard
               </h2>
-              <p className="text-sm text-gray-600">
+              <p className="text-xs sm:text-sm text-gray-600">
                 Health Services Management System - Overview
               </p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
               {navigating && (
-                <div className="text-sm text-blue-600 flex items-center">
-                  <ArrowPathIcon className="w-4 h-4 mr-1 animate-spin" />
-                  Navigating...
+                <div className="text-xs sm:text-sm text-blue-600 flex items-center">
+                  <ArrowPathIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 animate-spin" />
+                  <span className="hidden sm:inline">Navigating...</span>
                 </div>
               )}
               {lastUpdated && (
-                <div className="text-sm text-gray-500 flex items-center">
-                  <ClockIcon className="w-4 h-4 mr-1" />
-                  Last updated: {lastUpdated.toLocaleTimeString()}
+                <div className="text-xs sm:text-sm text-gray-500 flex items-center">
+                  <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span className="hidden sm:inline">Last updated: {lastUpdated.toLocaleTimeString()}</span>
+                  <span className="sm:hidden">{lastUpdated.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                 </div>
               )}
               <button
@@ -640,28 +641,29 @@ function AdminDashboard() {
                   refreshing 
                     ? 'border border-gray-200 bg-gray-100 text-gray-500' 
                     : 'border border-gray-200 bg-[#800000] text-white hover:bg-[#a83232]'
-                } h-9 px-3`}
+                } h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm`}
               >
-                <ArrowPathIcon className={`h-4 w-4 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
-                {refreshing ? 'Refreshing...' : 'Refresh'}
+                <ArrowPathIcon className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                <span className="sm:hidden">↻</span>
               </button>
             </div>
           </div>
           
           {/* Current Semester Display */}
-          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <CalendarDaysIcon className="w-5 h-5 text-blue-600 mr-2" />
-                <span className="font-medium text-gray-700 mr-2">Current Academic Year:</span>
-                <span className={`${stats.semester.name === "Not Available" || stats.semester.name === "Not Set" ? "text-orange-600" : "text-blue-600"} font-bold`}>
+          <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-3 sm:p-4 rounded-lg border border-blue-200">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+              <div className="flex items-center flex-wrap">
+                <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 mr-2" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 mr-2">Current Academic Year:</span>
+                <span className={`text-xs sm:text-sm ${stats.semester.name === "Not Available" || stats.semester.name === "Not Set" ? "text-orange-600" : "text-blue-600"} font-bold`}>
                   {stats.semester.name}
                 </span>
               </div>
               {!error && (
                 <div className="flex items-center text-green-600">
-                  <CheckCircleIcon className="w-4 h-4 mr-1" />
-                  <span className="text-sm font-medium">System Online</span>
+                  <CheckCircleIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                  <span className="text-xs sm:text-sm font-medium">System Online</span>
                 </div>
               )}
             </div>
@@ -670,19 +672,20 @@ function AdminDashboard() {
 
         {/* Tab Navigation */}
         <div className="rounded-xl border bg-white shadow">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('medical')}
                 className={`${
                   activeTab === 'medical'
                     ? 'border-[#800000] text-[#800000]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
+                } whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200`}
               >
                 <div className="flex items-center">
-                  <UserGroupIcon className="w-4 h-4 mr-2" />
-                  Medical Consultations
+                  <UserGroupIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Medical Consultations</span>
+                  <span className="sm:hidden">Medical</span>
                 </div>
               </button>
               <button
@@ -691,11 +694,12 @@ function AdminDashboard() {
                   activeTab === 'dental'
                     ? 'border-[#800000] text-[#800000]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
+                } whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200`}
               >
                 <div className="flex items-center">
-                  <UserGroupIcon className="w-4 h-4 mr-2" />
-                  Dental Consultations
+                  <UserGroupIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Dental Consultations</span>
+                  <span className="sm:hidden">Dental</span>
                 </div>
               </button>
               <button
@@ -704,11 +708,12 @@ function AdminDashboard() {
                   activeTab === 'certificates'
                     ? 'border-[#800000] text-[#800000]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200`}
+                } whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm transition-colors duration-200`}
               >
                 <div className="flex items-center">
-                  <DocumentTextIcon className="w-4 h-4 mr-2" />
-                  Medical Certificates
+                  <DocumentTextIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">Medical Certificates</span>
+                  <span className="sm:hidden">Certificates</span>
                 </div>
               </button>
             </nav>
@@ -748,15 +753,15 @@ function AdminDashboard() {
         ) : (
           <>
             {/* Statistics Cards */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
               {/* Medical Consultations Card */}
               <div className="rounded-xl border bg-white shadow">
-                <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-sm font-medium">Medical</h3>
-                  <UserGroupIcon className="h-4 w-4 text-gray-600" />
+                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
+                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Medical</h3>
+                  <UserGroupIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                 </div>
-                <div className="p-6 pt-0">
-                  <div className="text-2xl font-bold">{stats.medical.total}</div>
+                <div className="p-3 sm:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl font-bold">{stats.medical.total}</div>
                   <p className="text-xs text-gray-600">
                     {medicalCompletionRate.toFixed(1)}% completion rate
                   </p>
@@ -765,12 +770,12 @@ function AdminDashboard() {
 
               {/* Dental Consultations Card */}
               <div className="rounded-xl border bg-white shadow">
-                <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-sm font-medium">Dental</h3>
-                  <UserGroupIcon className="h-4 w-4 text-gray-600" />
+                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
+                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Dental</h3>
+                  <UserGroupIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                 </div>
-                <div className="p-6 pt-0">
-                  <div className="text-2xl font-bold">{stats.dental.total}</div>
+                <div className="p-3 sm:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl font-bold">{stats.dental.total}</div>
                   <p className="text-xs text-gray-600">
                     {dentalCompletionRate.toFixed(1)}% completion rate
                   </p>
@@ -779,12 +784,12 @@ function AdminDashboard() {
 
               {/* Total Patients Card */}
               <div className="rounded-xl border bg-white shadow">
-                <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-sm font-medium">Patients</h3>
-                  <UserGroupIcon className="h-4 w-4 text-gray-600" />
+                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
+                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Patients</h3>
+                  <UserGroupIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                 </div>
-                <div className="p-6 pt-0">
-                  <div className="text-2xl font-bold">{stats.patients.total}</div>
+                <div className="p-3 sm:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl font-bold">{stats.patients.total}</div>
                   <p className="text-xs text-gray-600">
                     {patientsVerificationRate.toFixed(1)}% verified
                   </p>
@@ -793,12 +798,12 @@ function AdminDashboard() {
 
               {/* Documents Card */}
               <div className="rounded-xl border bg-white shadow">
-                <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-sm font-medium">Documents</h3>
-                  <DocumentTextIcon className="h-4 w-4 text-gray-600" />
+                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
+                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Documents</h3>
+                  <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
                 </div>
-                <div className="p-6 pt-0">
-                  <div className="text-2xl font-bold">{stats.documents.issued}</div>
+                <div className="p-3 sm:p-6 pt-0">
+                  <div className="text-xl sm:text-2xl font-bold">{stats.documents.issued}</div>
                   <p className="text-xs text-gray-600">
                     {documentsCompletionRate.toFixed(1)}% completion rate
                   </p>
@@ -808,17 +813,18 @@ function AdminDashboard() {
 
             {/* User Type Configuration Status */}
             <div className="rounded-xl border bg-white shadow">
-              <div className="p-6 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <UserGroupIcon className="w-5 h-5 mr-2 text-[#800000]" />
-                  User Type Configuration Status
+              <div className="p-4 sm:p-6 border-b border-gray-200">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
+                  <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#800000]" />
+                  <span className="hidden sm:inline">User Type Configuration Status</span>
+                  <span className="sm:hidden">User Types</span>
                 </h3>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">
                   System configuration overview and user type management
                 </p>
               </div>
-              <div className="p-6">
-                <div className="grid gap-4 md:grid-cols-3">
+              <div className="p-4 sm:p-6">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {/* Total Configurations */}
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between mb-2">
@@ -880,13 +886,13 @@ function AdminDashboard() {
 
             {/* Tab Content with User Type Organization */}
             {activeTab === 'medical' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Medical Overview by User Type */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {getUserTypeData().slice(0, 6).map((userType, index) => (
                     <div 
                       key={userType.userType} 
-                      className="rounded-xl border bg-white shadow p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
+                      className="rounded-xl border bg-white shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
                       onClick={() => handleUserTypeClick(userType.userType)}
                     >
                       <div className="flex items-center justify-between mb-4">
@@ -926,9 +932,9 @@ function AdminDashboard() {
                 </div>
 
                 {/* Medical Quick Actions */}
-                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-6">
-                  <h3 className="text-lg font-semibold mb-4">Medical Consultation Actions</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Medical Consultation Actions</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <button
                       onClick={() => handleQuickAction('medical-forms')}
                       disabled={navigating}
@@ -959,9 +965,9 @@ function AdminDashboard() {
             )}
 
             {activeTab === 'dental' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Dental Overview by User Type */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {getUserTypeData().slice(0, 6).map((userType, index) => (
                     <div 
                       key={userType.userType} 
@@ -1005,9 +1011,9 @@ function AdminDashboard() {
                 </div>
 
                 {/* Dental Quick Actions */}
-                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-6">
-                  <h3 className="text-lg font-semibold mb-4">Dental Services Actions</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Dental Services Actions</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <button
                       onClick={() => handleQuickAction('dental-forms')}
                       disabled={navigating}
@@ -1038,9 +1044,9 @@ function AdminDashboard() {
             )}
 
             {activeTab === 'certificates' && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {/* Certificate Overview by User Type */}
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {getUserTypeData().slice(0, 6).map((userType, index) => (
                     <div 
                       key={userType.userType} 
@@ -1084,9 +1090,9 @@ function AdminDashboard() {
                 </div>
 
                 {/* Certificate Quick Actions */}
-                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-6">
-                  <h3 className="text-lg font-semibold mb-4">Medical Certificate Actions</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Medical Certificate Actions</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <button
                       onClick={() => handleQuickAction('issue-certificate')}
                       disabled={navigating}
@@ -1117,24 +1123,24 @@ function AdminDashboard() {
             )}
 
             {/* Enhanced Chart and Activity Section with Chart.js */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-7">
               {/* Monthly Trends Bar Chart */}
-              <div className="col-span-4 rounded-xl border bg-white shadow">
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+              <div className="lg:col-span-4 rounded-xl border bg-white shadow">
+                <div className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold text-slate-900">Monthly Activity Trends</h3>
-                      <p className="text-sm text-slate-600">Transaction trends across all services</p>
+                      <h3 className="text-base sm:text-lg font-semibold text-slate-900">Monthly Activity Trends</h3>
+                      <p className="text-xs sm:text-sm text-slate-600">Transaction trends across all services</p>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-slate-200 bg-white hover:bg-slate-50 h-8 px-3 text-slate-700">
-                        <ClockIcon className="w-4 h-4 mr-1" />
+                    <div className="flex items-center space-x-2 w-full sm:w-auto">
+                      <button className="inline-flex items-center justify-center rounded-md text-xs sm:text-sm font-medium transition-colors border border-slate-200 bg-white hover:bg-slate-50 h-8 px-2 sm:px-3 text-slate-700 w-full sm:w-auto">
+                        <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                         Last 6 months
                       </button>
                     </div>
                   </div>
                   
-                  <div className="h-[280px]" id="monthly-trends-chart">
+                  <div className="h-[200px] sm:h-[280px]" id="monthly-trends-chart">
                     {stats.monthly_trends && Array.isArray(stats.monthly_trends) && stats.monthly_trends.length > 0 ? (
                       <BarChart
                         data={{
@@ -1174,10 +1180,10 @@ function AdminDashboard() {
               </div>
 
               {/* User Type Activity Feed */}
-              <div className="col-span-3 rounded-xl border bg-white shadow">
-                <div className="p-6">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-4">User Type Activity</h3>
-                  <div className="space-y-4 max-h-80 overflow-y-auto">
+              <div className="lg:col-span-3 rounded-xl border bg-white shadow">
+                <div className="p-4 sm:p-6">
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">User Type Activity</h3>
+                  <div className="space-y-3 sm:space-y-4 max-h-60 sm:max-h-80 overflow-y-auto">
                     {getUserTypeData() && getUserTypeData().length > 0 ? (
                       getUserTypeData().map((user, index) => (
                         <div key={user.userType} className="flex items-center p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
@@ -1218,9 +1224,9 @@ function AdminDashboard() {
             </div>
 
             {/* Enhanced Chart Analytics Grid */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {/* Service Distribution Doughnut Chart */}
-              <div className="rounded-xl border bg-white shadow p-6">
+              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold text-slate-900">Service Distribution</h3>
                   <p className="text-sm text-slate-600">Overview of all health services</p>
@@ -1253,12 +1259,12 @@ function AdminDashboard() {
               </div>
 
               {/* Completion Rates Progress Chart */}
-              <div className="rounded-xl border bg-white shadow p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Completion Rates</h3>
-                  <p className="text-sm text-slate-600">Service completion performance</p>
+              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
+                <div className="mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Completion Rates</h3>
+                  <p className="text-xs sm:text-sm text-slate-600">Service completion performance</p>
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   <div>
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-slate-600 font-medium">Medical Consultations</span>
@@ -1326,12 +1332,12 @@ function AdminDashboard() {
               </div>
 
               {/* Top Performing User Types */}
-              <div className="rounded-xl border bg-white shadow p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Top User Types</h3>
-                  <p className="text-sm text-slate-600">Ranked by total activity</p>
+              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
+                <div className="mb-3 sm:mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Top User Types</h3>
+                  <p className="text-xs sm:text-sm text-slate-600">Ranked by total activity</p>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   {getUserTypeData().slice(0, 5).map((user, index) => (
                     <div key={user.userType} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
                       <div className="flex items-center">
@@ -1367,19 +1373,19 @@ function AdminDashboard() {
             </div>
 
             {/* Enhanced Export Reports Section with Time Periods */}
-            <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold mb-1">📊 Comprehensive Reports</h3>
-                  <p className="text-white text-opacity-90 text-sm">Export detailed analytics with charts, graphs, and breakdowns</p>
+                  <h3 className="text-base sm:text-lg font-semibold mb-1">📊 Comprehensive Reports</h3>
+                  <p className="text-white text-opacity-90 text-xs sm:text-sm">Export detailed analytics with charts, graphs, and breakdowns</p>
                 </div>
-                <ArrowDownTrayIcon className="w-6 h-6 text-white text-opacity-80" />
+                <ArrowDownTrayIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white text-opacity-80" />
               </div>
               
               {/* Visual Reports with Charts and Demographics (PDF) */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold mb-3 text-white text-opacity-90">📊 Professional PDF Reports (Charts + Demographics)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="mb-4 sm:mb-6">
+                <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-white text-opacity-90">📊 Professional PDF Reports (Charts + Demographics)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                   <button
                     onClick={() => handlePDFExport('weekly')}
                     disabled={navigating}
@@ -1428,9 +1434,9 @@ function AdminDashboard() {
               </div>
 
               {/* Comprehensive CSV Reports */}
-              <div className="mb-6">
-                <h4 className="text-sm font-semibold mb-3 text-white text-opacity-90">� Comprehensive CSV Reports</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="mb-4 sm:mb-6">
+                <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-white text-opacity-90">📄 Comprehensive CSV Reports</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                   <button
                     onClick={() => handleEnhancedCSVExport('weekly')}
                     className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
