@@ -9,7 +9,7 @@ from .views import (
     FamilyMedicalHistoryItemViewSet, SystemConfigurationViewSet,
     ProfileRequirementViewSet, DocumentRequirementViewSet, CampusScheduleViewSet,
     DentistScheduleViewSet, PatientViewSet as ProfilePatientViewSet,
-    UserTypeInformationViewSet
+    UserTypeInformationViewSet, AnnouncementViewSet
 )
 from .views1 import MedicalFormDataViewSet, PatientViewSet as GeneralPatientViewSet, DentalInformationRecordViewSet
 from .views2 import AppointmentSchedulingViewSet, DentalMedicineSupplyViewSet
@@ -40,6 +40,7 @@ router.register(r'vaccinations', VaccinationViewSet)
 router.register(r'past-medical-histories', PastMedicalHistoryItemViewSet)
 router.register(r'family-medical-histories', FamilyMedicalHistoryItemViewSet)
 router.register(r'content-management', ContentManagementViewSet, basename='content-management')
+router.register(r'announcements', AnnouncementViewSet)
 
 auth_router = DefaultRouter()
 auth_router.register(r'auth', AuthViewSet, basename='auth')

@@ -1170,7 +1170,15 @@ class AcademicSchoolYear(models.Model):
         ('completed', 'Completed'),
     ]
     
+    SEMESTER_TYPE_CHOICES = [
+        ('1st', '1st Semester'),
+        ('2nd', '2nd Semester'),
+        ('Summer', 'Summer'),
+        ('Full Year', 'Full Academic Year'),
+    ]
+    
     academic_year = models.CharField(max_length=20, help_text='e.g., "2025-2026"')
+    semester_type = models.CharField(max_length=20, choices=SEMESTER_TYPE_CHOICES, default='1st', help_text='Semester type')
     start_date = models.DateField()
     end_date = models.DateField()
     is_current = models.BooleanField(default=False)
@@ -1189,44 +1197,40 @@ class AcademicSchoolYear(models.Model):
     
     class Meta:
         db_table = 'api_academicschoolyear'  # Updated table name
-        ordering = ['-academic_year']
+        ordering = ['-academic_year', '-semester_type']
+        unique_together = [['academic_year', 'semester_type']]  # Ensure unique combination
+        constraints = [
+            models.UniqueConstraint(
+                fields=['academic_year', 'semester_type'],
+                name='unique_academic_year_semester'
+            )
+        ]
     
     def __str__(self):
-        return f"{self.academic_year}"
+        return f"{self.academic_year} - {self.semester_type}"
     
     def save(self, *args, **kwargs):
-        """Ensure only one current academic school year and validate semester dates"""
-        # Validate semester dates if they are provided
-        if self.first_sem_start and self.first_sem_end:
-            if self.first_sem_start >= self.first_sem_end:
-                raise ValueError("First semester start date must be before end date")
-        
-        if self.second_sem_start and self.second_sem_end:
-            if self.second_sem_start >= self.second_sem_end:
-                raise ValueError("Second semester start date must be before end date")
-        
-        if self.summer_start and self.summer_end:
-            if self.summer_start >= self.summer_end:
-                raise ValueError("Summer semester start date must be before end date")
-        
-        # Ensure semester periods don't overlap (if all dates are provided)
-        if (self.first_sem_end and self.second_sem_start and 
-            self.first_sem_end >= self.second_sem_start):
-            raise ValueError("First semester must end before second semester starts")
-        
-        if (self.second_sem_end and self.summer_start and 
-            self.second_sem_end >= self.summer_start):
-            raise ValueError("Second semester must end before summer semester starts")
-        
-        # Update overall start and end dates based on semesters (if semester dates are provided)
-        if self.first_sem_start:
+        """Ensure only one current semester and set dates based on semester_type"""
+        # Set start and end dates based on semester_type if specific semester dates are provided
+        if self.semester_type == '1st' and self.first_sem_start and self.first_sem_end:
             self.start_date = self.first_sem_start
-        if self.summer_end:
+            self.end_date = self.first_sem_end
+        elif self.semester_type == '2nd' and self.second_sem_start and self.second_sem_end:
+            self.start_date = self.second_sem_start
+            self.end_date = self.second_sem_end
+        elif self.semester_type == 'Summer' and self.summer_start and self.summer_end:
+            self.start_date = self.summer_start
             self.end_date = self.summer_end
         
+        # Validate start and end dates
+        if self.start_date and self.end_date:
+            if self.start_date >= self.end_date:
+                raise ValueError(f"{self.semester_type} semester start date must be before end date")
+        
         if self.is_current:
-            # Set all other academic school years to not current
+            # Set all other semesters to not current
             AcademicSchoolYear.objects.filter(is_current=True).exclude(pk=self.pk).update(is_current=False)
+        
         super().save(*args, **kwargs)
 
     def get_current_semester(self):
@@ -1285,6 +1289,80 @@ class AcademicSchoolYear(models.Model):
                 school_year.save()
                 return school_year
             return None
+    
+    @classmethod
+    def create_academic_year_with_semesters(cls, academic_year, 
+                                           first_sem_start, first_sem_end,
+                                           second_sem_start, second_sem_end,
+                                           summer_start, summer_end,
+                                           status='upcoming'):
+        """
+        Create all three semesters for an academic year at once.
+        
+        Args:
+            academic_year: String like "2026-2027"
+            first_sem_start, first_sem_end: Dates for 1st semester
+            second_sem_start, second_sem_end: Dates for 2nd semester
+            summer_start, summer_end: Dates for summer semester
+            status: Status for all semesters (default 'upcoming')
+        
+        Returns:
+            List of created semester objects [first_sem, second_sem, summer_sem]
+        """
+        semesters = []
+        
+        # Create 1st Semester
+        first_sem = cls.objects.create(
+            academic_year=academic_year,
+            semester_type='1st',
+            start_date=first_sem_start,
+            end_date=first_sem_end,
+            first_sem_start=first_sem_start,
+            first_sem_end=first_sem_end,
+            second_sem_start=second_sem_start,
+            second_sem_end=second_sem_end,
+            summer_start=summer_start,
+            summer_end=summer_end,
+            status=status,
+            is_current=False
+        )
+        semesters.append(first_sem)
+        
+        # Create 2nd Semester
+        second_sem = cls.objects.create(
+            academic_year=academic_year,
+            semester_type='2nd',
+            start_date=second_sem_start,
+            end_date=second_sem_end,
+            first_sem_start=first_sem_start,
+            first_sem_end=first_sem_end,
+            second_sem_start=second_sem_start,
+            second_sem_end=second_sem_end,
+            summer_start=summer_start,
+            summer_end=summer_end,
+            status=status,
+            is_current=False
+        )
+        semesters.append(second_sem)
+        
+        # Create Summer Semester
+        summer_sem = cls.objects.create(
+            academic_year=academic_year,
+            semester_type='Summer',
+            start_date=summer_start,
+            end_date=summer_end,
+            first_sem_start=first_sem_start,
+            first_sem_end=first_sem_end,
+            second_sem_start=second_sem_start,
+            second_sem_end=second_sem_end,
+            summer_start=summer_start,
+            summer_end=summer_end,
+            status=status,
+            is_current=False
+        )
+        semesters.append(summer_sem)
+        
+        return semesters
 
 
 class ComorbidIllness(models.Model):
@@ -1769,3 +1847,82 @@ class ContentManagement(models.Model):
             ]
             content.save()
         return content
+
+
+class Announcement(models.Model):
+    """Model for system-wide announcements"""
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    ]
+    
+    title = models.CharField(max_length=200, help_text='Announcement title')
+    message = models.TextField(help_text='Announcement message content')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium', help_text='Priority level of the announcement')
+    icon = models.CharField(max_length=50, default='📢', help_text='Emoji or icon for the announcement')
+    
+    is_active = models.BooleanField(default=True, help_text='Whether this announcement is currently active')
+    show_on_login = models.BooleanField(default=True, help_text='Show this announcement to users upon login')
+    
+    target_all_users = models.BooleanField(default=True, help_text='Show to all users')
+    target_user_types = models.JSONField(default=list, blank=True, help_text='List of user types to show this announcement to (e.g., ["student", "staff"])')
+    target_grade_levels = models.JSONField(default=list, blank=True, help_text='List of grade levels to show this announcement to (e.g., ["College", "Incoming Freshman"])')
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='created_announcements')
+    
+    expires_at = models.DateTimeField(null=True, blank=True, help_text='Optional expiration date for the announcement')
+    
+    class Meta:
+        ordering = ['-created_at']
+        
+    def __str__(self):
+        return f"{self.title} ({self.priority})"
+    
+    def is_expired(self):
+        """Check if announcement has expired"""
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False
+    
+    def should_show_to_user(self, user):
+        """Check if this announcement should be shown to a specific user"""
+        if not self.is_active or self.is_expired():
+            return False
+        
+        # Check if already viewed
+        if UserAnnouncementView.objects.filter(user=user, announcement=self).exists():
+            return False
+        
+        # Check targeting
+        if self.target_all_users:
+            return True
+        
+        # Check user type targeting
+        if self.target_user_types and user.user_type in self.target_user_types:
+            return True
+        
+        # Check grade level targeting
+        if self.target_grade_levels and user.grade_level:
+            for grade in self.target_grade_levels:
+                if grade.lower() in user.grade_level.lower():
+                    return True
+        
+        return False
+
+
+class UserAnnouncementView(models.Model):
+    """Track which users have viewed which announcements"""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='announcement_views')
+    announcement = models.ForeignKey(Announcement, on_delete=models.CASCADE, related_name='user_views')
+    viewed_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['user', 'announcement']
+        ordering = ['-viewed_at']
+    
+    def __str__(self):
+        return f"{self.user.email} viewed {self.announcement.title}"

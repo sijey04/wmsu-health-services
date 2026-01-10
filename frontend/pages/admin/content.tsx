@@ -13,7 +13,7 @@ interface PostLoginOption {
 }
 
 export default function AdminContentManagement() {
-  const [activeTab, setActiveTab] = useState('hero');
+  const [activeTab, setActiveTab] = useState<'hero' | 'announcements' | 'services' | 'hours' | 'cta' | 'modal'>('hero');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -63,9 +63,43 @@ export default function AdminContentManagement() {
   const [newOptionShowForAll, setNewOptionShowForAll] = useState(true);
   const [newOptionGradeLevels, setNewOptionGradeLevels] = useState('');
 
+  // Announcement Modal System States
+  const [systemAnnouncements, setSystemAnnouncements] = useState<any[]>([]);
+  const [newAnnTitle, setNewAnnTitle] = useState('');
+  const [newAnnMessage, setNewAnnMessage] = useState('');
+  const [newAnnPriority, setNewAnnPriority] = useState('medium');
+  const [newAnnIcon, setNewAnnIcon] = useState('📢');
+  const [newAnnTargetAll, setNewAnnTargetAll] = useState(true);
+  const [newAnnTargetUserTypes, setNewAnnTargetUserTypes] = useState('');
+  const [newAnnTargetGradeLevels, setNewAnnTargetGradeLevels] = useState('');
+  const [newAnnExpiresAt, setNewAnnExpiresAt] = useState('');
+  const [editingAnnouncement, setEditingAnnouncement] = useState<any>(null);
+
   useEffect(() => {
     fetchContent();
+    fetchSystemAnnouncements();
   }, []);
+
+  const fetchSystemAnnouncements = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+      
+      const response = await fetch('http://localhost:8000/api/announcements/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSystemAnnouncements(data);
+      }
+    } catch (error) {
+      console.error('Error fetching system announcements:', error);
+    }
+  };
 
   const fetchContent = async () => {
     try {
@@ -267,6 +301,150 @@ export default function AdminContentManagement() {
     ));
   };
 
+  const createOrUpdateSystemAnnouncement = async () => {
+    if (!newAnnTitle || !newAnnMessage) {
+      alert('Please provide title and message for the announcement.');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        alert('You must be logged in.');
+        return;
+      }
+
+      const targetUserTypes = newAnnTargetUserTypes
+        ? newAnnTargetUserTypes.split(',').map(t => t.trim()).filter(t => t)
+        : [];
+      
+      const targetGradeLevels = newAnnTargetGradeLevels
+        ? newAnnTargetGradeLevels.split(',').map(t => t.trim()).filter(t => t)
+        : [];
+
+      const payload = {
+        title: newAnnTitle,
+        message: newAnnMessage,
+        priority: newAnnPriority,
+        icon: newAnnIcon || '📢',
+        is_active: true,
+        show_on_login: true,
+        target_all_users: newAnnTargetAll,
+        target_user_types: targetUserTypes.length > 0 ? targetUserTypes : [],
+        target_grade_levels: targetGradeLevels.length > 0 ? targetGradeLevels : [],
+        expires_at: newAnnExpiresAt || null,
+      };
+
+      const url = editingAnnouncement
+        ? `http://localhost:8000/api/announcements/${editingAnnouncement.id}/`
+        : 'http://localhost:8000/api/announcements/';
+      
+      const method = editingAnnouncement ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        alert(editingAnnouncement ? 'Announcement updated!' : 'Announcement created!');
+        await fetchSystemAnnouncements();
+        // Reset form
+        setNewAnnTitle('');
+        setNewAnnMessage('');
+        setNewAnnPriority('medium');
+        setNewAnnIcon('📢');
+        setNewAnnTargetAll(true);
+        setNewAnnTargetUserTypes('');
+        setNewAnnTargetGradeLevels('');
+        setNewAnnExpiresAt('');
+        setEditingAnnouncement(null);
+      } else {
+        const error = await response.json();
+        alert(`Failed: ${JSON.stringify(error)}`);
+      }
+    } catch (error) {
+      console.error('Error creating/updating announcement:', error);
+      alert('Failed to save announcement.');
+    }
+  };
+
+  const editSystemAnnouncement = (announcement: any) => {
+    setEditingAnnouncement(announcement);
+    setNewAnnTitle(announcement.title);
+    setNewAnnMessage(announcement.message);
+    setNewAnnPriority(announcement.priority);
+    setNewAnnIcon(announcement.icon);
+    setNewAnnTargetAll(announcement.target_all_users);
+    setNewAnnTargetUserTypes(announcement.target_user_types?.join(', ') || '');
+    setNewAnnTargetGradeLevels(announcement.target_grade_levels?.join(', ') || '');
+    setNewAnnExpiresAt(announcement.expires_at ? announcement.expires_at.split('T')[0] : '');
+    // Scroll to form
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+  };
+
+  const cancelEditSystemAnnouncement = () => {
+    setEditingAnnouncement(null);
+    setNewAnnTitle('');
+    setNewAnnMessage('');
+    setNewAnnPriority('medium');
+    setNewAnnIcon('📢');
+    setNewAnnTargetAll(true);
+    setNewAnnTargetUserTypes('');
+    setNewAnnTargetGradeLevels('');
+    setNewAnnExpiresAt('');
+  };
+
+  const toggleSystemAnnouncement = async (id: number, currentStatus: boolean) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await fetch(`http://localhost:8000/api/announcements/${id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_active: !currentStatus }),
+      });
+
+      if (response.ok) {
+        await fetchSystemAnnouncements();
+      }
+    } catch (error) {
+      console.error('Error toggling announcement:', error);
+    }
+  };
+
+  const deleteSystemAnnouncement = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this announcement?')) return;
+
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await fetch(`http://localhost:8000/api/announcements/${id}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        alert('Announcement deleted!');
+        await fetchSystemAnnouncements();
+      }
+    } catch (error) {
+      console.error('Error deleting announcement:', error);
+      alert('Failed to delete announcement.');
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -287,7 +465,7 @@ export default function AdminContentManagement() {
         
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="flex border-b border-gray-200 overflow-x-auto">
-            {['hero', 'services', 'hours', 'cta', 'modal'].map((tab) => (
+            {(['hero', 'announcements', 'services', 'hours', 'cta', 'modal'] as const).map((tab) => (
               <button
                 key={tab}
                 className={`py-3 px-6 text-lg font-medium transition-all duration-200 whitespace-nowrap ${
@@ -297,7 +475,8 @@ export default function AdminContentManagement() {
                 }`}
                 onClick={() => setActiveTab(tab)}
               >
-                {tab === 'hero' && 'Hero & Announcements'}
+                {tab === 'hero' && 'Hero & Info'}
+                {tab === 'announcements' && 'Announcement Modals'}
                 {tab === 'services' && 'Services'}
                 {tab === 'hours' && 'Hours & Contact'}
                 {tab === 'cta' && 'Call to Action'}
@@ -374,6 +553,222 @@ export default function AdminContentManagement() {
                   <input type="text" placeholder="Image URL" className="w-full mb-2 p-2 border rounded" value={newActivityImage} onChange={(e) => setNewActivityImage(e.target.value)} />
                   <input type="text" placeholder="Caption" className="w-full mb-2 p-2 border rounded" value={newActivityCaption} onChange={(e) => setNewActivityCaption(e.target.value)} />
                   <button onClick={addActivity} className="bg-[#800000] text-white px-4 py-2 rounded hover:bg-[#a83232]">Add</button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'announcements' && (
+              <div>
+                <h2 className="text-2xl font-bold text-[#800000] mb-4">Announcement Modals</h2>
+                <p className="text-sm text-gray-600 mb-6">
+                  Manage announcements that appear in a modal after users log in. These are separate from the hero section announcements.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                  {systemAnnouncements.map((ann) => {
+                    const priorityColors = {
+                      urgent: 'border-red-500 bg-red-50',
+                      high: 'border-orange-500 bg-orange-50',
+                      medium: 'border-yellow-500 bg-yellow-50',
+                      low: 'border-blue-500 bg-blue-50',
+                    };
+                    const priorityLabels = {
+                      urgent: 'Urgent',
+                      high: 'High',
+                      medium: 'Medium',
+                      low: 'Low',
+                    };
+                    
+                    return (
+                      <div
+                        key={ann.id}
+                        className={`p-4 rounded-lg border-2 ${priorityColors[ann.priority as keyof typeof priorityColors] || 'border-gray-300 bg-white'} ${!ann.is_active ? 'opacity-60' : ''}`}
+                      >
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-2xl">{ann.icon}</span>
+                            <span className={`text-xs px-2 py-1 rounded font-semibold ${
+                              ann.priority === 'urgent' ? 'bg-red-200 text-red-900' :
+                              ann.priority === 'high' ? 'bg-orange-200 text-orange-900' :
+                              ann.priority === 'medium' ? 'bg-yellow-200 text-yellow-900' :
+                              'bg-blue-200 text-blue-900'
+                            }`}>
+                              {priorityLabels[ann.priority as keyof typeof priorityLabels]}
+                            </span>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => toggleSystemAnnouncement(ann.id, ann.is_active)}
+                              className={`text-xs px-2 py-1 rounded font-semibold ${
+                                ann.is_active ? 'bg-green-500 text-white' : 'bg-gray-400 text-white'
+                              }`}
+                            >
+                              {ann.is_active ? 'Active' : 'Inactive'}
+                            </button>
+                            <button
+                              onClick={() => editSystemAnnouncement(ann)}
+                              className="text-blue-600 hover:text-blue-800"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => deleteSystemAnnouncement(ann.id)}
+                              className="text-red-600 hover:text-red-800 text-xl"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                        <h3 className="font-bold text-lg mb-2">{ann.title}</h3>
+                        <p className="text-sm text-gray-700 mb-3 line-clamp-3">{ann.message}</p>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <p>
+                            <strong>Target:</strong>{' '}
+                            {ann.target_all_users
+                              ? 'All Users'
+                              : `${ann.target_user_types?.length > 0 ? `Types: ${ann.target_user_types.join(', ')}` : ''} ${
+                                  ann.target_grade_levels?.length > 0 ? `Grades: ${ann.target_grade_levels.join(', ')}` : ''
+                                }`.trim() || 'No targeting'}
+                          </p>
+                          {ann.expires_at && (
+                            <p>
+                              <strong>Expires:</strong> {new Date(ann.expires_at).toLocaleDateString()}
+                              {ann.is_expired && <span className="text-red-600 ml-2">(Expired)</span>}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-400">
+                            Created by {ann.created_by_name || 'Unknown'} on {new Date(ann.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="bg-gray-50 p-6 rounded-lg border-2 border-[#800000]">
+                  <h3 className="text-xl font-bold text-[#800000] mb-4">
+                    {editingAnnouncement ? 'Edit Announcement' : 'Create New Announcement'}
+                  </h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Icon (Emoji)</label>
+                        <input
+                          type="text"
+                          placeholder="📢"
+                          className="w-full p-2 border rounded"
+                          value={newAnnIcon}
+                          onChange={(e) => setNewAnnIcon(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                        <select
+                          className="w-full p-2 border rounded"
+                          value={newAnnPriority}
+                          onChange={(e) => setNewAnnPriority(e.target.value)}
+                        >
+                          <option value="low">Low (Blue)</option>
+                          <option value="medium">Medium (Yellow)</option>
+                          <option value="high">High (Orange)</option>
+                          <option value="urgent">Urgent (Red)</option>
+                        </select>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+                      <input
+                        type="text"
+                        placeholder="Announcement Title"
+                        className="w-full p-2 border rounded"
+                        value={newAnnTitle}
+                        onChange={(e) => setNewAnnTitle(e.target.value)}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Message *</label>
+                      <textarea
+                        placeholder="Full announcement message..."
+                        className="w-full p-2 border rounded"
+                        rows={4}
+                        value={newAnnMessage}
+                        onChange={(e) => setNewAnnMessage(e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Expiration Date (Optional)</label>
+                      <input
+                        type="date"
+                        className="w-full p-2 border rounded"
+                        value={newAnnExpiresAt}
+                        onChange={(e) => setNewAnnExpiresAt(e.target.value)}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Leave empty for no expiration</p>
+                    </div>
+
+                    <div className="border-t pt-4">
+                      <h4 className="font-semibold text-gray-700 mb-3">Targeting Options</h4>
+                      <div className="flex items-center gap-2 mb-3">
+                        <input
+                          type="checkbox"
+                          id="targetAll"
+                          checked={newAnnTargetAll}
+                          onChange={(e) => setNewAnnTargetAll(e.target.checked)}
+                        />
+                        <label htmlFor="targetAll" className="text-sm font-medium">Show to all users</label>
+                      </div>
+                      
+                      {!newAnnTargetAll && (
+                        <>
+                          <div className="mb-3">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Target User Types (comma-separated)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="student, faculty, staff"
+                              className="w-full p-2 border rounded"
+                              value={newAnnTargetUserTypes}
+                              onChange={(e) => setNewAnnTargetUserTypes(e.target.value)}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Target Grade Levels (comma-separated)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Freshman, Sophomore, Junior, Senior"
+                              className="w-full p-2 border rounded"
+                              value={newAnnTargetGradeLevels}
+                              onChange={(e) => setNewAnnTargetGradeLevels(e.target.value)}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={createOrUpdateSystemAnnouncement}
+                        className="bg-[#800000] text-white px-6 py-2 rounded hover:bg-[#a83232] font-semibold"
+                      >
+                        {editingAnnouncement ? 'Update Announcement' : 'Create Announcement'}
+                      </button>
+                      {editingAnnouncement && (
+                        <button
+                          onClick={cancelEditSystemAnnouncement}
+                          className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

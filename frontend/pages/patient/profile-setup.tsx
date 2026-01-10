@@ -210,12 +210,14 @@ export default function PatientProfileSetupPage() {
     setError('');
     try {
       // Build query parameters for semester-specific profile
+      // currentSchoolYear now contains the complete semester record (academic_year + semester_type)
       const params: any = {};
       if (currentSchoolYear?.id) {
+        // Use the semester record ID which already ties to academic_year + semester_type
         params.school_year = currentSchoolYear.id;
-      }
-      if (currentSemester) {
-        params.semester = currentSemester;
+        console.log('Fetching profile for semester record ID:', currentSchoolYear.id);
+        console.log('Academic Year:', currentSchoolYear.academic_year);
+        console.log('Semester Type:', currentSchoolYear.semester_type);
       }
       
       const res = await patientProfileAPI.get(params);
@@ -993,47 +995,40 @@ export default function PatientProfileSetupPage() {
   useEffect(() => {
     async function loadCurrentSchoolYear() {
       try {
+        // Fetch the current semester record (which is now a complete AcademicSchoolYear record with semester_type)
         const response = await djangoApiClient.get('/academic-school-years/current/');
         if (response.data) {
           setCurrentSchoolYear(response.data);
-          console.log('Loaded current school year:', response.data);
+          console.log('Loaded current semester record:', response.data);
+          console.log('Academic Year:', response.data.academic_year);
+          console.log('Semester Type:', response.data.semester_type);
+          console.log('Semester ID:', response.data.id);
           
-          // Determine current semester
-          const schoolYear = response.data;
-          let currentSem = '';
-          
-          if (schoolYear.first_sem_start && schoolYear.first_sem_end && 
-              schoolYear.second_sem_start && schoolYear.second_sem_end &&
-              schoolYear.summer_start && schoolYear.summer_end) {
-            
-            const today = new Date();
-            const firstSemStart = new Date(schoolYear.first_sem_start);
-            const firstSemEnd = new Date(schoolYear.first_sem_end);
-            const secondSemStart = new Date(schoolYear.second_sem_start);
-            const secondSemEnd = new Date(schoolYear.second_sem_end);
-            const summerStart = new Date(schoolYear.summer_start);
-            const summerEnd = new Date(schoolYear.summer_end);
-            
-            if (today >= firstSemStart && today <= firstSemEnd) {
-              currentSem = '1st_semester';
-            } else if (today >= secondSemStart && today <= secondSemEnd) {
-              currentSem = '2nd_semester';
-            } else if (today >= summerStart && today <= summerEnd) {
-              currentSem = 'summer';
-            } else {
-              // Default to first semester if we're outside all periods
-              currentSem = '1st_semester';
-            }
-          } else {
-            // Default to first semester if semester dates aren't configured
-            currentSem = '1st_semester';
+          // Store semester type for display purposes
+          // Map semester_type to internal format for compatibility
+          let semesterCode = '';
+          switch (response.data.semester_type) {
+            case '1st':
+              semesterCode = '1st_semester';
+              break;
+            case '2nd':
+              semesterCode = '2nd_semester';
+              break;
+            case 'Summer':
+              semesterCode = 'summer';
+              break;
+            case 'Full Year':
+              semesterCode = 'full_year';
+              break;
+            default:
+              semesterCode = '1st_semester';
           }
           
-          setCurrentSemester(currentSem);
-          console.log('Current semester determined as:', currentSem);
+          setCurrentSemester(semesterCode);
+          console.log('Current semester code:', semesterCode);
         }
       } catch (error) {
-        console.error('Error loading current school year:', error);
+        console.error('Error loading current semester:', error);
         // Continue without school year if API fails
         setCurrentSemester('1st_semester'); // Default semester
       }
@@ -1585,12 +1580,13 @@ export default function PatientProfileSetupPage() {
         formData.append('photo', photoFile);
       }
 
-      // Add school year and semester if available
+      // Add school year (semester record) - this already includes academic_year + semester_type
       if (currentSchoolYear?.id) {
         formData.append('school_year', currentSchoolYear.id.toString());
-      }
-      if (currentSemester) {
-        formData.append('semester', currentSemester);
+        console.log('Saving profile for semester record ID:', currentSchoolYear.id);
+        console.log('Academic Year:', currentSchoolYear.academic_year, 'Semester:', currentSchoolYear.semester_type);
+      } else {
+        console.warn('No current semester record available - profile will be created without semester association');
       }
 
       // Check if we need to create a new profile version or update existing one

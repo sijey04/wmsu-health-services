@@ -27,6 +27,7 @@ interface Patient {
   blood_type?: string;
   religion?: string;
   nationality?: string;
+  nationality_specify?: string;
   civil_status?: string;
   
   // Emergency contact
@@ -314,7 +315,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                       {profile.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : ''}
                     </td>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50">Nationality:</td>
-                    <td className="border border-gray-400 p-2">{profile.nationality || ''}</td>
+                    <td className="border border-gray-400 p-2">
+                      {profile.nationality === 'Foreigner' && profile.nationality_specify ? (
+                        `${profile.nationality_specify}`
+                      ) : (
+                        profile.nationality || ''
+                      )}
+                    </td>
                   </tr>
                   <tr>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50">Email:</td>
@@ -467,46 +474,88 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             
             <div className="pl-24 p-4">
               <div className="mb-2 font-medium text-sm">Reported Conditions:</div>
-              <div className="border border-gray-400 p-3 min-h-[60px] bg-gray-50 space-y-2">
-                {/* General Comorbid Illnesses */}
-                {profile.comorbid_illnesses && profile.comorbid_illnesses.length > 0 ? (
-                  <div>
-                    <div className="font-medium text-xs text-gray-700 mb-1">Medical Conditions:</div>
-                    <div className="text-sm">{renderArrayData(profile.comorbid_illnesses, 'comorbid_illnesses')}</div>
-                  </div>
-                ) : null}
-                
-                {/* Psychiatric Illnesses */}
-                {profile.psychiatric_illnesses && profile.psychiatric_illnesses.length > 0 ? (
-                  <div>
-                    <div className="font-medium text-xs text-gray-700 mb-1">Psychiatric Conditions:</div>
-                    <div className="text-sm">{renderArrayData(profile.psychiatric_illnesses, 'psychiatric_illnesses')}</div>
-                  </div>
-                ) : null}
-                
-                {/* Food Allergies */}
-                {profile.food_allergy_specify && (
-                  <div>
-                    <div className="font-medium text-xs text-gray-700 mb-1">Food Allergies:</div>
-                    <div className="text-sm">{profile.food_allergy_specify}</div>
-                  </div>
-                )}
-                
-                {/* Other Conditions */}
-                {profile.other_comorbid_specify && (
-                  <div>
-                    <div className="font-medium text-xs text-gray-700 mb-1">Other Condition:</div>
-                    <div className="text-sm">{profile.other_comorbid_specify}</div>
-                  </div>
-                )}
-                
-                {/* Show "None reported" only if all fields are empty */}
-                {(!profile.comorbid_illnesses || profile.comorbid_illnesses.length === 0) &&
-                 (!profile.psychiatric_illnesses || profile.psychiatric_illnesses.length === 0) &&
-                 !profile.food_allergy_specify &&
-                 !profile.other_comorbid_specify && (
-                  <div className="text-gray-500">None reported</div>
-                )}
+              <div className="border border-gray-400 p-3 min-h-[60px] bg-gray-50 space-y-3">
+                {(() => {
+                  const comorbidData = profile.comorbid_illnesses || [];
+                  const foodAllergies: any[] = [];
+                  const psychiatricConditions: any[] = [];
+                  const respiratoryConditions: any[] = [];
+                  const otherConditions: any[] = [];
+                  
+                  // Categorize conditions
+                  comorbidData.forEach((item: any) => {
+                    const itemStr = typeof item === 'string' ? item : (item.name || item.condition || item.illness || '');
+                    const itemLower = itemStr.toLowerCase();
+                    
+                    if (itemLower.includes('food allerg') || itemLower.includes('shellfish') || 
+                        itemLower.includes('nuts') || itemLower.includes('dairy') || 
+                        itemLower.includes('eggs') || itemLower.includes('wheat') || 
+                        itemLower.includes('gluten') || itemLower.includes('soy')) {
+                      foodAllergies.push(item);
+                    } else if (itemLower.includes('psychiatric') || itemLower.includes('depression') || 
+                               itemLower.includes('anxiety') || itemLower.includes('bipolar') || 
+                               itemLower.includes('schizophrenia') || itemLower.includes('ptsd')) {
+                      psychiatricConditions.push(item);
+                    } else if (itemLower.includes('asthma') || itemLower.includes('copd') || 
+                               itemLower.includes('respiratory') || itemLower.includes('bronchitis') || 
+                               itemLower.includes('emphysema')) {
+                      respiratoryConditions.push(item);
+                    } else {
+                      otherConditions.push(item);
+                    }
+                  });
+                  
+                  const hasAnyConditions = foodAllergies.length > 0 || psychiatricConditions.length > 0 || 
+                                          respiratoryConditions.length > 0 || otherConditions.length > 0;
+                  
+                  if (!hasAnyConditions) {
+                    return <div className="text-gray-500">None reported</div>;
+                  }
+                  
+                  return (
+                    <>
+                      {/* Food Allergies */}
+                      {foodAllergies.length > 0 && (
+                        <div>
+                          <div className="font-medium text-xs text-gray-700 mb-1 flex items-center">
+                            <span className="mr-2">🍽️</span> Food Allergies:
+                          </div>
+                          <div className="text-sm pl-5">{renderArrayData(foodAllergies, 'comorbid_illnesses')}</div>
+                        </div>
+                      )}
+                      
+                      {/* Psychiatric Conditions */}
+                      {psychiatricConditions.length > 0 && (
+                        <div>
+                          <div className="font-medium text-xs text-gray-700 mb-1 flex items-center">
+                            <span className="mr-2">🧠</span> Psychiatric Conditions:
+                          </div>
+                          <div className="text-sm pl-5">{renderArrayData(psychiatricConditions, 'comorbid_illnesses')}</div>
+                        </div>
+                      )}
+                      
+                      {/* Respiratory Conditions */}
+                      {respiratoryConditions.length > 0 && (
+                        <div>
+                          <div className="font-medium text-xs text-gray-700 mb-1 flex items-center">
+                            <span className="mr-2">🫁</span> Respiratory Conditions:
+                          </div>
+                          <div className="text-sm pl-5">{renderArrayData(respiratoryConditions, 'comorbid_illnesses')}</div>
+                        </div>
+                      )}
+                      
+                      {/* Other Medical Conditions */}
+                      {otherConditions.length > 0 && (
+                        <div>
+                          <div className="font-medium text-xs text-gray-700 mb-1 flex items-center">
+                            <span className="mr-2">🏥</span> Other Medical Conditions:
+                          </div>
+                          <div className="text-sm pl-5">{renderArrayData(otherConditions, 'comorbid_illnesses')}</div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>

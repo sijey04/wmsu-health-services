@@ -1,31 +1,118 @@
 // frontend/pages/admin/patient-profile-details.tsx
 import AdminLayout from '../../components/AdminLayout';
 import { useRouter } from 'next/router';
+import { useState, useEffect } from 'react';
+import { djangoApiClient, patientsAPI } from '../../utils/api';
+import { PrinterIcon } from '@heroicons/react/24/outline';
 
 export default function PatientProfileDetails() {
   const router = useRouter();
-  const { patient_id } = router.query; // You can use this patient_id to fetch actual patient data
+  const { patient_id } = router.query;
+  
+  const [patient, setPatient] = useState<any>(null);
+  const [semester, setSemester] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (patient_id) {
+      fetchPatientData();
+    }
+  }, [patient_id]);
+
+  const fetchPatientData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      // Fetch patient data
+      const patientRes = await patientsAPI.getById(parseInt(patient_id as string));
+      const patientData = patientRes.data;
+      setPatient(patientData);
+      
+      // Fetch semester information if patient has school_year
+      if (patientData.school_year) {
+        try {
+          const semesterRes = await djangoApiClient.get(`/academic-school-years/${patientData.school_year}/`);
+          setSemester(semesterRes.data);
+        } catch (err) {
+          console.warn('Could not fetch semester data:', err);
+        }
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch patient data:', err);
+      setError('Failed to load patient information.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex justify-center items-center min-h-screen">
+          <div className="text-lg text-gray-600">Loading patient information...</div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error || !patient) {
+    return (
+      <AdminLayout>
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error || 'Patient not found.'}
+          </div>
+          <button
+            onClick={() => router.back()}
+            className="mt-4 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700"
+          >
+            Go Back
+          </button>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>
       <div className="max-w-7xl mx-auto px-4">
         {/* Header Section */}
-        <div className="bg-white p-6 rounded-xl shadow-lg mb-6">
+        <div className="bg-white p-6 rounded-xl shadow-lg mb-6 print:shadow-none">
           <div className="flex items-center justify-between mb-4">
-            <button
-              onClick={() => router.back()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
-            >
-              Back
-            </button>
+            <div className="flex gap-2 print:hidden">
+              <button
+                onClick={() => router.back()}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={handlePrint}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+              >
+                <PrinterIcon className="h-5 w-5 mr-2" />
+                Print Profile
+              </button>
+            </div>
             <div className="text-center flex-grow">
               <h2 className="text-xl font-bold text-[#800000]">WESTERN MINDANAO STATE UNIVERSITY</h2>
               <p className="text-sm text-gray-700">ZAMBOANGA CITY</p>
               <p className="text-sm text-gray-700">UNIVERSITY HEALTH SERVICES CENTER</p>
               <p className="text-sm text-gray-700">Tel. No. (062) 991-8739 | Email: healthservices@wmsu.edu.ph</p>
+              {semester && (
+                <div className="mt-2">
+                  <p className="text-sm font-semibold text-blue-700">
+                    Academic Year: {semester.academic_year} - {semester.semester_type} Semester
+                  </p>
+                </div>
+              )}
             </div>
-            {/* Placeholder for WMSU Logo */}
-            <img src="/path/to/wmsu-logo.png" alt="WMSU Logo" className="h-16 w-16" />
+            <div className="w-16 h-16 print:block hidden">{/* Spacer for print */}</div>
           </div>
           <div className="bg-[#800000] text-white text-center py-2 rounded-md">
             <h3 className="text-lg font-semibold">PATIENT HEALTH PROFILE & CONSULTATIONS RECORD</h3>
@@ -36,15 +123,18 @@ export default function PatientProfileDetails() {
         {/* Main Content Area */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Left Sidebar for Navigation */}
-          <div className="md:col-span-1 bg-[#800000] rounded-xl shadow-lg p-4 text-white">
+          <div className="md:col-span-1 bg-[#800000] rounded-xl shadow-lg p-4 text-white print:hidden">
             <div className="flex items-center mb-4">
               <div className="relative h-20 w-20 rounded-full overflow-hidden bg-gray-300 flex items-center justify-center">
-                {/* Patient Photo Placeholder */}
-                <svg className="h-16 w-16 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" />
-                </svg>
+                {patient.photo ? (
+                  <img src={patient.photo} alt={patient.name} className="h-20 w-20 object-cover" />
+                ) : (
+                  <svg className="h-16 w-16 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4z" />
+                  </svg>
+                )}
               </div>
-              <p className="ml-3 font-semibold">Patient Photo</p>
+              <p className="ml-3 font-semibold">{patient.name}</p>
             </div>
             <ul className="space-y-2">
               <li className="p-2 rounded-md bg-[#600000] font-medium">Personal Information</li>
@@ -58,7 +148,7 @@ export default function PatientProfileDetails() {
           </div>
 
           {/* Right Content Area for Form Fields */}
-          <div className="md:col-span-3 bg-white rounded-xl shadow-lg p-6 space-y-8">
+          <div className="md:col-span-3 bg-white rounded-xl shadow-lg p-6 space-y-8 print:col-span-4 print:shadow-none">
             {/* Personal Information Section */}
             <div>
               <h3 className="text-xl font-bold text-[#800000] mb-4">Personal Information</h3>
@@ -66,70 +156,70 @@ export default function PatientProfileDetails() {
                 <div>
                   <label htmlFor="name-first" className="block text-sm font-medium text-gray-700">Name:</label>
                   <div className="flex space-x-2 mt-1">
-                    <input type="text" id="name-first" defaultValue="Enriquez" className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
-                    <input type="text" id="name-middle" defaultValue="Earn" className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
-                    <input type="text" id="name-last" defaultValue="M" className="w-1/4 border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                    <input type="text" id="name-first" value={patient.first_name || ''} readOnly className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
+                    <input type="text" id="name-middle" value={patient.middle_name || ''} readOnly className="flex-1 border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
+                    <input type="text" id="name-last" value={patient.name?.split(' ').pop() || ''} readOnly className="w-1/4 border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                   </div>
                 </div>
                 <div>
                   <label htmlFor="age" className="block text-sm font-medium text-gray-700">Age:</label>
-                  <input type="text" id="age" defaultValue="21" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="age" value={patient.age || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
                   <label htmlFor="sex" className="block text-sm font-medium text-gray-700">Sex:</label>
-                  <input type="text" id="sex" defaultValue="male" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="sex" value={patient.gender || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
                   <label htmlFor="course" className="block text-sm font-medium text-gray-700">Course:</label>
-                  <input type="text" id="course" defaultValue="BSInfoTech" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="course" value={patient.course || patient.user_type || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
                   <label htmlFor="year-level" className="block text-sm font-medium text-gray-700">Year Level:</label>
-                  <input type="text" id="year-level" defaultValue="3" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="year-level" value={patient.year_level || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
-                  <label htmlFor="birthday" className="block text-sm font-medium text-gray-700">Birthday (MM-DD-YY):</label>
-                  <input type="text" id="birthday" defaultValue="03-25-2004" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <label htmlFor="birthday" className="block text-sm font-medium text-gray-700">Birthday:</label>
+                  <input type="text" id="birthday" value={patient.date_of_birth || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
                   <label htmlFor="religion" className="block text-sm font-medium text-gray-700">Religion:</label>
-                  <input type="text" id="religion" defaultValue="Roman Catholic" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="religion" value={patient.religion || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
                   <label htmlFor="nationality" className="block text-sm font-medium text-gray-700">Nationality:</label>
-                  <input type="text" id="nationality" defaultValue="Filipino" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="nationality" value={patient.nationality === 'Foreigner' && patient.nationality_specify ? patient.nationality_specify : (patient.nationality || 'N/A')} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div>
                   <label htmlFor="civil-status" className="block text-sm font-medium text-gray-700">Civil Status:</label>
-                  <input type="text" id="civil-status" defaultValue="single" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="civil-status" value={patient.civil_status || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div className="md:col-span-2">
                   <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address:</label>
-                  <input type="email" id="email" defaultValue="enriquezearnlmawrence@gmail.com" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="email" id="email" value={patient.email || patient.user_email || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div className="md:col-span-2">
                   <label htmlFor="contact" className="block text-sm font-medium text-gray-700">Contact #:</label>
-                  <input type="text" id="contact" defaultValue="09552431816" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="contact" value={patient.contact_number || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div className="md:col-span-2">
-                  <label htmlFor="city-address" className="block text-sm font-medium text-gray-700">City Address: Zamboanga city</label>
-                  <input type="text" id="city-address" defaultValue="Zamboanga city" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <label htmlFor="city-address" className="block text-sm font-medium text-gray-700">City Address:</label>
+                  <input type="text" id="city-address" value={`${patient.street || ''}, ${patient.barangay || ''}, ${patient.city_municipality || 'Zamboanga City'}`} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div className="md:col-span-2">
                   <label htmlFor="provincial-address" className="block text-sm font-medium text-gray-700">Provincial Address (if applicable):</label>
-                  <input type="text" id="provincial-address" defaultValue="Zamboanga city" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <input type="text" id="provincial-address" value={patient.provincial_address || 'N/A'} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
                 <div className="md:col-span-2">
-                  <label htmlFor="emergency-contact" className="block text-sm font-medium text-gray-700">Emergency Contact Person within Zamboanga City</label>
+                  <label htmlFor="emergency-contact" className="block text-sm font-medium text-gray-700">Emergency Contact Person</label>
                   <div className="grid grid-cols-3 gap-4 mt-1">
-                    <input type="text" defaultValue="Nxhdndndn Jdjdhen jdbdhdh" placeholder="Name" className="border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
-                    <input type="text" defaultValue="09464548457" placeholder="Contact #" className="border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
-                    <input type="text" defaultValue="Spouse" placeholder="Relationship" className="border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                    <input type="text" value={`${patient.emergency_contact_first_name || ''} ${patient.emergency_contact_middle_name || ''} ${patient.emergency_contact_surname || ''}`} readOnly placeholder="Name" className="border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
+                    <input type="text" value={patient.emergency_contact_number || 'N/A'} readOnly placeholder="Contact #" className="border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
+                    <input type="text" value={patient.emergency_contact_relationship || 'N/A'} readOnly placeholder="Relationship" className="border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                   </div>
                 </div>
                 <div className="md:col-span-2">
-                  <label htmlFor="emergency-city-address" className="block text-sm font-medium text-gray-700">City Address: Zamboanga city</label>
-                  <input type="text" id="emergency-city-address" defaultValue="Zamboanga city" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000]" />
+                  <label htmlFor="emergency-city-address" className="block text-sm font-medium text-gray-700">Emergency Contact Address:</label>
+                  <input type="text" id="emergency-city-address" value={`${patient.emergency_contact_street || ''}, ${patient.emergency_contact_barangay || ''}`} readOnly className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 bg-gray-50" />
                 </div>
               </div>
             </div>

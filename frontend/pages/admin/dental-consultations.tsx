@@ -38,10 +38,13 @@ function AdminDentalConsultations() {
   const [searchTodaysTerm, setSearchTodaysTerm] = useState('');
   const debouncedSearchTodaysTerm = useDebounce(searchTodaysTerm, 500);
   
-  // School year filtering state
-  const [schoolYears, setSchoolYears] = useState([]);
-  const [selectedSchoolYear, setSelectedSchoolYear] = useState('');
-  const [loadingSchoolYears, setLoadingSchoolYears] = useState(false);
+  // Semester filtering state (academic_year + semester_type)
+  const [semesters, setSemesters] = useState([]);
+  const [academicYears, setAcademicYears] = useState<string[]>([]);
+  const [selectedSemester, setSelectedSemester] = useState('all');
+  const [selectedAcademicYear, setSelectedAcademicYear] = useState('all');
+  const [currentSemester, setCurrentSemester] = useState<any>(null);
+  const [loadingSemesters, setLoadingSemesters] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -158,7 +161,7 @@ function AdminDentalConsultations() {
     setCurrentPage(1);
   }, [activeTab]);
 
-  const fetchDentalAppointments = (searchTerm = '', sort = 'none', schoolYear = '') => {
+  const fetchDentalAppointments = (searchTerm = '', sort = 'none', semester = 'all') => {
     setLoadingAppointments(true);
     setAppointmentsError(null);
     const params = {
@@ -166,8 +169,13 @@ function AdminDentalConsultations() {
       status: 'pending,confirmed,scheduled,completed', // Include completed appointments
       ordering: sort === 'none' ? '-appointment_date' : sort,
       search: searchTerm,
-      school_year: schoolYear,
     };
+    
+    // Add semester filter using semester record ID
+    if (semester !== 'all') {
+      params['school_year'] = semester;
+    }
+    
     appointmentsAPI.getAll(params)
       .then(res => {
         setDentalAppointments(res.data);
@@ -179,22 +187,27 @@ function AdminDentalConsultations() {
       .finally(() => setLoadingAppointments(false));
   };
 
-  const fetchDentalHistory = (searchTerm = '', filter = 'all', schoolYear = '') => {
+  const fetchDentalHistory = (searchTerm = '', filter = 'all', semester = 'all') => {
     setLoadingHistory(true);
     setHistoryError(null);
     const params = {
       type: 'dental',
       status: filter === 'all' ? 'completed,cancelled' : `${filter},cancelled`,
       search: searchTerm,
-      school_year: schoolYear,
     };
+    
+    // Add semester filter using semester record ID
+    if (semester !== 'all') {
+      params['school_year'] = semester;
+    }
+    
     appointmentsAPI.getAll(params)
       .then(res => setDentalHistory(res.data))
       .catch(error => setHistoryError(error.message || 'Failed to fetch history'))
       .finally(() => setLoadingHistory(false));
   };
 
-  const fetchTodaysAppointments = (searchTerm = '', filter = 'today', schoolYear = '') => {
+  const fetchTodaysAppointments = (searchTerm = '', filter = 'today', semester = 'all') => {
     setLoadingTodaysAppointments(true);
     setTodaysAppointmentsError(null);
     
@@ -221,8 +234,12 @@ function AdminDentalConsultations() {
       appointment_date_after: startDate?.toISOString().split('T')[0],
       appointment_date_before: endDate?.toISOString().split('T')[0],
       search: searchTerm,
-      school_year: schoolYear,
     };
+    
+    // Add semester filter using semester record ID
+    if (semester !== 'all') {
+      params['school_year'] = semester;
+    }
     
     appointmentsAPI.getAll(params)
       .then(res => setTodaysAppointments(res.data))
@@ -230,34 +247,58 @@ function AdminDentalConsultations() {
       .finally(() => setLoadingTodaysAppointments(false));
   };
 
-  const fetchSchoolYears = async () => {
-    setLoadingSchoolYears(true);
+  const fetchSemesters = async () => {
+    setLoadingSemesters(true);
     try {
-      const response = await djangoApiClient.get('/academic-school-years/');
-      setSchoolYears(response.data);
-      // If there's a current school year, select it by default
-      const currentSchoolYear = response.data.find(sy => sy.is_current);
-      if (currentSchoolYear) {
-        setSelectedSchoolYear(currentSchoolYear.id);
+      // Fetch all semester records
+      const response = await djangoApiClient.get('/academic-school-years/', {
+        params: { ordering: '-academic_year,-semester_type' }
+      });
+      const semestersData = response.data || [];
+      setSemesters(semestersData);
+      
+      // Extract unique academic years
+      const academicYearsList: string[] = [];
+      semestersData.forEach((sem: any) => {
+        if (sem.academic_year && !academicYearsList.includes(sem.academic_year)) {
+          academicYearsList.push(sem.academic_year);
+        }
+      });
+      setAcademicYears(academicYearsList);
+      
+      // Set current semester
+      const currentSemesterData = semestersData.find((sem: any) => sem.is_current);
+      if (currentSemesterData) {
+        setCurrentSemester(currentSemesterData);
+        setSelectedSemester(currentSemesterData.id.toString());
       }
     } catch (error) {
-      console.error('Failed to fetch school years:', error);
+      console.error('Failed to fetch semesters:', error);
     } finally {
-      setLoadingSchoolYears(false);
+      setLoadingSemesters(false);
     }
   };
 
-  // Handle school year change from SchoolYearSelector component
-  const handleSchoolYearChange = (schoolYearId: string) => {
-    setSelectedSchoolYear(schoolYearId);
+  // Handle semester change
+  const handleSemesterChange = (semesterId: string) => {
+    setSelectedSemester(semesterId);
+    setSelectedAcademicYear('all'); // Reset academic year filter when selecting specific semester
     
     // Refresh data based on the active tab
     if (activeTab === 'dentalAppointments') {
-      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, schoolYearId);
+      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, semesterId);
     } else if (activeTab === 'history') {
-      fetchDentalHistory(debouncedSearchHistoryTerm, filterHistoryBy, schoolYearId);
+      fetchDentalHistory(debouncedSearchHistoryTerm, filterHistoryBy, semesterId);
     } else if (activeTab === 'todaysAppointments') {
-      fetchTodaysAppointments(debouncedSearchTodaysTerm, timeFilter, schoolYearId);
+      fetchTodaysAppointments(debouncedSearchTodaysTerm, timeFilter, semesterId);
+    }
+  };
+  
+  // Handle academic year change
+  const handleAcademicYearChange = (academicYear: string) => {
+    setSelectedAcademicYear(academicYear);
+    if (academicYear !== 'all') {
+      setSelectedSemester('all'); // Reset semester filter when selecting academic year
     }
   };
 
@@ -265,7 +306,7 @@ function AdminDentalConsultations() {
     try {
       await appointmentsAPI.update(appointmentId, { status: 'confirmed' });
       setFeedbackModal({ open: true, message: 'Appointment approved successfully!' });
-      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSchoolYear);
+      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSemester);
     } catch (error: any) {
       console.error("Failed to approve appointment:", error.response?.data || error);
       setFeedbackModal({ open: true, message: `Failed to approve appointment: ${error.response?.data?.detail || 'Please check the console for more details.'}` });
@@ -280,7 +321,7 @@ function AdminDentalConsultations() {
     try {
       await appointmentsAPI.update(appointmentId, { status: 'cancelled', rejection_reason: reason });
       setFeedbackModal({ open: true, message: 'Appointment cancelled successfully.' });
-      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSchoolYear);
+      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSemester);
     } catch (error: any) {
       console.error("Failed to cancel appointment:", error.response?.data || error);
       setFeedbackModal({ open: true, message: `Failed to cancel appointment: ${error.response?.data?.detail || 'Please check the console for more details.'}` });
@@ -299,7 +340,7 @@ function AdminDentalConsultations() {
         reschedule_reason: reason
       });
       setFeedbackModal({ open: true, message: 'Appointment rescheduled successfully.' });
-      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSchoolYear);
+      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSemester);
       setRescheduleModal({ open: false, appointment: null });
     } catch (error: any) {
       console.error("Failed to reschedule appointment:", error.response?.data || error);
@@ -425,24 +466,24 @@ function AdminDentalConsultations() {
 
   useEffect(() => {
     if (activeTab === 'dentalAppointments') {
-      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSchoolYear);
+      fetchDentalAppointments(debouncedSearchAppointmentsTerm, sortAppointmentsBy, selectedSemester);
     }
-  }, [activeTab, sortAppointmentsBy, debouncedSearchAppointmentsTerm, selectedSchoolYear]);
+  }, [activeTab, sortAppointmentsBy, debouncedSearchAppointmentsTerm, selectedSemester]);
 
   useEffect(() => {
     if (activeTab === 'history') {
-      fetchDentalHistory(debouncedSearchHistoryTerm, filterHistoryBy, selectedSchoolYear);
+      fetchDentalHistory(debouncedSearchHistoryTerm, filterHistoryBy, selectedSemester);
     }
-  }, [activeTab, filterHistoryBy, debouncedSearchHistoryTerm, selectedSchoolYear]);
+  }, [activeTab, filterHistoryBy, debouncedSearchHistoryTerm, selectedSemester]);
 
   useEffect(() => {
     if (activeTab === 'todaysAppointments') {
-      fetchTodaysAppointments(debouncedSearchTodaysTerm, timeFilter, selectedSchoolYear);
+      fetchTodaysAppointments(debouncedSearchTodaysTerm, timeFilter, selectedSemester);
     }
-  }, [activeTab, debouncedSearchTodaysTerm, timeFilter, selectedSchoolYear]);
+  }, [activeTab, debouncedSearchTodaysTerm, timeFilter, selectedSemester]);
 
   useEffect(() => {
-    fetchSchoolYears();
+    fetchSemesters();
   }, []);
 
   const renderTable = (data: any[], loading: boolean, error: string | null, isHistory = false) => {
@@ -650,20 +691,38 @@ function AdminDentalConsultations() {
               </button>
             </div>
             
-            {/* School Year Selector */}
-            <div className="py-2 px-3 sm:py-3 sm:px-6 w-full sm:w-auto">
+            {/* Semester Filters */}
+            <div className="py-2 px-3 sm:py-3 sm:px-6 w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+              {/* Academic Year Filter */}
               <select
-                value={selectedSchoolYear}
-                onChange={(e) => handleSchoolYearChange(e.target.value)}
-                className="w-full sm:w-64 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
-                disabled={loadingSchoolYears}
+                value={selectedAcademicYear}
+                onChange={(e) => handleAcademicYearChange(e.target.value)}
+                className="w-full sm:w-48 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                disabled={loadingSemesters}
               >
-                <option value="">All School Years</option>
-                {schoolYears.map((schoolYear: any) => (
-                  <option key={schoolYear.id} value={schoolYear.id}>
-                    {schoolYear.academic_year} {schoolYear.is_current && '(Current)'}
-                  </option>
+                <option value="all">All Academic Years</option>
+                {academicYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
                 ))}
+              </select>
+              
+              {/* Semester Filter */}
+              <select
+                value={selectedSemester}
+                onChange={(e) => handleSemesterChange(e.target.value)}
+                className="w-full sm:w-64 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                disabled={loadingSemesters}
+              >
+                <option value="all">All Semesters</option>
+                {semesters
+                  .filter(semester => selectedAcademicYear === 'all' || semester.academic_year === selectedAcademicYear)
+                  .map((semester: any) => (
+                    <option key={semester.id} value={semester.id}>
+                      {semester.academic_year} - {semester.semester_type}
+                      {semester.is_current && ' (Current)'}
+                    </option>
+                  ))
+                }
               </select>
             </div>
           </div>

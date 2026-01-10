@@ -1,0 +1,73 @@
+/* Print Styles */
+@media print {
+  /* Hide elements that shouldn't be printed */
+  .print\:hidden {
+    display: none !important;
+  }
+  
+  /* Adjust page margins for printing */
+  @page {
+    margin: 1cm;
+    size: A4;
+  }
+  
+  /* Reset backgrounds for print */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Remove shadows for print */
+  .print\:shadow-none {
+    box-shadow: none !important;
+  }
+  
+  /* Make full width for print */
+  .print\:col-span-4 {
+    grid-column: span 4 / span 4 !important;
+  }
+  
+  /* Prevent page breaks inside elements */
+  .bg-white,
+  .rounded-xl,
+  table,
+  .space-y-8 > div {
+    page-break-inside: avoid;
+  }
+  
+  /* Ensure proper spacing */
+  h3 {
+    page-break-after: avoid;
+  }
+  
+  /* Make checkboxes visible when checked */
+  input[type="checkbox"]:checked::before {
+    content: "✓";
+    position: absolute;
+    font-size: 14px;
+    font-weight: bold;
+    color: #800000;
+  }
+  
+  /* Ensure input fields show their values */
+  input[type="text"],
+  input[type="email"],
+  select,
+  textarea {
+    border: 1px solid #d1d5db !important;
+    background: white !important;
+    color: black !important;
+  }
+  
+  /* Keep color for headers */
+  .text-\[\#800000\] {
+    color: #800000 !important;
+  }
+  
+  .bg-\[\#800000\] {
+    background-color: #800000 !important;
+    color: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

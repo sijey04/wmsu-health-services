@@ -15,7 +15,7 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, ContentManagement
+    DentalInformationRecord, ContentManagement, Announcement, UserAnnouncementView
 )
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
@@ -27,7 +27,8 @@ from .serializers import (
     DocumentRequirementSerializer, CampusScheduleSerializer, DentistScheduleSerializer,
     AcademicSchoolYearSerializer, UserManagementSerializer, UserBlockSerializer,
     ComorbidIllnessSerializer, VaccinationSerializer, PastMedicalHistoryItemSerializer,
-    FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer, ContentManagementSerializer
+    FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer, ContentManagementSerializer,
+    AnnouncementSerializer, UserAnnouncementViewSerializer
 )
 from rest_framework.views import APIView
 from django.db.models import Q, Count
@@ -8435,3 +8436,91 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
             AppointmentSerializer(appointment).data,
             status=status.HTTP_200_OK
         )
+
+
+class AnnouncementViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing announcements"""
+    queryset = Announcement.objects.all()
+    serializer_class = AnnouncementSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Filter announcements based on user permissions"""
+        user = self.request.user
+        
+        # Staff/admin can see all announcements
+        if user.is_staff or user.user_type in ['staff', 'admin']:
+            return Announcement.objects.all().order_by('-created_at')
+        
+        # Regular users can only see active, non-expired announcements that target them
+        queryset = Announcement.objects.filter(
+            is_active=True
+        ).order_by('-created_at')
+        
+        # Filter out expired announcements
+        active_announcements = [
+            announcement for announcement in queryset
+            if not announcement.is_expired()
+        ]
+        
+        # Return only announcements that should show to this user
+        return [
+            announcement for announcement in active_announcements
+            if announcement.should_show_to_user(user)
+        ]
+    
+    def get_permissions(self):
+        """Staff/admin only for create, update, delete"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAuthenticated(), permissions.IsAdminUser()]
+        return [IsAuthenticated()]
+    
+    @action(detail=False, methods=['get'])
+    def unviewed(self, request):
+        """Get all unviewed announcements for the current user that should show on login"""
+        user = request.user
+        
+        # Get all active, non-expired announcements that target this user and show on login
+        active_announcements = Announcement.objects.filter(
+            is_active=True,
+            show_on_login=True
+        ).order_by('-priority', '-created_at')
+        
+        # Filter to only those that should show to this user and haven't been viewed
+        unviewed = []
+        for announcement in active_announcements:
+            if not announcement.is_expired() and announcement.should_show_to_user(user):
+                # Check if user has already viewed this announcement
+                has_viewed = UserAnnouncementView.objects.filter(
+                    user=user,
+                    announcement=announcement
+                ).exists()
+                
+                if not has_viewed:
+                    unviewed.append(announcement)
+        
+        serializer = self.get_serializer(unviewed, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def mark_viewed(self, request, pk=None):
+        """Mark an announcement as viewed by the current user"""
+        announcement = self.get_object()
+        user = request.user
+        
+        # Create or get the view record
+        view_record, created = UserAnnouncementView.objects.get_or_create(
+            user=user,
+            announcement=announcement
+        )
+        
+        if created:
+            return Response({
+                'message': 'Announcement marked as viewed',
+                'viewed_at': view_record.viewed_at
+            }, status=status.HTTP_201_CREATED)
+        else:
+            return Response({
+                'message': 'Announcement was already viewed',
+                'viewed_at': view_record.viewed_at
+            }, status=status.HTTP_200_OK)

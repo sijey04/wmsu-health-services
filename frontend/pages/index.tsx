@@ -1,10 +1,11 @@
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/Layout';
 import AuthModal from '../components/AuthModal';
 import PostLoginOptionsModal from '../components/PostLoginOptionsModal';
+import AnnouncementModal from '../components/AnnouncementModal';
 
 /**
  * Home page component of the WMSU Health Services application.
@@ -17,6 +18,8 @@ export default function Home() {  // Authentication state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [showPostLoginModal, setShowPostLoginModal] = useState(false);
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
+  const [hasCheckedAnnouncements, setHasCheckedAnnouncements] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [userDismissedModal, setUserDismissedModal] = useState(false);
   
@@ -148,7 +151,35 @@ export default function Home() {  // Authentication state
     // Optionally switch to login mode
     setAuthMode('login');
     setShowAuthModal(true);
-  };  const handleBookAppointment = () => {
+  };
+
+  const checkForAnnouncements = useCallback(async () => {
+    if (hasCheckedAnnouncements) return; // Only check once per session
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:8000/api/announcements/unviewed/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const announcements = await response.json();
+        if (announcements && announcements.length > 0) {
+          setShowAnnouncementModal(true);
+          setHasCheckedAnnouncements(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for announcements:', error);
+    }
+  }, [hasCheckedAnnouncements]);
+
+  const handleBookAppointment = () => {
     if (isLoggedIn) {
       setShowPostLoginModal(true);
     } else {
@@ -156,6 +187,13 @@ export default function Home() {  // Authentication state
       setShowAuthModal(true);
     }
   };
+
+  // Check for announcements when user logs in and post-login modal is closed
+  useEffect(() => {
+    if (isLoggedIn && !showPostLoginModal && !hasCheckedAnnouncements) {
+      checkForAnnouncements();
+    }
+  }, [isLoggedIn, showPostLoginModal, hasCheckedAnnouncements, checkForAnnouncements]);
   // Force re-check authentication when auth modal closes
   const handleAuthModalClose = () => {
     setShowAuthModal(false);
@@ -468,6 +506,14 @@ export default function Home() {  // Authentication state
           userGradeLevel={user.grade_level || ''}
         />
       )}
+
+      <AnnouncementModal
+        isOpen={showAnnouncementModal}
+        onClose={() => {
+          setShowAnnouncementModal(false);
+          setHasCheckedAnnouncements(true);
+        }}
+      />
     </div>
     </>
   );

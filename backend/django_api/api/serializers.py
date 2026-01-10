@@ -7,7 +7,8 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, DentalMedicineSupply, UserTypeInformation, ContentManagement
+    DentalInformationRecord, DentalMedicineSupply, UserTypeInformation, ContentManagement,
+    Announcement, UserAnnouncementView
 )
 
 
@@ -781,7 +782,7 @@ class AcademicSchoolYearSerializer(serializers.ModelSerializer):
     class Meta:
         model = AcademicSchoolYear
         fields = [
-            'id', 'academic_year', 'start_date', 'end_date', 
+            'id', 'academic_year', 'semester_type', 'start_date', 'end_date', 
             'first_sem_start', 'first_sem_end',
             'second_sem_start', 'second_sem_end', 
             'summer_start', 'summer_end',
@@ -1058,3 +1059,36 @@ class ContentManagementSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             validated_data['updated_by'] = request.user
         return super().update(instance, validated_data)
+
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    """Serializer for Announcement model"""
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+    
+    class Meta:
+        model = Announcement
+        fields = [
+            'id', 'title', 'message', 'priority', 'icon', 'is_active',
+            'show_on_login', 'target_all_users', 'target_user_types',
+            'target_grade_levels', 'expires_at', 'created_by', 'created_by_name',
+            'created_at', 'updated_at', 'is_expired'
+        ]
+        read_only_fields = ['created_by', 'created_by_name', 'created_at', 'updated_at', 'is_expired']
+    
+    def create(self, validated_data):
+        """Set the created_by field to the current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
+
+
+class UserAnnouncementViewSerializer(serializers.ModelSerializer):
+    """Serializer for UserAnnouncementView model"""
+    announcement_title = serializers.CharField(source='announcement.title', read_only=True)
+    
+    class Meta:
+        model = UserAnnouncementView
+        fields = ['id', 'user', 'announcement', 'announcement_title', 'viewed_at']
+        read_only_fields = ['id', 'announcement_title', 'viewed_at']

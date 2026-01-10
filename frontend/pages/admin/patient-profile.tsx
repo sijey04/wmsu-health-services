@@ -25,6 +25,7 @@ export default function AdminPatientProfile() {
   const [selectedAcademicYear, setSelectedAcademicYear] = useState<string>('all');
   const [genderFilter, setGenderFilter] = useState('all');
   const [bloodTypeFilter, setBloodTypeFilter] = useState('all');
+  const [nationalityFilter, setNationalityFilter] = useState('all');
   const [verificationFilter, setVerificationFilter] = useState('all');
   const [sortField, setSortField] = useState<'name' | 'age' | 'date'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -61,11 +62,12 @@ export default function AdminPatientProfile() {
     return patients.filter(patient => {
       const matchesGender = genderFilter === 'all' || patient.gender === genderFilter;
       const matchesBloodType = bloodTypeFilter === 'all' || patient.blood_type === bloodTypeFilter;
+      const matchesNationality = nationalityFilter === 'all' || patient.nationality === nationalityFilter;
       const matchesVerification = verificationFilter === 'all' || 
         (verificationFilter === 'verified' && patient.is_verified) ||
         (verificationFilter === 'unverified' && !patient.is_verified);
       
-      return matchesGender && matchesBloodType && matchesVerification;
+      return matchesGender && matchesBloodType && matchesNationality && matchesVerification;
     }).sort((a, b) => {
       let compareValue = 0;
       
@@ -115,6 +117,7 @@ export default function AdminPatientProfile() {
     setSelectedSemester('all');
     setGenderFilter('all');
     setBloodTypeFilter('all');
+    setNationalityFilter('all');
     setVerificationFilter('all');
     setSortField('date');
     setSortOrder('desc');
@@ -201,20 +204,27 @@ export default function AdminPatientProfile() {
       if (searchTerm) params.search = searchTerm;
       if (userTypeFilter !== 'All User Types') params.user_type = userTypeFilter;
       
-      // Only add semester filters if we have semester data and they're not 'all'
-      if (semesters.length > 0) {
-        if (selectedSemester !== 'all') params.semester_id = selectedSemester;
-        if (selectedAcademicYear !== 'all') params.academic_year = selectedAcademicYear;
+      // Use semester record ID which already includes academic_year + semester_type
+      if (selectedSemester !== 'all') {
+        // selectedSemester now contains the complete semester record ID
+        params.school_year = selectedSemester;
+        console.log('Filtering by semester record ID:', selectedSemester);
+      } else if (selectedAcademicYear !== 'all') {
+        // If only academic year is selected, filter by academic year
+        params.academic_year = selectedAcademicYear;
+        console.log('Filtering by academic year:', selectedAcademicYear);
       }
       
       const res = await djangoApiClient.get('/patients/', { params });
       const patientsData = res.data || [];
       
-      // If we have semester data but patients don't have semester_id, assign current semester
+      // If we have semester data but patients don't have school_year, assign current semester
       if (semesters.length > 0 && currentSemester) {
         patientsData.forEach((patient: any) => {
-          if (!patient.semester_id) {
-            patient.semester_id = currentSemester.id;
+          // Check both school_year (new) and semester_id (legacy) fields
+          if (!patient.school_year && !patient.semester_id) {
+            patient.school_year = currentSemester.id;
+            patient.semester_id = currentSemester.id; // Also set for backward compatibility
           }
         });
       }
@@ -238,8 +248,9 @@ export default function AdminPatientProfile() {
     // Only calculate stats if we have semester data
     if (semesters.length > 0) {
       semesters.forEach(semester => {
+        // Patients are now associated with semester records via school_year field
         const semesterPatients = patientsData.filter(patient => 
-          patient.semester_id === semester.id
+          patient.school_year === semester.id || patient.semester_id === semester.id
         );
         
         stats[semester.id] = {
@@ -314,10 +325,15 @@ export default function AdminPatientProfile() {
 
   const exportPatientsBySemester = () => {
     const csvData = [];
-    csvData.push(['Academic Year', 'Semester', 'Patient Name', 'Email', 'Age', 'Gender', 'Blood Type', 'Contact Number', 'User Type', 'Verified Status']);
+    csvData.push(['Academic Year', 'Semester', 'Patient Name', 'Email', 'Age', 'Gender', 'Blood Type', 'Nationality', 'Contact Number', 'User Type', 'Verified Status']);
     
     patients.forEach(patient => {
-      const semester = semesters.find(s => s.id === patient.semester_id);
+      // Use school_year (new) or semester_id (legacy) to find semester
+      const semester = semesters.find(s => s.id === (patient.school_year || patient.semester_id));
+      const nationalityDisplay = patient.nationality === 'Foreigner' && patient.nationality_specify 
+        ? `Foreigner (${patient.nationality_specify})`
+        : (patient.nationality || 'N/A');
+      
       csvData.push([
         semester?.academic_year || 'N/A',
         semester ? `${semester.semester_type} Semester` : 'N/A',
@@ -326,6 +342,7 @@ export default function AdminPatientProfile() {
         patient.age || 'N/A',
         patient.gender || 'N/A',
         patient.blood_type || 'N/A',
+        nationalityDisplay,
         patient.contact_number || 'N/A',
         patient.user_type || 'N/A',
         patient.is_verified ? 'Verified' : 'Unverified'
@@ -539,6 +556,17 @@ export default function AdminPatientProfile() {
                   </select>
 
                   <select
+                    value={nationalityFilter}
+                    onChange={(e) => setNationalityFilter(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
+                  >
+                    <option value="all">All Nationalities</option>
+                    <option value="Filipino">Filipino</option>
+                    <option value="Foreigner">Foreigner</option>
+                    <option value="Other">Other</option>
+                  </select>
+
+                  <select
                     value={verificationFilter}
                     onChange={(e) => setVerificationFilter(e.target.value)}
                     className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
@@ -568,7 +596,7 @@ export default function AdminPatientProfile() {
 
                   {(searchTerm || userTypeFilter !== 'All User Types' || selectedAcademicYear !== 'all' || 
                     selectedSemester !== 'all' || genderFilter !== 'all' || bloodTypeFilter !== 'all' || 
-                    verificationFilter !== 'all') && (
+                    nationalityFilter !== 'all' || verificationFilter !== 'all') && (
                     <button
                       onClick={clearFilters}
                       className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
@@ -698,11 +726,11 @@ export default function AdminPatientProfile() {
                             <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">
                                 {semesters.length > 0 ? (
-                                  patient.semester_id ? (
+                                  patient.school_year || patient.semester_id ? (
                                     <div>
-                                      <div className="font-medium">{getSemesterLabel(patient.semester_id)}</div>
+                                      <div className="font-medium">{getSemesterLabel(patient.school_year || patient.semester_id)}</div>
                                       <div className="text-xs text-gray-500">
-                                        {semesters.find(s => s.id === patient.semester_id)?.is_current && (
+                                        {semesters.find(s => s.id === (patient.school_year || patient.semester_id))?.is_current && (
                                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                                             Current
                                           </span>
@@ -731,6 +759,20 @@ export default function AdminPatientProfile() {
                                 <div>{patient.age ? `${patient.age} years old` : 'Age N/A'}</div>
                                 <div className="text-gray-500">{patient.gender || 'Gender N/A'}</div>
                                 <div className="text-gray-500">Blood: {patient.blood_type || 'N/A'}</div>
+                                <div className="text-gray-500">
+                                  {patient.nationality === 'Foreigner' && patient.nationality_specify ? (
+                                    <span title={`Foreigner: ${patient.nationality_specify}`}>
+                                      🌍 {patient.nationality_specify}
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      {patient.nationality === 'Filipino' && '🇵🇭 Filipino'}
+                                      {patient.nationality === 'Foreigner' && '🌍 Foreigner'}
+                                      {patient.nationality === 'Other' && '🌐 Other'}
+                                      {!patient.nationality && 'Nationality N/A'}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </td>
 
