@@ -17,7 +17,6 @@ export default function InlineSignupForm({ onSignup, showSwitchLink = false, onS
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState('weak');
-  const [userType, setUserType] = useState('student');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -76,17 +75,32 @@ export default function InlineSignupForm({ onSignup, showSwitchLink = false, onS
             first_name: firstName,
             last_name: lastName,
             middle_name: middleName,
-            grade_level: gradeLevel,
             email,
             password,
             confirm_password: confirmPassword,
-            user_type: userType,
+            user_type: gradeLevel === 'Employee' ? 'staff' : 'student', // Employee = staff, others = student
+            grade_level: gradeLevel, // Store detailed type in grade_level
             username: email,
           }),
         });
 
         const data = await res.json();
-        if (res.ok) {
+        
+        // Only proceed to success if account was created AND verification email was sent
+        if (res.ok && data.message) {
+          // Check if the response confirms email verification was sent
+          const emailSent = data.message.toLowerCase().includes('verification') || 
+                           data.message.toLowerCase().includes('email') ||
+                           data.email_sent === true;
+          
+          if (emailSent) {
+            onSignup();
+          } else {
+            // Account created but email wasn't sent
+            setError('Account created but verification email could not be sent. Please contact support.');
+          }
+        } else if (res.ok) {
+          // Fallback: if response is ok but no message field, proceed anyway
           onSignup();
         } else {
           // Handle Django REST framework error format

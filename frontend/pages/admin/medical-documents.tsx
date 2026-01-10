@@ -698,21 +698,22 @@ function AdminMedicalDocuments() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Medical Documents</h1>
-          <p className="text-gray-600">Manage medical document submissions, verifications, and certificate issuance</p>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Medical Documents</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage medical document submissions, verifications, and certificate issuance</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden min-h-[500px]">
-          <div className="flex justify-between border-b border-gray-200">
-            <div className="flex">
+          <div className="flex flex-col sm:flex-row justify-between border-b border-gray-200">
+            <div className="flex overflow-x-auto">
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 ${activeTab === 'medicalCertificateRequests' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 whitespace-nowrap ${activeTab === 'medicalCertificateRequests' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                 onClick={() => setActiveTab('medicalCertificateRequests')}
               >
-                Medical Certificate Requests
+                <span className="hidden sm:inline">Medical Certificate Requests</span>
+                <span className="sm:hidden">Cert Requests</span>
                 {pendingDocs.length > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
                     {pendingDocs.length}
@@ -720,10 +721,11 @@ function AdminMedicalDocuments() {
                 )}
               </button>
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${activeTab === 'uploadedDocuments' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${activeTab === 'uploadedDocuments' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                 onClick={() => setActiveTab('uploadedDocuments')}
               >
-                Uploaded Documents
+                <span className="hidden sm:inline">Uploaded Documents</span>
+                <span className="sm:hidden">Uploaded</span>
                 {uploadedDocs.length > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-gray-600 rounded-full">
                     {uploadedDocs.length}
@@ -731,10 +733,11 @@ function AdminMedicalDocuments() {
                 )}
               </button>
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${activeTab === 'issuedMedicalCertificates' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${activeTab === 'issuedMedicalCertificates' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                 onClick={() => setActiveTab('issuedMedicalCertificates')}
               >
-                Issued Medical Certificates
+                <span className="hidden sm:inline">Issued Medical Certificates</span>
+                <span className="sm:hidden">Issued</span>
                 {issuedDocs.length > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-green-600 rounded-full">
                     {issuedDocs.length}
@@ -742,10 +745,11 @@ function AdminMedicalDocuments() {
                 )}
               </button>
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${activeTab === 'advisedForConsultations' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${activeTab === 'advisedForConsultations' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                 onClick={() => setActiveTab('advisedForConsultations')}
               >
-                Advised for Consultations
+                <span className="hidden sm:inline">Advised for Consultations</span>
+                <span className="sm:hidden">Advised</span>
                 {advisedDocs.length > 0 && (
                   <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
                     {advisedDocs.length}
@@ -755,11 +759,11 @@ function AdminMedicalDocuments() {
             </div>
             
             {/* Academic Year Selector */}
-            <div className="py-3 px-6">
+            <div className="py-2 px-3 sm:py-3 sm:px-6 w-full sm:w-auto">
               <select
                 value={selectedAcademicYear}
                 onChange={(e) => handleAcademicYearChange(e.target.value)}
-                className="w-64 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                className="w-full sm:w-64 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-md shadow-sm text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-transparent"
                 disabled={loadingAcademicYears}
               >
                 <option value="">All Academic Years</option>
@@ -772,7 +776,7 @@ function AdminMedicalDocuments() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {loading && (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#800000]"></div>
@@ -802,8 +806,8 @@ function AdminMedicalDocuments() {
             {activeTab === 'medicalCertificateRequests' && (
               <div>
                 {/* Filters Section */}
-                <div className="bg-white rounded-lg shadow p-4 mb-6">
-                  <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                       <input
@@ -903,7 +907,7 @@ function AdminMedicalDocuments() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-x-auto">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#800000]">
                       <tr>
@@ -1002,7 +1006,7 @@ function AdminMedicalDocuments() {
                 
                 {/* Pagination */}
                 {filteredPendingDocs.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
@@ -1120,8 +1124,8 @@ function AdminMedicalDocuments() {
             {activeTab === 'uploadedDocuments' && (
               <div>
                 {/* Filters Section */}
-                <div className="bg-white rounded-lg shadow p-4 mb-6">
-                  <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                       <input
@@ -1222,7 +1226,7 @@ function AdminMedicalDocuments() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#800000]">
                       <tr>
@@ -1334,7 +1338,7 @@ function AdminMedicalDocuments() {
                 
                 {/* Pagination */}
                 {filteredUploadedDocs.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
@@ -1452,8 +1456,8 @@ function AdminMedicalDocuments() {
             {activeTab === 'issuedMedicalCertificates' && (
               <div>
                 {/* Filters Section */}
-                <div className="bg-white rounded-lg shadow p-4 mb-6">
-                  <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                       <input
@@ -1551,7 +1555,7 @@ function AdminMedicalDocuments() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-x-auto">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#800000]">
                       <tr>
@@ -1611,7 +1615,7 @@ function AdminMedicalDocuments() {
                 
                 {/* Pagination */}
                 {filteredIssuedDocs.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
@@ -1729,8 +1733,8 @@ function AdminMedicalDocuments() {
             {activeTab === 'advisedForConsultations' && (
               <div>
                 {/* Filters Section */}
-                <div className="bg-white rounded-lg shadow p-4 mb-6">
-                  <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                       <input
@@ -1785,7 +1789,7 @@ function AdminMedicalDocuments() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-x-auto">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#800000]">
                       <tr>
@@ -1898,7 +1902,7 @@ function AdminMedicalDocuments() {
                 
                 {/* Pagination */}
                 {advisedForConsultations.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}

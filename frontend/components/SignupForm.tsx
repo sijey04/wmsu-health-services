@@ -21,7 +21,6 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
   const [passwordStrength, setPasswordStrength] = useState('weak');
   const [isPrivacyPolicyModalOpen, setIsPrivacyPolicyModalOpen] = useState(false); // New state for Privacy Policy modal
   const [isTermsOfServiceModalOpen, setIsTermsOfServiceModalOpen] = useState(false); // New state for Terms of Service modal
-  const [userType, setUserType] = useState('student');
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
   const [userEmail, setUserEmail] = useState('');
@@ -79,21 +78,35 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
             first_name: firstName,
             last_name: lastName,
             middle_name: middleName,
-            grade_level: gradeLevel,
             email,
             password,
             confirm_password: confirmPassword,
-            user_type: userType,
+            user_type: gradeLevel === 'Employee' ? 'staff' : 'student', // Employee = staff, others = student
+            grade_level: gradeLevel, // Store detailed type in grade_level
             username: email, // Use email as username
           }),
         });
 
-        const data = await res.json();        if (res.ok) {
-          setSignupSuccess(true);
-          setUserEmail(email);
-          setStep(3); // Move to success step
+        const data = await res.json();
+        
+        // Only proceed to success step if account was created AND verification email was sent
+        if (res.ok && data.message) {
+          // Check if the response confirms email verification was sent
+          const emailSent = data.message.toLowerCase().includes('verification') || 
+                           data.message.toLowerCase().includes('email') ||
+                           data.email_sent === true;
+          
+          if (emailSent) {
+            setSignupSuccess(true);
+            setUserEmail(email);
+            setStep(3); // Move to success step only after confirming email was sent
+          } else {
+            // Account created but email wasn't sent
+            setError('Account created but verification email could not be sent. Please contact support.');
+          }
         } else {
-          setError(data?.detail || data?.error || Object.values(data).join(', ') || 'Signup failed.');
+          // Handle errors from backend
+          setError(data?.detail || data?.error || Object.values(data).join(', ') || 'Signup failed. Please try again.');
         }
       } catch (err) {
         setError('Network error. Please try again.');

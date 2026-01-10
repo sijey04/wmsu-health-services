@@ -456,16 +456,16 @@ const AppointmentsPage = () => {
 
   return (
     <Layout onLoginClick={() => {}} onSignupClick={() => {}}>
-      <div className="bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+      <div className="bg-gray-50 min-h-screen">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-6 sm:py-8 md:py-12">
+          <div className="flex flex-col gap-4 mb-6 sm:mb-8 md:mb-10">
             <div>
-              <h1 className="text-4xl font-bold text-[#800000] tracking-tight">My Appointments</h1>
-              <p className="mt-1 text-gray-600">View and manage your upcoming and past appointments.</p>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-[#800000] tracking-tight">My Appointments</h1>
+              <p className="mt-1 text-sm sm:text-base text-gray-600">View and manage your upcoming and past appointments.</p>
             </div>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#a83232] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000] transition-colors duration-200"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#a83232] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000] transition-colors duration-200"
             >
               <svg className="-ml-1 mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                 <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd" />
@@ -490,8 +490,8 @@ const AppointmentsPage = () => {
 
         {/* Medical Document Status Section */}
         {!certificatesLoading && medicalDocumentStatus && (
-          <div className="mb-8">
-            <div className={`border rounded-xl p-6 shadow-lg ${
+          <div className="mb-6 sm:mb-8">
+            <div className={`border rounded-xl p-4 sm:p-6 shadow-lg ${
               medicalDocumentStatus.status === 'issued' ? 'bg-gradient-to-r from-green-50 to-blue-50 border-green-200' :
               medicalDocumentStatus.status === 'for_consultation' ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200' :
               medicalDocumentStatus.status === 'verified' ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200' :
@@ -499,9 +499,9 @@ const AppointmentsPage = () => {
               medicalDocumentStatus.status === 'rejected' ? 'bg-gradient-to-r from-red-50 to-pink-50 border-red-200' :
               'bg-gradient-to-r from-gray-50 to-blue-50 border-gray-200'
             }`}>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                 <div className="flex items-center">
-                  <div className={`flex items-center justify-center w-12 h-12 rounded-full mr-4 ${
+                  <div className={`flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full mr-3 sm:mr-4 flex-shrink-0 ${
                     medicalDocumentStatus.status === 'issued' ? 'bg-green-100' :
                     medicalDocumentStatus.status === 'for_consultation' ? 'bg-yellow-100' :
                     medicalDocumentStatus.status === 'verified' ? 'bg-blue-100' :
@@ -536,7 +536,7 @@ const AppointmentsPage = () => {
                     )}
                   </div>
                   <div>
-                    <h2 className={`text-2xl font-bold ${
+                    <h2 className={`text-lg sm:text-xl md:text-2xl font-bold ${
                       medicalDocumentStatus.status === 'issued' ? 'text-green-800' :
                       medicalDocumentStatus.status === 'for_consultation' ? 'text-yellow-800' :
                       medicalDocumentStatus.status === 'verified' ? 'text-blue-800' :
@@ -550,7 +550,7 @@ const AppointmentsPage = () => {
                       {medicalDocumentStatus.status === 'pending' && '⏳ Under Review'}
                       {medicalDocumentStatus.status === 'rejected' && '❌ Documents Rejected'}
                     </h2>
-                    <p className={`font-medium ${
+                    <p className={`text-sm sm:text-base font-medium ${
                       medicalDocumentStatus.status === 'issued' ? 'text-green-700' :
                       medicalDocumentStatus.status === 'for_consultation' ? 'text-yellow-700' :
                       medicalDocumentStatus.status === 'verified' ? 'text-blue-700' :
@@ -580,24 +580,24 @@ const AppointmentsPage = () => {
               
               {/* Show reason for consultation if applicable */}
               {medicalDocumentStatus.status === 'for_consultation' && medicalDocumentStatus.consultation_reason && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-yellow-800 mb-2">Consultation Reason:</h4>
-                  <p className="text-yellow-700">{medicalDocumentStatus.consultation_reason}</p>
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4">
+                  <h4 className="text-sm sm:text-base font-semibold text-yellow-800 mb-2">Consultation Reason:</h4>
+                  <p className="text-sm text-yellow-700">{medicalDocumentStatus.consultation_reason}</p>
                 </div>
               )}
               
               {/* Show rejection reason if applicable */}
               {medicalDocumentStatus.status === 'rejected' && medicalDocumentStatus.rejection_reason && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <h4 className="font-semibold text-red-800 mb-2">Rejection Reason:</h4>
-                  <p className="text-red-700">{medicalDocumentStatus.rejection_reason}</p>
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4">
+                  <h4 className="text-sm sm:text-base font-semibold text-red-800 mb-2">Rejection Reason:</h4>
+                  <p className="text-sm text-red-700">{medicalDocumentStatus.rejection_reason}</p>
                 </div>
               )}
               
               {/* Show timeline information */}
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-                <h4 className="font-semibold text-gray-800 mb-3">Status Timeline:</h4>
-                <div className="space-y-2 text-sm">
+              <div className="bg-white rounded-lg p-3 sm:p-4 shadow-sm border border-gray-100">
+                <h4 className="text-sm sm:text-base font-semibold text-gray-800 mb-3">Status Timeline:</h4>
+                <div className="space-y-2 text-xs sm:text-sm">
                   {medicalDocumentStatus.certificate_issued_at && (
                     <div className="flex items-center text-green-600">
                       <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -630,18 +630,18 @@ const AppointmentsPage = () => {
 
         {/* Medical Certificates Section */}
         {!certificatesLoading && medicalCertificates.length > 0 && (
-          <div className="mb-8">
-            <div className="bg-white border border-green-200 rounded-xl p-6 shadow-lg">
+          <div className="mb-6 sm:mb-8">
+            <div className="bg-white border border-green-200 rounded-xl p-4 sm:p-6 shadow-lg">
               {medicalCertificates.map((certificate, index) => (
-                <div key={certificate.id || index} className="bg-gray-50 rounded-lg p-6 shadow-md border border-green-100">
-                  <div className="flex items-center justify-between mb-4">
+                <div key={certificate.id || index} className="bg-gray-50 rounded-lg p-4 sm:p-6 shadow-md border border-green-100">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
                     <div className="flex items-center">
-                      <svg className="h-8 w-8 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500 mr-2 sm:mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">Medical Certificate</h3>
-                        <p className="text-sm text-gray-600">
+                        <h3 className="text-base sm:text-lg font-semibold text-gray-900">Medical Certificate</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">
                           Issued on {certificate.certificate_issued_at ? new Date(certificate.certificate_issued_at).toLocaleDateString() : 'Recently'}
                         </p>
                       </div>
@@ -651,15 +651,15 @@ const AppointmentsPage = () => {
                     </span>
                   </div>
                   
-                  <p className="text-gray-700 mb-6">
+                  <p className="text-sm sm:text-base text-gray-700 mb-4 sm:mb-6">
                     Your medical certificate is ready! You can view it online or download it as a PDF file.
                   </p>
                   
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
                     <button
                       onClick={() => handleViewStandaloneCertificate(certificate)}
                       disabled={actionLoading}
-                      className="inline-flex items-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg className="-ml-0.5 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -670,7 +670,7 @@ const AppointmentsPage = () => {
                     <button
                       onClick={() => handleDownloadStandaloneCertificate(certificate)}
                       disabled={actionLoading}
-                      className="inline-flex items-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <svg className="-ml-0.5 mr-2 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -701,15 +701,15 @@ const AppointmentsPage = () => {
         )}
 
         {!loading && !error && appointments.length > 0 && (
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
                   {appointments.map((appt) => (
-                <div key={appt.id} className="bg-white shadow-lg rounded-xl overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
-                  <div className="p-6">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div key={appt.id} className="bg-white shadow-lg rounded-xl overflow-hidden hover:shadow-xl transition-shadow duration-300">
+                  <div className="p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
                       <div>
-                        <p className="text-sm font-semibold text-[#800000] uppercase tracking-wider">{appt.type} Appointment</p>
-                        <p className="text-2xl font-bold text-gray-800 mt-1">{formatDate(appt.appointment_date)}</p>
-                        <p className="text-lg text-gray-600">{formatTime(appt.appointment_time)}</p>
+                        <p className="text-xs sm:text-sm font-semibold text-[#800000] uppercase tracking-wider">{appt.type} Appointment</p>
+                        <p className="text-lg sm:text-xl md:text-2xl font-bold text-gray-800 mt-1">{formatDate(appt.appointment_date)}</p>
+                        <p className="text-base sm:text-lg text-gray-600">{formatTime(appt.appointment_time)}</p>
                       </div>
                         <span className={getStatusChip(appt.status)}>{appt.status}</span>
                     </div>
@@ -727,16 +727,16 @@ const AppointmentsPage = () => {
                       
                       {/* Show rescheduling note if appointment was rescheduled by admin */}
                       {wasRescheduledByAdmin(appt) && (
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="mt-4 p-3 sm:p-4 bg-blue-50 border border-blue-200 rounded-lg">
                           <div className="flex items-start">
-                            <svg className="flex-shrink-0 h-5 w-5 text-blue-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="flex-shrink-0 h-4 w-4 sm:h-5 sm:w-5 text-blue-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <div className="ml-3">
-                              <h4 className="text-sm font-medium text-blue-800">
+                            <div className="ml-2 sm:ml-3">
+                              <h4 className="text-xs sm:text-sm font-medium text-blue-800">
                                 Appointment Rescheduled by Medical Staff
                               </h4>
-                              <div className="text-sm text-blue-700 mt-1">
+                              <div className="text-xs sm:text-sm text-blue-700 mt-1">
                                 {appt.rescheduled_by_name && (
                                   <p className="mb-1">
                                     <span className="font-medium">Rescheduled by:</span> {appt.rescheduled_by_name}
@@ -770,16 +770,16 @@ const AppointmentsPage = () => {
                       
                       {/* Show rescheduling note if appointment was rescheduled by patient */}
                       {wasRescheduledByPatient(appt) && (
-                        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <div className="mt-4 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-lg">
                           <div className="flex items-start">
-                            <svg className="flex-shrink-0 h-5 w-5 text-green-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg className="flex-shrink-0 h-4 w-4 sm:h-5 sm:w-5 text-green-400 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <div className="ml-3">
-                              <h4 className="text-sm font-medium text-green-800">
+                            <div className="ml-2 sm:ml-3">
+                              <h4 className="text-xs sm:text-sm font-medium text-green-800">
                                 Appointment Rescheduled by You
                               </h4>
-                              <div className="text-sm text-green-700 mt-1">
+                              <div className="text-xs sm:text-sm text-green-700 mt-1">
                                 {appt.rescheduled_at && (
                                   <p className="mb-1">
                                     <span className="font-medium">Rescheduled on:</span> {new Date(appt.rescheduled_at).toLocaleDateString()}
@@ -812,11 +812,11 @@ const AppointmentsPage = () => {
                               </span>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               onClick={() => handleViewFormData(appt)}
                               disabled={actionLoading}
-                              className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -827,7 +827,7 @@ const AppointmentsPage = () => {
                             <button
                               onClick={() => handleDownloadFormData(appt)}
                               disabled={actionLoading}
-                              className="inline-flex items-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -857,11 +857,11 @@ const AppointmentsPage = () => {
                           <p className="text-xs text-gray-600 mb-3">
                             Your medical certificate has been issued and is ready for viewing and download.
                           </p>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               onClick={() => handleViewMedicalCertificate(appt)}
                               disabled={actionLoading}
-                              className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -872,7 +872,7 @@ const AppointmentsPage = () => {
                             <button
                               onClick={() => handleDownloadMedicalCertificate(appt)}
                               disabled={actionLoading}
-                              className="inline-flex items-center px-3 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-700 bg-indigo-50 hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -886,10 +886,10 @@ const AppointmentsPage = () => {
                       {/* Action buttons for confirmed appointments that are at least 3 days away */}
                       {(appt.status === 'confirmed' || appt.status === 'pending') && canModifyAppointment(appt.appointment_date) && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               onClick={() => openRescheduleModal(appt)}
-                              className="inline-flex items-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -898,7 +898,7 @@ const AppointmentsPage = () => {
                             </button>
                             <button
                               onClick={() => openCancelModal(appt)}
-                              className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -934,10 +934,10 @@ const AppointmentsPage = () => {
       {showCancelModal && selectedAppointment && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={() => setShowCancelModal(false)}>
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full mx-4">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
@@ -994,10 +994,10 @@ const AppointmentsPage = () => {
       {showRescheduleModal && selectedAppointment && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={() => setShowRescheduleModal(false)}>
               <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
             </div>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full mx-4">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">

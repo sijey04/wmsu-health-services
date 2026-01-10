@@ -172,94 +172,114 @@ export default function WaiverPage() {
           </svg>
         </div>
       ) : (
-      <div className="bg-white text-black min-h-screen py-12 px-4 sm:px-6 lg:px-8  printable-area">
+      <div className="bg-white text-black min-h-screen py-4 sm:py-8 lg:py-12 px-3 sm:px-4 md:px-6 lg:px-8 printable-area">
         <div className="max-w-4xl mx-auto">
 
           {/* Header */}
-          <div className="flex justify-between items-center border-b-2 border-black pb-4 mt-6 mb-6">
-            <div className="flex items-center space-x-2">
-              {/* Placeholders for logos */}
-              <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center text-xs">Logo 1</div>
-              <div className="w-16 h-16 bg-gray-300 rounded-full flex items-center justify-center text-xs">Logo 2</div>
+          <div className="border-b-2 border-black pb-3 sm:pb-4 mt-2 sm:mt-4 lg:mt-6 mb-4 sm:mb-6">
+            {/* Mobile Layout - Logos on sides, text centered */}
+            <div className="flex items-start justify-between gap-2 sm:hidden mb-2">
+              <div className="flex flex-col items-center space-y-1 flex-shrink-0">
+                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-[8px]">L1</div>
+                <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center text-[8px]">L2</div>
+              </div>
+              <div className="text-center flex-1 min-w-0 px-1">
+                <p className="font-bold text-[10px] leading-tight">WESTERN MINDANAO STATE UNIVERSITY</p>
+                <p className="font-bold text-[10px] leading-tight">ZAMBOANGA CITY</p>
+                <p className="font-semibold text-[9px] leading-tight mt-0.5">UNIVERSITY HEALTH SERVICES CENTER</p>
+                <p className="text-[8px] leading-tight mt-0.5">Tel: (062) 991-0736</p>
+                <p className="text-[8px] leading-tight break-all">healthservices@wmsu.edu.ph</p>
+              </div>
+              <div className="flex flex-col items-center space-y-1 flex-shrink-0">
+                <div className="w-10 h-10 bg-gray-300 flex items-center justify-center text-[8px]">L3</div>
+                <div className="w-10 h-10 bg-gray-300 flex items-center justify-center text-[8px]">L4</div>
+              </div>
             </div>
-            <div className="text-center">
-              <p className="font-bold">WESTERN MINDANAO STATE UNIVERSITY</p>
-              <p className="font-bold">ZAMBOANGA CITY</p>
-              <p className="font-semibold">UNIVERSITY HEALTH SERVICES CENTER</p>
-              <p className="text-sm">Tel. no. (062) 991-0736 | Email: healthservices@wmsu.edu.ph</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              {/* Placeholders for logos */}
-              <div className="w-16 h-16 bg-gray-300 flex items-center justify-center text-xs">Logo 3</div>
-              <div className="w-16 h-16 bg-gray-300 flex items-center justify-center text-xs">Logo 4</div>
+            
+            {/* Tablet & Desktop Layout - Logos and text in row */}
+            <div className="hidden sm:flex items-center justify-between gap-3 lg:gap-4">
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-gray-300 rounded-full flex items-center justify-center text-xs">Logo 1</div>
+                <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-gray-300 rounded-full flex items-center justify-center text-xs">Logo 2</div>
+              </div>
+              <div className="text-center flex-1 min-w-0 px-2">
+                <p className="font-bold text-xs md:text-sm lg:text-base">WESTERN MINDANAO STATE UNIVERSITY</p>
+                <p className="font-bold text-xs md:text-sm lg:text-base">ZAMBOANGA CITY</p>
+                <p className="font-semibold text-xs md:text-sm">UNIVERSITY HEALTH SERVICES CENTER</p>
+                <p className="text-[10px] md:text-xs lg:text-sm">Tel. no. (062) 991-0736 | Email: healthservices@wmsu.edu.ph</p>
+              </div>
+              <div className="flex items-center space-x-2 flex-shrink-0">
+                <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-gray-300 flex items-center justify-center text-xs">Logo 3</div>
+                <div className="w-12 h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-gray-300 flex items-center justify-center text-xs">Logo 4</div>
+              </div>
             </div>
           </div>
           
           {/* Title */}
-          <h1 className="text-xl font-bold text-center my-8">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-center my-4 sm:my-6 lg:my-8 px-2">
             Waiver for Collection of Personal and Sensitive Health Information
           </h1>
 
           {/* Body */}
-          <div className="space-y-4 text-sm text-justify">
+          <div className="space-y-3 sm:space-y-4 text-xs sm:text-sm text-justify px-2">
             <p>
               In consideration of Western Mindanao State University Health Services Center&apos;s collecting and processing of
               personal and sensitive health information, the undersigned individual, hereby agrees to the following terms and conditions:
             </p>
             
-            <h2 className="font-bold pt-2">Consent:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Consent:</h2>
             <p>
               By signing this waiver, the individual gives explicit consent to the University Health Services
               Center to collect, use, store, and process their personal and sensitive health information, as described in this
               document.
             </p>
 
-            <h2 className="font-bold pt-2">Purpose of Collection:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Purpose of Collection:</h2>
             <p>
               The University Health Services Center collects personal and sensitive health
               information solely for the purpose of promoting and maintaining the health and general well-being of the
               school community.
             </p>
             
-            <h2 className="font-bold pt-2">Types of Information:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Types of Information:</h2>
             <p>
               The personal and sensitive health information that may be collected includes, but is not limited to, the following:
             </p>
-            <ul className="list-disc list-inside ml-4 space-y-1">
+            <ul className="list-disc list-inside ml-2 sm:ml-4 space-y-1">
               <li><b>Personal details:</b> Name, date of birth, gender, address, contact information</li>
               <li><b>Health-related information:</b> Medical history, current health conditions, medications, allergies, vaccination history, diagnostic reports, and test results.</li>
               <li><b>Other sensitive information:</b> Information about mental health, religious beliefs, or other similar data</li>
             </ul>
 
-            <h2 className="font-bold pt-2">Collection Methods:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Collection Methods:</h2>
             <p>
               The University Health Services Center may collect personal and sensitive health information through various means, including but not limited to face-to-face interactions, written forms, and electronic/online forms.
             </p>
 
-            <h2 className="font-bold pt-2">Data Storage and Security:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Data Storage and Security:</h2>
             <p>
               The University Health Services Center will implement reasonable technical and organizational measures to protect the personal and sensitive health information from unauthorized access, disclosure, alteration, or destruction. However, it cannot guarantee absolute security and shall not be liable for any security breaches, provided that University Health Services Center, acting as the personal information controller, promptly notifies the National Privacy Commission and the affected data subject.
             </p>
 
-            <h2 className="font-bold pt-2">Data Sharing:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Data Sharing:</h2>
             <p>
               The University Health Services Center may forward the personal and sensitive health information to authorized personnel or entities, including fellow healthcare providers, insurers, research institutions, or government authorities, as required or permitted by applicable laws and regulations provided that the University Health Services Center will inform the data subject that the personal and sensitive health information will be forwarded to another entity or institution. The University Health Services Center shall be responsible that proper safeguards are in place to ensure the confidentiality of the personal information.
             </p>
             
-            <h2 className="font-bold pt-2">Data Retention:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Data Retention:</h2>
             <p>
               The University Health Services Center will retain the personal and sensitive health information for as long as necessary to fulfill the purposes stated in this waiver or as required by law. After the retention period, it will securely dispose of or anonymize the data.
             </p>
 
-            <h2 className="font-bold pt-2">Rights of the Individual:</h2>
-            <ul className="list-decimal list-inside ml-4 space-y-1">
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Rights of the Individual:</h2>
+            <ul className="list-decimal list-inside ml-2 sm:ml-4 space-y-1">
                 <li><b>Access:</b> The Individual has the right to request access to their personal and sensitive health information held by the Organization.</li>
                 <li><b>Correction:</b> The Individual may request corrections or updates to their personal and sensitive health information if it is inaccurate or incomplete.</li>
                 <li><b>Withdrawal of Consent:</b> The Individual may withdraw their consent for the collection and processing of their personal and sensitive health information. However, such withdrawal may affect the quality of certain health services.</li>
                 <li><b>All other rights</b> included in the Data Privacy Act of 2012 (Republic Act 10173).</li>
             </ul>
             
-            <h2 className="font-bold pt-2">Legal Compliance:</h2>
+            <h2 className="font-bold pt-2 text-sm sm:text-base">Legal Compliance:</h2>
             <p>
               The University Health Services Center will comply with applicable laws and regulations regarding the collection, use, and disclosure of personal and sensitive health information, including but not limited to data protection and privacy laws, particularly the Data Privacy Act of 2012 (Republic Act 10173).
             </p>
@@ -272,65 +292,68 @@ export default function WaiverPage() {
           </div>
           
           {/* Signature Section */}
-          <div className="mt-12 space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-10 items-center">
+          <div className="mt-6 sm:mt-8 lg:mt-12 space-y-6 sm:space-y-8">
+            <div className="grid grid-cols-1 gap-6 sm:gap-8">
               {/* Full Name */}
-              <div className="flex flex-col items-center">
+              <div className="flex flex-col items-center px-2">
                 <input
                   type="text"
                   value={fullName}
                   onChange={e => setFullName(e.target.value)}
-                  className="text-center font-semibold border-b border-black w-full max-w-xs mb-1 focus:outline-none"
-                  style={{ fontSize: '1.1rem' }}
+                  className="text-center font-semibold border-b border-black w-full max-w-xs sm:max-w-sm mb-1 focus:outline-none text-sm sm:text-base"
                   required
                 />
-                <p className="text-center text-sm mt-1">Individual&apos;s Full Name</p>
+                <p className="text-center text-xs sm:text-sm mt-1">Individual&apos;s Full Name</p>
               </div>
+              
               {/* Signature */}
-              <div className="relative flex flex-col items-center">
-                <div className="border border-black w-full h-24 bg-gray-50 rounded-md relative">
+              <div className="relative flex flex-col items-center px-2">
+                <div className="border border-black w-full max-w-xs sm:max-w-md h-32 sm:h-28 bg-gray-50 rounded-md relative">
                   <canvas
                     ref={sigPad}
-                      width={400}
-                      height={96}
+                    width={400}
+                    height={112}
                     style={{ width: '100%', height: '100%' }}
                   />
                 </div>
                 <button
                   onClick={clearSignature}
-                  className="absolute top-1 right-1 bg-red-500 text-white text-xs font-bold rounded px-2 py-0.5 hover:bg-red-600 no-print"
+                  className="absolute top-1 right-2 sm:right-auto sm:left-auto bg-red-500 text-white text-xs font-bold rounded px-2 py-1 hover:bg-red-600 no-print"
                   disabled={submitted}
                 >
                   Clear
                 </button>
-                <p className="text-center text-sm mt-1">Individual&apos;s Signature</p>
+                <p className="text-center text-xs sm:text-sm mt-2">Individual&apos;s Signature</p>
               </div>
+              
               {/* Date Signed */}
-              <div className="flex flex-col items-center">
-                <span className="text-center font-semibold border-b border-black w-full max-w-xs mb-1" style={{ fontSize: '1.1rem' }}>{dateSigned}</span>
-                <p className="text-center text-sm mt-1">Date Signed</p>
+              <div className="flex flex-col items-center px-2">
+                <span className="text-center font-semibold border-b border-black w-full max-w-xs sm:max-w-sm mb-1 text-sm sm:text-base">{dateSigned}</span>
+                <p className="text-center text-xs sm:text-sm mt-1">Date Signed</p>
               </div>
             </div>
           </div>
+          
           {/* Footer */}
-          <div className="text-xs text-gray-600 mt-16 pt-4 border-t flex justify-between">
+          <div className="text-xs text-gray-600 mt-8 sm:mt-12 lg:mt-16 pt-4 border-t flex flex-col sm:flex-row justify-between gap-2 px-2">
             <span>WMSU-UHSC-FR-006</span>
             <span>Effective Date Till: {effectiveDateStr}</span>
           </div>
+          
           {/* Action Buttons and Submission Message */}
-          <div className="mt-12 flex flex-col items-end no-print">
+          <div className="mt-6 sm:mt-8 lg:mt-12 flex flex-col items-center sm:items-end no-print px-2">
             {error && <div className="text-red-600 text-sm mb-2 text-center w-full">{error}</div>}
-            <div className="flex justify-end space-x-4 w-full">
+            <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
               <button
                 onClick={handlePrint}
-                className="px-6 py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-all duration-200"
+                className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-all duration-200 text-sm sm:text-base"
                 disabled={showFeedback || submitting}
               >
                 Print
               </button>
               <button
                 onClick={handleSubmit}
-                className="px-6 py-2 bg-[#007bff] text-white rounded-lg font-semibold hover:bg-[#0056b3] transition-all duration-200"
+                className="w-full sm:w-auto px-6 py-2.5 sm:py-2 bg-[#007bff] text-white rounded-lg font-semibold hover:bg-[#0056b3] transition-all duration-200 text-sm sm:text-base"
                 disabled={showFeedback || submitting}
               >
                 {submitting ? 'Submitting...' : 'Submit'}

@@ -884,6 +884,9 @@ export default function AdminControls() {
       nextStartYear = latestEndYear;
     }
     
+    // Check if there's already a current school year
+    const hasCurrentYear = schoolYears.some(year => year.is_current);
+    
     const newSchoolYear: SchoolYear = {
       id: `new-${Date.now()}`, // Temporary ID until saved
       academic_year: `${nextStartYear}-${nextStartYear + 1}`,
@@ -895,20 +898,17 @@ export default function AdminControls() {
       second_sem_end: new Date(nextStartYear + 1, 4, 15).toISOString().split('T')[0], // May 15
       summer_start: new Date(nextStartYear + 1, 5, 1).toISOString().split('T')[0], // June 1
       summer_end: new Date(nextStartYear + 1, 6, 31).toISOString().split('T')[0], // July 31
-      is_current: true, // Set as current/active by default
+      is_current: !hasCurrentYear, // Only set as current if no other year is current
       status: 'active', // Set as active by default
       current_semester: '1st_semester',
       current_semester_display: 'First Semester',
       isNew: true
     };
     
-    // Set all existing school years as not current
-    setSchoolYears(prevYears => [
-      ...prevYears.map(year => ({ ...year, is_current: false })),
-      newSchoolYear
-    ]);
+    // Add new school year without modifying existing school years' is_current status
+    setSchoolYears(prevYears => [...prevYears, newSchoolYear]);
     
-    showAlert('success', 'New school year added and set as active!');
+    showAlert('success', hasCurrentYear ? 'New school year added!' : 'New school year added and set as current!');
   };
 
   const handlePinSubmit = () => {
@@ -1317,10 +1317,10 @@ export default function AdminControls() {
         <title>Admin Controls - WMSU Health Services</title>
       </Head>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-8">
         <div className="bg-white shadow rounded-lg">
           <div className="border-b border-gray-200">
-            <div className="px-6 pt-4">
+            <div className="px-3 sm:px-6 pt-4">
               {tabGroups.map((group, groupIndex) => (
                 <div key={group.name} className={`${groupIndex > 0 ? 'mt-4' : ''}`}>
                   <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
@@ -1347,7 +1347,7 @@ export default function AdminControls() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {/* Profile Requirements Tab */}
             {activeTab === 'profile' && (
               <div className="space-y-6">
@@ -1358,7 +1358,7 @@ export default function AdminControls() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   {['personal', 'health', 'emergency', 'family'].map(category => (
                     <div key={category} className="border border-gray-200 rounded-lg p-4">
                       <h4 className="font-medium text-gray-900 mb-3 capitalize">{category} Information</h4>
@@ -1483,7 +1483,7 @@ export default function AdminControls() {
                   </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                   {userTypeInformation.map((userType) => (
                     <div key={userType.id} className="border border-gray-200 rounded-lg p-6 bg-white">
                       <div className="flex items-start justify-between mb-4">
@@ -2052,7 +2052,17 @@ export default function AdminControls() {
                 </div>
 
                 <div className="space-y-4">
-                  {schoolYears.map((year) => (
+                  {schoolYears
+                    .sort((a, b) => {
+                      // Sort by is_current first (current year at top)
+                      if (a.is_current && !b.is_current) return -1;
+                      if (!a.is_current && b.is_current) return 1;
+                      // Then sort by academic year descending (newest first)
+                      const aYear = parseInt(a.academic_year.split('-')[0]);
+                      const bYear = parseInt(b.academic_year.split('-')[0]);
+                      return bYear - aYear;
+                    })
+                    .map((year) => (
                     <div key={year.id} className={`border ${year.is_current ? 'border-[#8B1538]' : 'border-gray-200'} rounded-lg p-4 ${year.is_current ? 'bg-red-50' : 'bg-white'}`}>
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center space-x-3">
@@ -2762,11 +2772,11 @@ export default function AdminControls() {
         </div>
 
         {/* Save Button */}
-        <div className="flex justify-end mt-6">
+        <div className="flex justify-end mt-4 sm:mt-6">
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`px-6 py-3 bg-[#8B1538] text-white font-medium rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538] ${
+            className={`w-full sm:w-auto px-4 sm:px-6 py-2 sm:py-3 bg-[#8B1538] text-white font-medium text-sm sm:text-base rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538] ${
               saving ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
@@ -2803,7 +2813,7 @@ export default function AdminControls() {
       {/* PIN Modal */}
       {showPinModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 sm:w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3 text-center">
               <h3 className="text-lg font-medium text-gray-900">Enter PIN</h3>
               <div className="mt-2 px-7 py-3">
@@ -2823,16 +2833,16 @@ export default function AdminControls() {
                   <p className="mt-2 text-sm text-red-600">{pinError}</p>
                 )}
               </div>
-              <div className="items-center px-4 py-3 flex space-x-4">
+              <div className="items-center px-4 py-3 flex flex-col sm:flex-row gap-2 sm:gap-0 sm:space-x-4">
                 <button
                   onClick={handlePinSubmit}
-                  className="px-4 py-2 bg-[#8B1538] text-white text-base font-medium rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-[#8B1538]"
+                  className="w-full sm:w-auto px-4 py-2 bg-[#8B1538] text-white text-sm sm:text-base font-medium rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-[#8B1538]"
                 >
                   Submit
                 </button>
                 <button
                   onClick={() => setShowPinModal(false)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 text-base font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                  className="w-full sm:w-auto px-4 py-2 bg-gray-300 text-gray-700 text-sm sm:text-base font-medium rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
                 >
                   Cancel
                 </button>
@@ -2844,7 +2854,7 @@ export default function AdminControls() {
 
       {/* Alert */}
       {alert && (
-        <div className={`fixed top-4 right-4 p-4 rounded-md z-50 ${
+        <div className={`fixed top-4 right-4 left-4 sm:left-auto p-3 sm:p-4 rounded-md z-50 text-sm sm:text-base ${
           alert.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
         }`}>
           {alert.message}
@@ -2909,16 +2919,16 @@ export default function AdminControls() {
                 </button>
               </div>
 
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+              <div className="flex justify-end space-x-2 sm:space-x-3 mt-4 sm:mt-6 pt-4 border-t">
                 <button
                   onClick={closeSubOptionsModal}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={saveSubOptions}
-                  className="px-4 py-2 text-sm font-medium text-white bg-[#8B1538] rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                  className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-[#8B1538] rounded-md hover:bg-[#7A1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
                 >
                   Save Sub-options
                 </button>

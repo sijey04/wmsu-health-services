@@ -341,8 +341,8 @@ function AdminStaffManagement() {
 
   const renderStaffList = () => (
     <div>
-      <div className="bg-white rounded-lg shadow p-4 mb-6">
-        <div className="space-y-4">
+      <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="space-y-3 sm:space-y-4">
           {/* Search Bar */}
           <div className="relative">
             <input
@@ -350,10 +350,10 @@ function AdminStaffManagement() {
               placeholder="Search by name, email, username, or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="w-full border border-gray-300 rounded-lg pl-8 sm:pl-10 pr-4 py-1.5 sm:py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
             />
             <svg
-              className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+              className="absolute left-2 sm:left-3 top-2 sm:top-2.5 h-4 w-4 sm:h-5 sm:w-5 text-gray-400"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -368,13 +368,13 @@ function AdminStaffManagement() {
           </div>
 
           {/* Filter Row */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="text-sm font-medium text-gray-700">Filters:</span>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <span className="text-xs sm:text-sm font-medium text-gray-700">Filters:</span>
             
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
             >
               <option value="">All Roles</option>
               {roleOptions.map(role => (
@@ -385,7 +385,7 @@ function AdminStaffManagement() {
             <select
               value={filterCampus}
               onChange={(e) => setFilterCampus(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
             >
               <option value="">All Campuses</option>
               {campusOptions.map(campus => (
@@ -396,7 +396,7 @@ function AdminStaffManagement() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
             >
               <option value="all">All Status</option>
               <option value="active">Active</option>
@@ -406,7 +406,7 @@ function AdminStaffManagement() {
             <select
               value={sortField}
               onChange={(e) => setSortField(e.target.value as 'name' | 'email' | 'role' | 'date')}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="flex-1 sm:flex-none border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
             >
               <option value="date">Sort by Date</option>
               <option value="name">Sort by Name</option>
@@ -416,7 +416,7 @@ function AdminStaffManagement() {
 
             <button
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+              className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm hover:bg-gray-50 flex items-center"
               title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
             >
               {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
@@ -425,7 +425,7 @@ function AdminStaffManagement() {
             {(searchTerm || filterRole || filterCampus || filterStatus !== 'all') && (
               <button
                 onClick={clearFilters}
-                className="text-sm text-red-600 hover:text-red-800 underline"
+                className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline"
               >
                 Clear Filters
               </button>
@@ -433,13 +433,13 @@ function AdminStaffManagement() {
           </div>
 
           {/* Results Summary */}
-          <div className="text-sm text-gray-600">
+          <div className="text-xs sm:text-sm text-gray-600">
             Showing {paginatedStaff.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredStaff.length)} of {filteredStaff.length} staff members
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
         {loading ? (
           <div className="text-center p-6">Loading...</div>
         ) : error ? (
@@ -451,7 +451,7 @@ function AdminStaffManagement() {
             <thead className="bg-[#800000]">
               <tr>
                 <th 
-                  className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                  className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                   onClick={() => handleSortChange('name')}
                 >
                   <div className="flex items-center">
@@ -462,7 +462,7 @@ function AdminStaffManagement() {
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                  className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                   onClick={() => handleSortChange('email')}
                 >
                   <div className="flex items-center">
@@ -473,7 +473,7 @@ function AdminStaffManagement() {
                   </div>
                 </th>
                 <th 
-                  className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                  className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                   onClick={() => handleSortChange('role')}
                 >
                   <div className="flex items-center">
@@ -483,15 +483,15 @@ function AdminStaffManagement() {
                     )}
                   </div>
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Assigned Campuses</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Assigned Campuses</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedStaff.map((staffMember) => (
                 <tr key={staffMember.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
                         <div className="h-10 w-10 rounded-full bg-[#800000] flex items-center justify-center">
@@ -499,10 +499,10 @@ function AdminStaffManagement() {
                         </div>
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-xs sm:text-sm font-medium text-gray-900">
                           {staffMember.first_name} {staffMember.last_name}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           {staffMember.phone_number || 'No phone'}
                         </div>
                       </div>
@@ -537,14 +537,14 @@ function AdminStaffManagement() {
                       {staffMember.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex items-center space-x-2">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       <button
                         onClick={() => handleEdit(staffMember)}
                         className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-100"
                         title="Edit"
                       >
-                        <PencilIcon className="h-5 w-5" />
+                        <PencilIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
                       <button
                         onClick={() => toggleStaffStatus(staffMember)}
@@ -556,9 +556,9 @@ function AdminStaffManagement() {
                         title={staffMember.is_active ? 'Deactivate' : 'Activate'}
                       >
                         {staffMember.is_active ? (
-                          <XMarkIcon className="h-5 w-5" />
+                          <XMarkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                         ) : (
-                          <EyeIcon className="h-5 w-5" />
+                          <EyeIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                         )}
                       </button>
                       <button
@@ -566,7 +566,7 @@ function AdminStaffManagement() {
                         className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-100"
                         title="Delete"
                       >
-                        <TrashIcon className="h-5 w-5" />
+                        <TrashIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                       </button>
                     </div>
                   </td>
@@ -579,7 +579,7 @@ function AdminStaffManagement() {
 
       {/* Pagination */}
       {filteredStaff.length > 0 && (
-        <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+        <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-4">
           <div className="flex-1 flex justify-between sm:hidden">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
@@ -607,7 +607,7 @@ function AdminStaffManagement() {
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div className="flex items-center space-x-4">
               <div>
-                <p className="text-sm text-gray-700">
+                <p className="text-xs sm:text-sm text-gray-700">
                   Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
                   <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredStaff.length)}</span> of{' '}
                   <span className="font-medium">{filteredStaff.length}</span> results
@@ -620,7 +620,7 @@ function AdminStaffManagement() {
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                  className="border rounded-lg px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 >
                   <option value={5}>5 per page</option>
                   <option value={10}>10 per page</option>
@@ -641,7 +641,7 @@ function AdminStaffManagement() {
                       : 'bg-white text-gray-500 hover:bg-gray-50'
                   }`}
                 >
-                  <ChevronLeftIcon className="h-5 w-5" />
+                  <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
                 
                 {Array.from({ length: totalPages }, (_, i) => i + 1)
@@ -684,7 +684,7 @@ function AdminStaffManagement() {
                       : 'bg-white text-gray-500 hover:bg-gray-50'
                   }`}
                 >
-                  <ChevronRightIcon className="h-5 w-5" />
+                  <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </button>
               </nav>
             </div>
@@ -696,95 +696,95 @@ function AdminStaffManagement() {
 
   const renderCreateStaffForm = () => (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
         <h2 className="text-xl font-bold text-gray-900 mb-6">
           {editingStaff ? 'Edit Staff Member' : 'Create New Staff Account'}
         </h2>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 First Name *
               </label>
               <input
                 type="text"
                 value={formData.first_name}
                 onChange={(e) => setFormData({...formData, first_name: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+                className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                   formErrors.first_name ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter first name"
               />
               {formErrors.first_name && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.first_name}</p>
+                <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.first_name}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Last Name *
               </label>
               <input
                 type="text"
                 value={formData.last_name}
                 onChange={(e) => setFormData({...formData, last_name: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+                className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                   formErrors.last_name ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter last name"
               />
               {formErrors.last_name && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.last_name}</p>
+                <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.last_name}</p>
               )}
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Username *
             </label>
             <input
               type="text"
               value={formData.username}
               onChange={(e) => setFormData({...formData, username: e.target.value})}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+              className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                 formErrors.username ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter username"
             />
             {formErrors.username && (
-              <p className="mt-1 text-sm text-red-600">{formErrors.username}</p>
+              <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.username}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Email *
             </label>
             <input
               type="email"
               value={formData.email}
               onChange={(e) => setFormData({...formData, email: e.target.value})}
-              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+              className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                 formErrors.email ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter email address"
             />
             {formErrors.email && (
-              <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+              <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.email}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
               Phone Number
             </label>
             <input
               type="tel"
               value={formData.phone_number}
               onChange={(e) => setFormData({...formData, phone_number: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+              className="w-full px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
               placeholder="Enter phone number"
             />
           </div>
@@ -797,7 +797,7 @@ function AdminStaffManagement() {
               <select
                 value={formData.role}
                 onChange={(e) => setFormData({...formData, role: e.target.value})}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+                className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                   formErrors.role ? 'border-red-500' : 'border-gray-300'
                 }`}
               >
@@ -807,12 +807,12 @@ function AdminStaffManagement() {
                 ))}
               </select>
               {formErrors.role && (
-                <p className="mt-1 text-sm text-red-600">{formErrors.role}</p>
+                <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.role}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                 Assigned Campuses *
               </label>
               <div className="space-y-2">
@@ -830,71 +830,71 @@ function AdminStaffManagement() {
                       }}
                       className="h-4 w-4 text-[#800000] focus:ring-[#800000] border-gray-300 rounded"
                     />
-                    <span className="ml-2 text-sm text-gray-700">{campus.label}</span>
+                    <span className="ml-2 text-xs sm:text-sm text-gray-700">{campus.label}</span>
                   </label>
                 ))}
               </div>
               {(formErrors as any).campuses && (
-                <p className="mt-1 text-sm text-red-600">{(formErrors as any).campuses}</p>
+                <p className="mt-1 text-xs sm:text-sm text-red-600">{(formErrors as any).campuses}</p>
               )}
             </div>
           </div>
 
           {!editingStaff && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Password *
                 </label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+                  className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                     formErrors.password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Enter password"
                 />
                 {formErrors.password && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+                  <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.password}</p>
                 )}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
                   Confirm Password *
                 </label>
                 <input
                   type="password"
                   value={formData.confirm_password}
                   onChange={(e) => setFormData({...formData, confirm_password: e.target.value})}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
+                  className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                     formErrors.confirm_password ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="Confirm password"
                 />
                 {formErrors.confirm_password && (
-                  <p className="mt-1 text-sm text-red-600">{formErrors.confirm_password}</p>
+                  <p className="mt-1 text-xs sm:text-sm text-red-600">{formErrors.confirm_password}</p>
                 )}
               </div>
             </div>
           )}
 
-          <div className="flex justify-end space-x-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-0 sm:space-x-4">
             <button
               type="button"
               onClick={() => {
                 resetForm();
                 setActiveTab('staffList');
               }}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+              className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-200"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-4 py-2 bg-[#800000] text-white rounded-lg hover:bg-[#600000] transition-colors duration-200 disabled:opacity-50"
+              className="w-full sm:w-auto px-4 py-2 bg-[#800000] text-white text-sm rounded-lg hover:bg-[#600000] transition-colors duration-200 disabled:opacity-50"
             >
               {isSubmitting ? 'Saving...' : (editingStaff ? 'Update Staff' : 'Create Staff')}
             </button>
@@ -906,17 +906,17 @@ function AdminStaffManagement() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
-          <p className="text-gray-600">Manage staff accounts and permissions</p>
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Staff Management</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage staff accounts and permissions</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           <div className="border-b border-gray-200">
-            <div className="flex">
+            <div className="flex overflow-x-auto">
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${
                   activeTab === 'staffList'
                     ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -926,7 +926,7 @@ function AdminStaffManagement() {
                 Staff List
               </button>
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${
                   activeTab === 'createStaff'
                     ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -941,7 +941,7 @@ function AdminStaffManagement() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {activeTab === 'staffList' && renderStaffList()}
             {activeTab === 'createStaff' && renderCreateStaffForm()}
           </div>

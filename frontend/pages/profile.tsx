@@ -336,16 +336,16 @@ export default function Profile() {
         <title>Profile - WMSU Health Services</title>
       </Head>
 
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-4 sm:py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           {/* Header */}
           
           {error && (
-            <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="mb-4 sm:mb-6 bg-red-50 border border-red-200 rounded-md p-3 sm:p-4">
               <div className="flex">
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Error</h3>
-                  <div className="mt-2 text-sm text-red-700">{error}</div>
+                <div className="ml-2 sm:ml-3">
+                  <h3 className="text-xs sm:text-sm font-medium text-red-800">Error</h3>
+                  <div className="mt-1 sm:mt-2 text-xs sm:text-sm text-red-700">{error}</div>
                 </div>
               </div>
             </div>
@@ -353,22 +353,22 @@ export default function Profile() {
 
           {/* Profile Completion Notice */}
           {patientProfile && (patientProfile.age === 0 || !patientProfile.date_of_birth || !patientProfile.contact_number || patientProfile.gender === 'Other') && (
-            <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-md p-4">
+            <div className="mb-4 sm:mb-6 bg-yellow-50 border border-yellow-200 rounded-md p-3 sm:p-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M8.485 3.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 3.495zM10 6a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 6zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
                   </svg>
                 </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">Complete Your Profile</h3>
-                  <div className="mt-2 text-sm text-yellow-700">
+                <div className="ml-2 sm:ml-3">
+                  <h3 className="text-xs sm:text-sm font-medium text-yellow-800">Complete Your Profile</h3>
+                  <div className="mt-1 sm:mt-2 text-xs sm:text-sm text-yellow-700">
                     Your profile is incomplete. Please update your information to ensure you receive the best health services.
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-3 sm:mt-4">
                     <button
                       onClick={() => router.push('/patient/profile')}
-                      className="text-sm bg-yellow-100 text-yellow-800 px-3 py-1 rounded-md hover:bg-yellow-200"
+                      className="text-xs sm:text-sm bg-yellow-100 text-yellow-800 px-2.5 sm:px-3 py-1 rounded-md hover:bg-yellow-200"
                     >
                       Update Profile Now
                     </button>
@@ -379,31 +379,31 @@ export default function Profile() {
           )}
 
           {/* Profile Card */}
-          <div className="bg-white shadow rounded-lg mb-8">
-            <div className="px-6 py-8">
-              <div className="flex items-center space-x-6">
-                <div className="h-24 w-24 rounded-full bg-[#800000] flex items-center justify-center text-white text-2xl font-bold">
+          <div className="bg-white shadow rounded-lg mb-4 sm:mb-8">
+            <div className="px-4 sm:px-6 py-4 sm:py-8">
+              <div className="flex flex-col sm:flex-row items-center sm:space-x-6 space-y-4 sm:space-y-0">
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-full bg-[#800000] flex items-center justify-center text-white text-xl sm:text-2xl font-bold flex-shrink-0">
                   {patientProfile?.photo ? (
                     <img 
                       src={patientProfile.photo} 
                       alt="Profile" 
-                      className="h-24 w-24 rounded-full object-cover"
+                      className="h-20 w-20 sm:h-24 sm:w-24 rounded-full object-cover"
                     />
                   ) : (
                     (user?.first_name?.[0] || user?.email?.[0] || '?').toUpperCase()
                   )}
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">
+                <div className="text-center sm:text-left">
+                  <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
                     {patientProfile?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email}
                   </h2>
-                  <p className="text-gray-600">
+                  <p className="text-sm sm:text-base text-gray-600">
                     {patientProfile?.student_id?.startsWith('TEMP-') 
                       ? 'Student ID not set - Please update your profile' 
                       : patientProfile?.student_id || 'Student ID not set'
                     }
                   </p>
-                  <p className="text-gray-600">{patientProfile?.department || 'Department not set'}</p>
+                  <p className="text-sm sm:text-base text-gray-600">{patientProfile?.department || 'Department not set'}</p>
                   {isIncomingFreshman() && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-2">
                       Incoming Freshman
@@ -417,7 +417,7 @@ export default function Profile() {
           {/* Tabs */}
           <div className="bg-white shadow rounded-lg">
             <div className="border-b border-gray-200">
-              <nav className="flex space-x-8 px-6" aria-label="Tabs">
+              <nav className="flex space-x-4 sm:space-x-8 px-3 sm:px-6 overflow-x-auto" aria-label="Tabs">
                 {tabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
@@ -428,9 +428,9 @@ export default function Profile() {
                         activeTab === tab.id
                           ? 'border-[#800000] text-[#800000]'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                      } whitespace-nowrap py-3 sm:py-4 px-1 border-b-2 font-medium text-xs sm:text-sm flex items-center space-x-1.5 sm:space-x-2`}
                     >
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                       <span>{tab.name}</span>
                     </button>
                   );
@@ -438,36 +438,36 @@ export default function Profile() {
               </nav>
             </div>
 
-            <div className="p-6">
+            <div className="p-3 sm:p-6">
               {/* Personal Information Tab */}
               {activeTab === 'personal' && (
                 <div className="space-y-6">
                   {/* Account Information Section */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                        <UserIcon className="h-5 w-5 mr-2" />
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 space-y-3 sm:space-y-0">
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900 flex items-center">
+                        <UserIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                         Account Information
                       </h3>
                       <button
                         onClick={() => setShowPasswordChange(!showPasswordChange)}
-                        className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
+                        className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-1.5 sm:py-1 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
                       >
                         Change Password
                       </button>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                       <div>
-                        <dt className="text-sm font-medium text-gray-500">Email Address</dt>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500">Email Address</dt>
                         <dd className="text-sm text-gray-900 mt-1">{user?.email}</dd>
                       </div>
                       <div>
-                        <dt className="text-sm font-medium text-gray-500">User Type</dt>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500">User Type</dt>
                         <dd className="text-sm text-gray-900 mt-1 capitalize">{user?.user_type}</dd>
                       </div>
                       <div>
-                        <dt className="text-sm font-medium text-gray-500">First Name</dt>
+                        <dt className="text-xs sm:text-sm font-medium text-gray-500">First Name</dt>
                         <dd className="text-sm text-gray-900 mt-1">{user?.first_name || 'Not set'}</dd>
                       </div>
                       <div>
@@ -498,9 +498,9 @@ export default function Profile() {
 
                     {/* Password Change Form */}
                     {showPasswordChange && (
-                      <div className="mt-6 pt-6 border-t border-gray-200">
-                        <h4 className="text-md font-medium text-gray-900 mb-4">Change Password</h4>
-                        <form onSubmit={handlePasswordChange} className="space-y-4">
+                      <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-200">
+                        <h4 className="text-sm sm:text-md font-medium text-gray-900 mb-3 sm:mb-4">Change Password</h4>
+                        <form onSubmit={handlePasswordChange} className="space-y-3 sm:space-y-4">
                           <div>
                             <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
                               Current Password
@@ -540,18 +540,18 @@ export default function Profile() {
                               required
                             />
                           </div>
-                          <div className="flex space-x-3">
+                          <div className="flex flex-col sm:flex-row gap-2 sm:gap-0 sm:space-x-3">
                             <button
                               type="submit"
                               disabled={passwordChangeLoading}
-                              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000] disabled:opacity-50"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent shadow-sm text-xs sm:text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000] disabled:opacity-50"
                             >
                               {passwordChangeLoading ? 'Updating...' : 'Update Password'}
                             </button>
                             <button
                               type="button"
                               onClick={() => setShowPasswordChange(false)}
-                              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-gray-300 shadow-sm text-xs sm:text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
                             >
                               Cancel
                             </button>
@@ -564,20 +564,20 @@ export default function Profile() {
 
               {/* Consultation Results Tab */}
               {activeTab === 'consultations' && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">Your Appointments & Consultations</h3>
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900">Your Appointments & Consultations</h3>
                     <button
                       onClick={() => router.push('/appointments')}
-                      className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
+                      className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent shadow-sm text-xs sm:text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
                     >
                       Book New Appointment
                     </button>
                   </div>
 
                   {appointments.length === 0 ? (
-                    <div className="text-center py-12">
-                      <CalendarIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="text-center py-8 sm:py-12">
+                      <CalendarIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
                       <h3 className="mt-2 text-sm font-medium text-gray-900">No appointments found</h3>
                       <p className="mt-1 text-sm text-gray-500">
                         You haven&apos;t booked any appointments yet.
@@ -586,11 +586,11 @@ export default function Profile() {
                   ) : (
                     <div className="space-y-4">
                       {appointments.map((appointment) => (
-                        <div key={appointment.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div key={appointment.id} className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6 shadow-sm">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <h4 className="text-lg font-medium text-gray-900">{appointment.purpose}</h4>
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <h4 className="text-base sm:text-lg font-medium text-gray-900">{appointment.purpose}</h4>
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(appointment.status)}`}>
                                   {appointment.status}
                                 </span>
@@ -598,7 +598,7 @@ export default function Profile() {
                                   {appointment.type}
                                 </span>
                               </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-600">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
                                 <div>
                                   <span className="font-medium">Date:</span> {formatDate(appointment.appointment_date)}
                                 </div>
@@ -641,13 +641,13 @@ export default function Profile() {
 
               {/* Medical Certificate Tab (only for incoming freshmen) */}
               {activeTab === 'medical' && isIncomingFreshman() && (
-                <div className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900">Medical Certificate Request</h3>
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between space-y-3 sm:space-y-0">
+                    <h3 className="text-base sm:text-lg font-medium text-gray-900">Medical Certificate Request</h3>
                     {(!medicalDocument || medicalDocument.id === null) && (
                       <button
                         onClick={() => router.push('/medical-papers')}
-                        className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
+                        className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent shadow-sm text-xs sm:text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
                       >
                         Start Medical Certificate Request
                       </button>
@@ -655,8 +655,8 @@ export default function Profile() {
                   </div>
 
                   {!medicalDocument || medicalDocument.id === null ? (
-                    <div className="text-center py-12">
-                      <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <div className="text-center py-8 sm:py-12">
+                      <DocumentTextIcon className="mx-auto h-10 w-10 sm:h-12 sm:w-12 text-gray-400" />
                       <h3 className="mt-2 text-sm font-medium text-gray-900">No medical certificate request found</h3>
                       <p className="mt-1 text-sm text-gray-500">
                         As an incoming freshman, you can request a medical certificate by uploading your medical documents.
@@ -665,15 +665,15 @@ export default function Profile() {
                   ) : (
                     <div className="space-y-6">
                       {/* Status Overview */}
-                      <div className="bg-gray-50 rounded-lg p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-lg font-medium text-gray-900">Certificate Status</h4>
+                      <div className="bg-gray-50 rounded-lg p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 space-y-2 sm:space-y-0">
+                          <h4 className="text-base sm:text-lg font-medium text-gray-900">Certificate Status</h4>
                           <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(medicalDocument.status)}`}>
                             {medicalDocument.status}
                           </span>
                         </div>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                           <div>
                             <dt className="text-sm font-medium text-gray-500">Completion</dt>
                             <dd className="text-sm text-gray-900">{medicalDocument.completion_percentage}%</dd>
@@ -699,8 +699,8 @@ export default function Profile() {
                       </div>
 
                       {/* Document Progress */}
-                      <div className="bg-white border border-gray-200 rounded-lg p-6">
-                        <h4 className="text-lg font-medium text-gray-900 mb-4">Required Documents</h4>
+                      <div className="bg-white border border-gray-200 rounded-lg p-4 sm:p-6">
+                        <h4 className="text-base sm:text-lg font-medium text-gray-900 mb-3 sm:mb-4">Required Documents</h4>
                         <div className="space-y-3">
                           {[
                             { key: 'chest_xray', label: 'Chest X-ray' },
@@ -726,12 +726,12 @@ export default function Profile() {
 
                       {/* Medical Certificate Download */}
                       {medicalDocument.medical_certificate && medicalDocument.status === 'issued' && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-                          <div className="flex items-center">
-                            <DocumentTextIcon className="h-6 w-6 text-green-600 mr-3" />
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 sm:p-6">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0">
+                            <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 sm:mr-3" />
                             <div className="flex-1">
-                              <h4 className="text-lg font-medium text-green-900">Medical Certificate Ready</h4>
-                              <p className="text-sm text-green-700 mt-1">
+                              <h4 className="text-base sm:text-lg font-medium text-green-900">Medical Certificate Ready</h4>
+                              <p className="text-xs sm:text-sm text-green-700 mt-1">
                                 Your medical certificate has been issued and is ready for download.
                               </p>
                             </div>
@@ -751,7 +751,7 @@ export default function Profile() {
                                 link.click();
                                 document.body.removeChild(link);
                               }}
-                              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent shadow-sm text-xs sm:text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                             >
                               Download Certificate
                             </button>
@@ -762,7 +762,7 @@ export default function Profile() {
                       <div className="flex justify-end">
                         <button
                           onClick={() => router.push('/medical-papers')}
-                          className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
+                          className="w-full sm:w-auto inline-flex items-center justify-center px-3 sm:px-4 py-2 border border-transparent shadow-sm text-xs sm:text-sm font-medium rounded-md text-white bg-[#800000] hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
                         >
                           Manage Documents
                         </button>

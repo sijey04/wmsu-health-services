@@ -356,16 +356,16 @@ export default function AdminPatientProfile() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
         <div className="bg-white rounded-xl overflow-hidden">
           <div className="">
             {/* Header */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Patient Profiles</h1>
-                    <p className="text-gray-600">
+            <div className="mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
+                  <div className="w-full sm:w-auto">
+                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2">Patient Profiles</h1>
+                    <p className="text-sm sm:text-base text-gray-600">
                       Manage and organize patient records by academic semester
                       {semesters.length === 0 && (
                         <span className="text-orange-600 ml-2">
@@ -377,9 +377,9 @@ export default function AdminPatientProfile() {
 
                   {/* Current Semester Info */}
                   {currentSemester && semesters.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
                       <div className="flex items-center text-blue-700">
-                        <CalendarDaysIcon className="w-5 h-5 mr-2" />
+                        <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                         <div>
                           <div className="text-sm font-medium">Current Semester</div>
                           <div className="text-xs">{currentSemester.academic_year} - {currentSemester.semester_type}</div>
@@ -388,9 +388,9 @@ export default function AdminPatientProfile() {
                     </div>
                   )}
                   {semesters.length === 0 && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-2">
+                    <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
                       <div className="flex items-center text-orange-700">
-                        <CalendarDaysIcon className="w-5 h-5 mr-2" />
+                        <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                         <div>
                           <div className="text-sm font-medium">Current Period</div>
                           <div className="text-xs">Academic Year {new Date().getFullYear()}-{new Date().getFullYear() + 1}</div>
@@ -401,9 +401,9 @@ export default function AdminPatientProfile() {
                   
                   {/* Semester Statistics - Inline */}
                   {Object.keys(semesterStats).length > 0 && Object.values(semesterStats).map((stat: any) => (
-                    <div key={stat.semester.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg px-4 py-2">
-                      <div className="flex items-center space-x-3">
-                        <AcademicCapIcon className="w-8 h-8 text-blue-600" />
+                    <div key={stat.semester.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
+                        <AcademicCapIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                         <div>
                           <div className="text-sm font-medium text-blue-900">
                             {stat.semester.academic_year}
@@ -427,17 +427,17 @@ export default function AdminPatientProfile() {
                 <button
                   onClick={exportPatientsBySemester}
                   disabled={patients.length === 0}
-                  className="flex items-center px-4 py-2 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200"
+                  className="flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-200 text-sm sm:text-base"
                 >
-                  <ArrowDownTrayIcon className="w-5 h-5 mr-2" />
+                  <ArrowDownTrayIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                   Export CSV
                 </button>
               </div>
             </div>
 
             {/* Search and Filter Controls */}
-            <div className="bg-white rounded-lg shadow p-4 mb-6">
-              <div className="space-y-4">
+            <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+              <div className="space-y-3 sm:space-y-4">
                 {/* Search Bar */}
                 <div className="relative">
                   <input
@@ -445,10 +445,10 @@ export default function AdminPatientProfile() {
                     placeholder="Search by name, email, contact number..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                    className="w-full border border-gray-300 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                   />
                   <svg
-                    className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                    className="absolute left-2 sm:left-3 top-2 sm:top-2.5 h-4 w-4 sm:h-5 sm:w-5 text-gray-400"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -463,13 +463,13 @@ export default function AdminPatientProfile() {
                 </div>
 
                 {/* Filter Row */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-medium text-gray-700">Filters:</span>
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <span className="text-xs sm:text-sm font-medium text-gray-700 w-full sm:w-auto">Filters:</span>
                   
                   <select
                     value={userTypeFilter}
                     onChange={(e) => setUserTypeFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                   >
                     <option>All User Types</option>
                     <option>College</option>
@@ -484,7 +484,7 @@ export default function AdminPatientProfile() {
                     <select
                       value={selectedAcademicYear}
                       onChange={(e) => setSelectedAcademicYear(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                     >
                       <option value="all">All Academic Years</option>
                       {academicYears.map(year => (
@@ -497,7 +497,7 @@ export default function AdminPatientProfile() {
                     <select
                       value={selectedSemester}
                       onChange={(e) => setSelectedSemester(e.target.value)}
-                      className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                      className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                     >
                       <option value="all">All Semesters</option>
                       {semesters
@@ -515,7 +515,7 @@ export default function AdminPatientProfile() {
                   <select
                     value={genderFilter}
                     onChange={(e) => setGenderFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                   >
                     <option value="all">All Genders</option>
                     <option value="Male">Male</option>
@@ -525,7 +525,7 @@ export default function AdminPatientProfile() {
                   <select
                     value={bloodTypeFilter}
                     onChange={(e) => setBloodTypeFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                   >
                     <option value="all">All Blood Types</option>
                     <option value="A+">A+</option>
@@ -541,7 +541,7 @@ export default function AdminPatientProfile() {
                   <select
                     value={verificationFilter}
                     onChange={(e) => setVerificationFilter(e.target.value)}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                   >
                     <option value="all">All Status</option>
                     <option value="verified">Verified</option>
@@ -551,7 +551,7 @@ export default function AdminPatientProfile() {
                   <select
                     value={sortField}
                     onChange={(e) => setSortField(e.target.value as 'name' | 'age' | 'date')}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                   >
                     <option value="date">Sort by Date</option>
                     <option value="name">Sort by Name</option>
@@ -560,7 +560,7 @@ export default function AdminPatientProfile() {
 
                   <button
                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                    className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm hover:bg-gray-50 flex items-center"
                     title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                   >
                     {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
@@ -571,7 +571,7 @@ export default function AdminPatientProfile() {
                     verificationFilter !== 'all') && (
                     <button
                       onClick={clearFilters}
-                      className="text-sm text-red-600 hover:text-red-800 underline"
+                      className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
                     >
                       Clear Filters
                     </button>
@@ -579,7 +579,7 @@ export default function AdminPatientProfile() {
                 </div>
 
                 {/* Results Summary */}
-                <div className="text-sm text-gray-600">
+                <div className="text-xs sm:text-sm text-gray-600">
                   Showing {paginatedPatients.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredPatients.length)} of {filteredPatients.length} patients
                 </div>
               </div>
@@ -602,11 +602,11 @@ export default function AdminPatientProfile() {
             {!loading && !error && (
               <div className="bg-white rounded-lg shadow overflow-hidden">
                 {/* Table Header with Results Count */}
-                <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
+                <div className="bg-gray-50 px-3 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <div className="flex items-center">
-                      <UserGroupIcon className="w-5 h-5 text-gray-600 mr-2" />
-                      <h3 className="text-lg font-medium text-gray-900">
+                      <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 mr-2" />
+                      <h3 className="text-base sm:text-lg font-medium text-gray-900">
                         Patient Records ({patients.length} {patients.length === 1 ? 'patient' : 'patients'})
                       </h3>
                     </div>
@@ -623,7 +623,7 @@ export default function AdminPatientProfile() {
                     <thead className="bg-[#800000]">
                       <tr>
                         <th 
-                          className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                          className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                           onClick={() => handleSortChange('name')}
                         >
                           <div className="flex items-center">
@@ -633,9 +633,9 @@ export default function AdminPatientProfile() {
                             )}
                           </div>
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Academic Period</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Academic Period</th>
                         <th 
-                          className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
+                          className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                           onClick={() => handleSortChange('age')}
                         >
                           <div className="flex items-center">
@@ -645,9 +645,9 @@ export default function AdminPatientProfile() {
                             )}
                           </div>
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Contact Info</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Contact Info</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                        <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -667,7 +667,7 @@ export default function AdminPatientProfile() {
                         paginatedPatients.map((patient) => (
                           <tr key={patient.id} className="hover:bg-gray-50 transition-colors duration-200">
                             {/* Patient Info */}
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-12 w-12">
                                   {patient.photo ? (
@@ -695,7 +695,7 @@ export default function AdminPatientProfile() {
                             </td>
 
                             {/* Academic Period */}
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">
                                 {semesters.length > 0 ? (
                                   patient.semester_id ? (
@@ -726,7 +726,7 @@ export default function AdminPatientProfile() {
                             </td>
 
                             {/* Demographics */}
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">
                                 <div>{patient.age ? `${patient.age} years old` : 'Age N/A'}</div>
                                 <div className="text-gray-500">{patient.gender || 'Gender N/A'}</div>
@@ -735,8 +735,8 @@ export default function AdminPatientProfile() {
                             </td>
 
                             {/* Contact Info */}
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                              <div className="text-xs sm:text-sm text-gray-900">
                                 <div>{patient.contact_number || 'No contact'}</div>
                                 <div className="text-xs text-gray-500 mt-1">
                                   Type: {patient.user_type || 'N/A'}
@@ -745,7 +745,7 @@ export default function AdminPatientProfile() {
                             </td>
 
                             {/* Status */}
-                            <td className="px-6 py-4 whitespace-nowrap">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               <div className="flex flex-col space-y-1">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   patient.is_verified 
@@ -763,7 +763,7 @@ export default function AdminPatientProfile() {
                             </td>
 
                             {/* Actions */}
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                               <div className="flex flex-col space-y-1">
                                 <button
                                   onClick={() => handleViewProfile(patient.id)}
@@ -794,7 +794,7 @@ export default function AdminPatientProfile() {
 
                 {/* Pagination */}
                 {filteredPatients.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}

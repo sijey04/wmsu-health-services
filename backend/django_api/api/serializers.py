@@ -118,11 +118,13 @@ class PatientSerializer(serializers.ModelSerializer):
             'id', 'user', 'student_id', 'name', 'first_name', 'middle_name', 'suffix',
             'photo', 'gender', 'date_of_birth', 'age', 'department', 'contact_number',
             'email', 'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 
-            'nationality', 'civil_status', 'emergency_contact_surname', 
+            'nationality', 'nationality_specify', 'civil_status', 'emergency_contact_surname', 
             'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship',
             'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street', 
-            'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'vaccination_history', 'past_medical_history', 
+            'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'custom_drug_names', 
+            'custom_nationalities', 'custom_comorbid_illnesses', 'custom_comorbid_specifications', 'custom_menstrual_symptoms',
+            'vaccination_history', 'past_medical_history', 
             'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             'family_medical_history', 'allergies', 'created_at', 'updated_at', 'user_email', 'user_name', 'user_first_name', 
             'user_middle_name', 'user_last_name', 'school_year',
@@ -277,12 +279,14 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'student_id', 'name', 'first_name', 'middle_name', 'suffix', 'photo',
             'gender', 'date_of_birth', 'age', 'department', 'contact_number', 'email',
-            'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 'nationality', 'civil_status',
+            'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 'nationality', 'nationality_specify', 'civil_status',
             # Emergency contact
             'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship', 'emergency_contact_address', 'emergency_contact_barangay', 'emergency_contact_street',
             # Health history
             'comorbid_illnesses', 'comorbid_illness_details', 'maintenance_medications', 'vaccination_history',
+            # Custom specifications
+            'custom_drug_names', 'custom_nationalities', 'custom_comorbid_illnesses', 'custom_comorbid_specifications', 'custom_menstrual_symptoms',
             # Past medical/surgical history
             'past_medical_history', 'hospital_admission_or_surgery', 'hospital_admission_details', 'hospital_admission_year',
             # Menstrual & Obstetric History (for females)

@@ -31,13 +31,6 @@ export default function PatientProfileSetupPage() {
   const [autoFilledFromYear, setAutoFilledFromYear] = useState<string>('');
   const [autoFilledFromSemester, setAutoFilledFromSemester] = useState<string>('');
 
-  // New state for tracking changes and versioning
-  const [originalProfile, setOriginalProfile] = useState<any>(null);
-  const [hasChanges, setHasChanges] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [profileVersion, setProfileVersion] = useState<number>(1);
-  const [existingProfileId, setExistingProfileId] = useState<number | null>(null);
-
   // Medical lists state
   const [comorbidIllnesses, setComorbidIllnesses] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
@@ -285,19 +278,44 @@ export default function PatientProfileSetupPage() {
         if (!profileData.street) profileData.street = '';
       }
       
+      // Process enhanced ComorbidIllness details if available
+      if (profileData.comorbid_illness_details && typeof profileData.comorbid_illness_details === 'object') {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Processing enhanced ComorbidIllness details:', profileData.comorbid_illness_details);
+        }
+        
+        // Map the enhanced details to the dynamic field structure
+        Object.keys(profileData.comorbid_illness_details).forEach(illnessKey => {
+          const details = profileData.comorbid_illness_details[illnessKey];
+          
+          // Set sub-options if available
+          if (details.sub_options && Array.isArray(details.sub_options)) {
+            profileData[`comorbid_${illnessKey}_sub`] = details.sub_options;
+          }
+          
+          // Set specification if available
+          if (details.specification && typeof details.specification === 'string') {
+            profileData[`comorbid_${illnessKey}_spec`] = details.specification;
+          }
+        });
+      }
+      
       // Store original profile for change tracking
       setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
       setProfile(profileData);
-      setExistingProfileId(profileData.id);
-      setProfileVersion(profileData.version || 1);
       setIsEditMode(false);
-      setHasChanges(false);
+      setHasUnsavedChanges(false);
+      setIsNewProfile(false);
       
       // Debug enhanced comorbid illness fields
       if (process.env.NODE_ENV === 'development') {
         console.log('=== PROFILE LOADED DEBUG ===');
         console.log('Full profile data:', profileData);
         console.log('Comorbid illnesses:', profileData.comorbid_illnesses);
+        console.log('Custom drug names:', profileData.custom_drug_names);
+        console.log('Custom nationalities:', profileData.custom_nationalities);
+        console.log('Custom comorbid illnesses:', profileData.custom_comorbid_illnesses);
+        console.log('Custom menstrual symptoms:', profileData.custom_menstrual_symptoms);
         
         // Check for enhanced comorbid illness fields
         Object.keys(profileData).forEach(key => {
@@ -358,6 +376,7 @@ export default function PatientProfileSetupPage() {
             suffix: autofillData.suffix || '',
             email: autofillData.email || '',
             nationality: autofillData.nationality || 'Filipino',
+            nationality_specify: autofillData.nationality_specify || '',
             city_municipality: autofillData.city_municipality || 'Zamboanga City',
             barangay: autofillData.barangay || '',
             street: autofillData.street || '',
@@ -421,12 +440,6 @@ export default function PatientProfileSetupPage() {
           // Store as original profile for new autofilled profiles
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setProfile(defaultProfile);
-<<<<<<< HEAD
-          setExistingProfileId(null);
-          setProfileVersion(1);
-          setIsEditMode(false);
-          setHasChanges(false);
-=======
           
           // Debug enhanced comorbid illness fields in autofill
           if (process.env.NODE_ENV === 'development') {
@@ -447,7 +460,6 @@ export default function PatientProfileSetupPage() {
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setIsEditMode(true); // Start in edit mode for new profiles
           setIsNewProfile(true); // This is a new profile
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         } catch (autofillErr: any) {
           console.error('Failed to get autofill data:', autofillErr);
           // Fallback to basic user info
@@ -479,18 +491,10 @@ export default function PatientProfileSetupPage() {
           // Store as original profile for fallback profiles too
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setProfile(defaultProfile);
-<<<<<<< HEAD
-          setExistingProfileId(null);
-          setProfileVersion(1);
-          setIsEditMode(false);
-          setHasChanges(false);
-=======
           
           // Store original profile for change detection
-          setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
           setIsEditMode(true); // Start in edit mode for new profiles
           setIsNewProfile(true); // This is a new profile
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         }
       } else {
         console.error('Error fetching profile:', err);
@@ -729,12 +733,22 @@ export default function PatientProfileSetupPage() {
         }
       }
 
+      // Nationality specification validation
+      if (profile?.nationality === 'Foreigner') {
+        if (!profile?.nationality_specify || profile.nationality_specify.trim() === '') {
+          errors.nationality_specify = 'Please specify your nationality.';
+        }
+      }
+
       if (profile?.user_type === 'College' || profile?.user_type === 'Incoming Freshman') {
         if (!profile?.course || profile.course.trim() === '') {
           errors.course = 'Course is required.';
         }
-        if (!profile?.year_level || profile.year_level.trim() === '') {
-          errors.year_level = 'Year level is required.';
+        if (profile?.user_type === 'College') {
+          // Only require year level for College, not Incoming Freshman (auto-set to 1st year)
+          if (!profile?.year_level || profile.year_level.trim() === '') {
+            errors.year_level = 'Year level is required.';
+          }
         }
       }
 
@@ -766,16 +780,22 @@ export default function PatientProfileSetupPage() {
         console.log('Available comorbid illness options:', comorbidIllnesses);
       }
       
-      // Enhanced ComorbidIllness validation - check each selected illness for specification requirements
+      // Enhanced ComorbidIllness validation - check each selected illness for sub-options requirements
       if (Array.isArray(profile?.comorbid_illnesses) && Array.isArray(comorbidIllnesses)) {
         profile.comorbid_illnesses.forEach(selectedIllness => {
           const illnessConfig = comorbidIllnesses.find(illness => illness.label === selectedIllness);
-          if (illnessConfig && illnessConfig.requires_specification) {
-            const fieldName = `comorbid_${selectedIllness.toLowerCase().replace(/\s+/g, '_')}_spec`;
-            if (!profile?.[fieldName] || profile[fieldName].trim() === '') {
-              errors[fieldName] = `Please specify details for ${selectedIllness}.`;
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`${selectedIllness} requires specification but field ${fieldName} is empty`);
+          
+          if (illnessConfig) {
+            // Check if sub-options are required and at least one is selected
+            if (illnessConfig.has_sub_options && Array.isArray(illnessConfig.sub_options) && illnessConfig.sub_options.length > 0) {
+              const subFieldName = `comorbid_${selectedIllness.toLowerCase().replace(/\s+/g, '_')}_sub`;
+              const selectedSubOptions = profile?.[subFieldName];
+              
+              if (!selectedSubOptions || !Array.isArray(selectedSubOptions) || selectedSubOptions.length === 0) {
+                errors[subFieldName] = `Please select at least one option for ${selectedIllness}.`;
+                if (process.env.NODE_ENV === 'development') {
+                  console.log(`${selectedIllness} has sub-options but none selected`);
+                }
               }
             }
           }
@@ -805,10 +825,19 @@ export default function PatientProfileSetupPage() {
       // Medication validation
       if (profile?.maintenance_medications && Array.isArray(profile.maintenance_medications)) {
         profile.maintenance_medications.forEach((med: any, idx: number) => {
-          if (med.drug || med.dose || med.unit || med.frequency || med.duration || med.custom_duration) {
+          if (med.drug || med.custom_drug || med.dose || med.unit || med.frequency || med.duration || med.custom_duration || med.custom_frequency) {
             // If any field is filled, validate all required fields
-            if (!med.drug || med.drug.trim() === '') {
-              errors[`medication_${idx}_drug`] = `Medication #${idx + 1}: Drug name is required.`;
+            // Drug name validation - check both regular drug and custom drug
+            if (med.drug_type === 'Others' || med.drug === 'Others') {
+              if (!med.custom_drug || med.custom_drug.trim() === '') {
+                errors[`medication_${idx}_custom_drug`] = `Medication #${idx + 1}: Please specify the drug name.`;
+              } else if (med.custom_drug.trim().length < 2) {
+                errors[`medication_${idx}_custom_drug`] = `Medication #${idx + 1}: Drug name is too short.`;
+              }
+            } else {
+              if (!med.drug || med.drug.trim() === '') {
+                errors[`medication_${idx}_drug`] = `Medication #${idx + 1}: Drug name is required.`;
+              }
             }
             if (!med.dose || med.dose.trim() === '') {
               errors[`medication_${idx}_dose`] = `Medication #${idx + 1}: Dose is required.`;
@@ -818,8 +847,18 @@ export default function PatientProfileSetupPage() {
             if (!med.unit || med.unit.trim() === '') {
               errors[`medication_${idx}_unit`] = `Medication #${idx + 1}: Unit is required.`;
             }
-            if (!med.frequency || med.frequency.trim() === '' || med.frequency === 'Frequency') {
-              errors[`medication_${idx}_frequency`] = `Medication #${idx + 1}: Frequency is required.`;
+            
+            // Frequency validation - check both regular frequency and custom frequency
+            if (med.frequency_type === 'specify') {
+              if (!med.custom_frequency || med.custom_frequency.trim() === '') {
+                errors[`medication_${idx}_custom_frequency`] = `Medication #${idx + 1}: Please specify the frequency.`;
+              } else if (med.custom_frequency.trim().length < 3) {
+                errors[`medication_${idx}_custom_frequency`] = `Medication #${idx + 1}: Frequency specification is too short.`;
+              }
+            } else {
+              if (!med.frequency || med.frequency.trim() === '' || med.frequency === 'Frequency') {
+                errors[`medication_${idx}_frequency`] = `Medication #${idx + 1}: Frequency is required.`;
+              }
             }
             
             // Duration validation - check both regular duration and custom duration
@@ -916,9 +955,18 @@ export default function PatientProfileSetupPage() {
       if (errors.course) stepSpecificErrors.course = errors.course;
       if (errors.year_level) stepSpecificErrors.year_level = errors.year_level;
       if (errors.strand) stepSpecificErrors.strand = errors.strand;
+      // Nationality specification
+      if (errors.nationality_specify) stepSpecificErrors.nationality_specify = errors.nationality_specify;
     } else if (step === 2) {
       if (errors.food_allergy_specify) stepSpecificErrors.food_allergy_specify = errors.food_allergy_specify;
       if (errors.other_comorbid_specify) stepSpecificErrors.other_comorbid_specify = errors.other_comorbid_specify;
+      
+      // Include all comorbid illness specification and sub-option errors
+      Object.keys(errors).forEach(errorKey => {
+        if (errorKey.startsWith('comorbid_') && (errorKey.includes('_spec') || errorKey.includes('_sub'))) {
+          stepSpecificErrors[errorKey] = errors[errorKey];
+        }
+      });
       
       // Include all medication validation errors for step 2
       Object.keys(errors).forEach(errorKey => {
@@ -1244,11 +1292,24 @@ export default function PatientProfileSetupPage() {
       if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
         age--;
       }
+      
+      // Real-time validation for date of birth
+      const validationError = validateField('date_of_birth', value);
+      if (validationError) {
+        setFieldErrors(prevErrors => ({
+          ...prevErrors,
+          date_of_birth: validationError
+        }));
+      } else if (fieldErrors.date_of_birth) {
+        setFieldErrors(prevErrors => {
+          const newErrors = { ...prevErrors };
+          delete newErrors.date_of_birth;
+          return newErrors;
+        });
+      }
+      
       setProfile((prev: any) => {
         const newProfile = { ...prev, date_of_birth: value, age: age > 0 ? age : '' };
-<<<<<<< HEAD
-        checkForChanges(newProfile);
-=======
         
         // Check for changes
         if (originalProfile) {
@@ -1256,62 +1317,51 @@ export default function PatientProfileSetupPage() {
           setHasUnsavedChanges(hasChanges);
         }
         
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         return newProfile;
       });
       return;
     }
-<<<<<<< HEAD
-    setProfile((prev: any) => {
-      const newProfile = { ...prev, [field]: value };
-      checkForChanges(newProfile);
-      return newProfile;
-    });
-  };
-
-  // Function to check if there are changes compared to original profile
-  const checkForChanges = (newProfile: any) => {
-    if (!originalProfile) {
-      setHasChanges(false);
+    
+    // Handle user type change - auto-populate year level for Incoming Freshman
+    if (field === 'user_type' && value === 'Incoming Freshman') {
+      setProfile((prev: any) => {
+        const newProfile = { ...prev, user_type: value, year_level: '1st Year' };
+        
+        // Check for changes
+        if (originalProfile) {
+          const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+          setHasUnsavedChanges(hasChanges);
+        }
+        
+        return newProfile;
+      });
       return;
     }
-
-    // Compare relevant fields (excluding metadata like id, created_at, etc.)
-    const fieldsToCompare = [
-      'name', 'first_name', 'middle_name', 'suffix', 'date_of_birth', 'age', 'gender', 'blood_type',
-      'religion', 'nationality', 'civil_status', 'email', 'contact_number', 'city_municipality',
-      'barangay', 'street', 'emergency_contact_surname', 'emergency_contact_first_name',
-      'emergency_contact_middle_name', 'emergency_contact_number', 'emergency_contact_relationship',
-      'emergency_contact_barangay', 'emergency_contact_street', 'comorbid_illnesses', 'food_allergy_specify',
-      'other_comorbid_specify', 'maintenance_medications', 'vaccination_records', 'past_medical_history',
-      'past_medical_history_other', 'family_medical_history', 'family_medical_history_other',
-      'family_medical_history_allergies', 'hospital_admission_or_surgery', 'hospital_admission_details'
-    ];
-
-    let hasChanged = false;
-    for (const field of fieldsToCompare) {
-      const originalValue = originalProfile[field];
-      const newValue = newProfile[field];
-
-      // Handle array comparisons
-      if (Array.isArray(originalValue) && Array.isArray(newValue)) {
-        if (JSON.stringify(originalValue.sort()) !== JSON.stringify(newValue.sort())) {
-          hasChanged = true;
-          break;
+    
+    // Handle nationality change - clear nationality_specify if not Foreigner
+    if (field === 'nationality' && value !== 'Foreigner') {
+      setProfile((prev: any) => {
+        const newProfile = { ...prev, nationality: value, nationality_specify: '' };
+        
+        // Clear nationality_specify error if it exists
+        if (fieldErrors.nationality_specify) {
+          setFieldErrors(prevErrors => {
+            const newErrors = { ...prevErrors };
+            delete newErrors.nationality_specify;
+            return newErrors;
+          });
         }
-      } else if (originalValue !== newValue) {
-        hasChanged = true;
-        break;
-      }
+        
+        // Check for changes
+        if (originalProfile) {
+          const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+          setHasUnsavedChanges(hasChanges);
+        }
+        
+        return newProfile;
+      });
+      return;
     }
-
-    // Check for photo changes
-    if (photoFile) {
-      hasChanged = true;
-    }
-
-    setHasChanges(hasChanged);
-=======
     
     // Apply input sanitization based on field type
     let sanitizedValue = value;
@@ -1377,7 +1427,6 @@ export default function PatientProfileSetupPage() {
       
       return newProfile;
     });
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
   };
 
   const handleProfileSave = async () => {
@@ -1417,11 +1466,107 @@ export default function PatientProfileSetupPage() {
         console.log('Collected ComorbidIllness details for save:', comorbidIllnessDetails);
       }
       
+      // Collect unique custom drug names from maintenance_medications
+      const customDrugNames: string[] = Array.isArray(profile?.custom_drug_names) ? [...profile.custom_drug_names] : [];
+      if (Array.isArray(profile?.maintenance_medications)) {
+        profile.maintenance_medications.forEach((med: any) => {
+          if ((med.drug_type === 'Others' || med.drug === 'Others') && med.custom_drug && med.custom_drug.trim()) {
+            const trimmedDrug = med.custom_drug.trim();
+            // Only add if it's not already in the list (case-insensitive check)
+            if (!customDrugNames.some(drug => drug.toLowerCase() === trimmedDrug.toLowerCase())) {
+              customDrugNames.push(trimmedDrug);
+            }
+          }
+        });
+      }
+      
+      // Collect unique custom nationalities
+      const customNationalities: string[] = Array.isArray(profile?.custom_nationalities) ? [...profile.custom_nationalities] : [];
+      if (profile?.nationality === 'Foreigner' && profile?.nationality_specify && profile.nationality_specify.trim()) {
+        const trimmedNationality = profile.nationality_specify.trim();
+        if (!customNationalities.some(nat => nat.toLowerCase() === trimmedNationality.toLowerCase())) {
+          customNationalities.push(trimmedNationality);
+        }
+      }
+      
+      // Collect custom comorbid illness specifications tied to specific illnesses
+      const customComorbidSpecifications: any = profile?.custom_comorbid_specifications ? { ...profile.custom_comorbid_specifications } : {};
+      
+      // Add specifications from comorbid illnesses that have requires_specification enabled
+      if (Array.isArray(comorbidIllnesses)) {
+        comorbidIllnesses.forEach(illness => {
+          if (illness.requires_specification && Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.includes(illness.label)) {
+            const illnessKey = illness.label.toLowerCase().replace(/\s+/g, '_');
+            const fieldName = `comorbid_${illnessKey}_spec`;
+            const specValue = profile?.[fieldName];
+            
+            if (specValue && typeof specValue === 'string' && specValue.trim()) {
+              const trimmedSpec = specValue.trim();
+              
+              // Initialize array for this illness if it doesn't exist
+              if (!customComorbidSpecifications[illnessKey]) {
+                customComorbidSpecifications[illnessKey] = [];
+              }
+              
+              // Add specification if not already in the list (case-insensitive check)
+              if (!customComorbidSpecifications[illnessKey].some((item: string) => item.toLowerCase() === trimmedSpec.toLowerCase())) {
+                customComorbidSpecifications[illnessKey].push(trimmedSpec);
+              }
+            }
+          }
+        });
+      }
+      
+      // Collect unique custom comorbid illnesses (for "Other Condition" backward compatibility)
+      const customComorbidIllnesses: string[] = Array.isArray(profile?.custom_comorbid_illnesses) ? [...profile.custom_comorbid_illnesses] : [];
+      
+      // Add "Other Condition" specification
+      if (profile?.other_comorbid_specify && profile.other_comorbid_specify.trim()) {
+        const trimmedIllness = profile.other_comorbid_specify.trim();
+        if (!customComorbidIllnesses.some(illness => illness.toLowerCase() === trimmedIllness.toLowerCase())) {
+          customComorbidIllnesses.push(trimmedIllness);
+        }
+      }
+      
+      // Collect unique custom menstrual symptoms
+      const customMenstrualSymptoms: string[] = Array.isArray(profile?.custom_menstrual_symptoms) ? [...profile.custom_menstrual_symptoms] : [];
+      if (Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes('Other') && profile?.menstrual_symptoms_other && profile.menstrual_symptoms_other.trim()) {
+        const trimmedSymptom = profile.menstrual_symptoms_other.trim();
+        if (!customMenstrualSymptoms.some(symptom => symptom.toLowerCase() === trimmedSymptom.toLowerCase())) {
+          customMenstrualSymptoms.push(trimmedSymptom);
+        }
+      }
+      
       // Add the enhanced details to the profile
       const enhancedProfile = {
         ...profile,
-        comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null
+        comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null,
+        custom_drug_names: customDrugNames.length > 0 ? customDrugNames : null,
+        custom_nationalities: customNationalities.length > 0 ? customNationalities : null,
+        custom_comorbid_illnesses: customComorbidIllnesses.length > 0 ? customComorbidIllnesses : null,
+        custom_comorbid_specifications: Object.keys(customComorbidSpecifications).length > 0 ? customComorbidSpecifications : null,
+        custom_menstrual_symptoms: customMenstrualSymptoms.length > 0 ? customMenstrualSymptoms : null
       };
+      
+      // Debug log to see what's being saved
+      if (process.env.NODE_ENV === 'development') {
+        console.log('=== SAVING PROFILE WITH CUSTOM DATA ===');
+        console.log('Custom drug names:', customDrugNames);
+        console.log('Custom nationalities:', customNationalities);
+        console.log('Custom comorbid illnesses (Other):', customComorbidIllnesses);
+        console.log('Custom comorbid specifications:', customComorbidSpecifications);
+        console.log('Custom menstrual symptoms:', customMenstrualSymptoms);
+      }
+      
+      // Update local profile state immediately with custom arrays
+      setProfile({
+        ...profile,
+        custom_drug_names: customDrugNames.length > 0 ? customDrugNames : profile?.custom_drug_names || [],
+        custom_nationalities: customNationalities.length > 0 ? customNationalities : profile?.custom_nationalities || [],
+        custom_comorbid_illnesses: customComorbidIllnesses.length > 0 ? customComorbidIllnesses : profile?.custom_comorbid_illnesses || [],
+        custom_comorbid_specifications: Object.keys(customComorbidSpecifications).length > 0 ? customComorbidSpecifications : profile?.custom_comorbid_specifications || {},
+        custom_menstrual_symptoms: customMenstrualSymptoms.length > 0 ? customMenstrualSymptoms : profile?.custom_menstrual_symptoms || []
+      });
       
       // Prepare the form data
       const formData = new FormData();
@@ -1451,23 +1596,6 @@ export default function PatientProfileSetupPage() {
       // Check if we need to create a new profile version or update existing one
       let shouldCreateNewVersion = false;
       
-<<<<<<< HEAD
-      if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
-        // If the current profile has a different school year OR semester, create new profile
-        shouldCreateNewVersion = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
-      } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
-        // If current profile has no school year or semester but we have active ones, create new profile
-        shouldCreateNewVersion = true;
-      }
-
-      // If there are changes to an existing profile for the same semester/year, create a new version
-      if (!shouldCreateNewVersion && hasChanges && existingProfileId) {
-        shouldCreateNewVersion = true;
-        // Increment version for same semester/year updates
-        const nextVersion = profileVersion + 1;
-        formData.append('version', nextVersion.toString());
-        formData.append('previous_version_id', existingProfileId.toString());
-=======
       // Logic for versioning:
       // 1. If it's a new profile (no existing ID), always create new
       // 2. If it's an existing profile with changes, create new version (versioning)
@@ -1475,24 +1603,23 @@ export default function PatientProfileSetupPage() {
       
       if (!profile?.id) {
         // No ID means it's a completely new profile
-        shouldCreateNew = true;
+        shouldCreateNewVersion = true;
       } else if (isNewProfile && hasUnsavedChanges) {
         // This is a profile that was just created in this session, overwrite it
-        shouldCreateNew = false;
+        shouldCreateNewVersion = false;
       } else if (!isNewProfile && hasUnsavedChanges) {
         // This is an existing profile with changes, create new version
-        shouldCreateNew = true;
+        shouldCreateNewVersion = true;
         // Add version increment logic
         const currentVersion = profile.version || 1;
         formData.append('version', (currentVersion + 1).toString());
         formData.append('previous_version_id', profile.id.toString());
       } else if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
         // Different school year or semester, create new profile
-        shouldCreateNew = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
+        shouldCreateNewVersion = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
       } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
         // Profile has no school year or semester but we have active ones, create new profile
-        shouldCreateNew = true;
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
+        shouldCreateNewVersion = true;
       }
 
       const getSemesterDisplayName = (sem: string) => {
@@ -1510,42 +1637,15 @@ export default function PatientProfileSetupPage() {
         formData.delete('id');
         const response = await patientProfileAPI.create(formData);
         const semesterDisplay = getSemesterDisplayName(currentSemester);
-<<<<<<< HEAD
-        
-        if (hasChanges && existingProfileId) {
-          setFeedbackMessage(`Profile updated (v${profileVersion + 1}) for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-          setProfileVersion(profileVersion + 1);
-        } else {
-          setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-        }
-        
-=======
         if (hasUnsavedChanges && profile?.id && !isNewProfile) {
           setFeedbackMessage(`New profile version created for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
         } else {
           setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
         }
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         setAutoFilledFromYear(currentSchoolYear.academic_year);
         setAutoFilledFromSemester(semesterDisplay);
         setIsAutoFilled(true);
         
-<<<<<<< HEAD
-        // Update tracking variables
-        setExistingProfileId(response.data.id);
-        setOriginalProfile(JSON.parse(JSON.stringify(response.data)));
-        setHasChanges(false);
-        setIsEditMode(false);
-      } else {
-        // Update the existing profile (rare case)
-        await patientProfileAPI.update(formData);
-        const semesterDisplay = getSemesterDisplayName(currentSemester);
-        setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-        
-        // Reset change tracking
-        setOriginalProfile(JSON.parse(JSON.stringify(profile)));
-        setHasChanges(false);
-=======
         // Reset change tracking
         setHasUnsavedChanges(false);
         setIsEditMode(false);
@@ -1563,7 +1663,6 @@ export default function PatientProfileSetupPage() {
         
         // Reset change tracking
         setHasUnsavedChanges(false);
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
         setIsEditMode(false);
       }
       
@@ -1728,10 +1827,6 @@ export default function PatientProfileSetupPage() {
         const idx = arr.indexOf(value);
         if (idx > -1) arr.splice(idx, 1);
       }
-<<<<<<< HEAD
-      const newProfile = { ...prev, [field]: arr };
-      checkForChanges(newProfile);
-=======
       
       const newProfile = { ...prev, [field]: arr };
       
@@ -1741,7 +1836,6 @@ export default function PatientProfileSetupPage() {
         setHasUnsavedChanges(hasChanges);
       }
       
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -1749,17 +1843,6 @@ export default function PatientProfileSetupPage() {
   // Function to enable edit mode
   const handleEditClick = () => {
     setIsEditMode(true);
-  };
-
-  // Function to cancel edit mode
-  const handleCancelEdit = () => {
-    if (originalProfile) {
-      setProfile(JSON.parse(JSON.stringify(originalProfile)));
-      setPhotoFile(null);
-      setPhotoPreview(null);
-      setIsEditMode(false);
-      setHasChanges(false);
-    }
   };
 
   const handleMedicationChange = (idx: number, key: string, value: string) => {
@@ -1776,6 +1859,7 @@ export default function PatientProfileSetupPage() {
         }
         break;
       case 'drug':
+      case 'custom_drug':
         // Allow letters, numbers, spaces, and basic punctuation for drug names
         sanitizedValue = value.replace(/[^a-zA-Z0-9\s\-.,()]/g, '');
         break;
@@ -1786,11 +1870,6 @@ export default function PatientProfileSetupPage() {
 
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [{}];
-<<<<<<< HEAD
-      meds[idx] = { ...meds[idx], [key]: value };
-      const newProfile = { ...prev, maintenance_medications: meds };
-      checkForChanges(newProfile);
-=======
       meds[idx] = { ...meds[idx], [key]: sanitizedValue };
       
       const newProfile = { ...prev, maintenance_medications: meds };
@@ -1814,6 +1893,13 @@ export default function PatientProfileSetupPage() {
           case 'drug':
             if (!sanitizedValue.trim()) {
               validationError = `Medication #${idx + 1}: Drug name is required.`;
+            }
+            break;
+          case 'custom_drug':
+            if (!sanitizedValue.trim()) {
+              validationError = `Medication #${idx + 1}: Please specify the drug name.`;
+            } else if (sanitizedValue.trim().length < 2) {
+              validationError = `Medication #${idx + 1}: Drug name is too short.`;
             }
             break;
           case 'dose':
@@ -1861,7 +1947,6 @@ export default function PatientProfileSetupPage() {
         setHasUnsavedChanges(hasChanges);
       }
       
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -1869,12 +1954,7 @@ export default function PatientProfileSetupPage() {
   const handleAddMedication = () => {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
-<<<<<<< HEAD
-      meds.push({ drug: '', dose: '', unit: 'mg', frequency: '' });
-      const newProfile = { ...prev, maintenance_medications: meds };
-      checkForChanges(newProfile);
-=======
-      meds.push({ drug: '', dose: '', unit: '', frequency: '', duration: '', duration_type: '', custom_duration: '' });
+      meds.push({ drug: '', dose: '', unit: '', frequency: '', frequency_type: '', custom_frequency: '', duration: '', duration_type: '', custom_duration: '' });
       
       const newProfile = { ...prev, maintenance_medications: meds };
       
@@ -1884,7 +1964,6 @@ export default function PatientProfileSetupPage() {
         setHasUnsavedChanges(hasChanges);
       }
       
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -1893,10 +1972,6 @@ export default function PatientProfileSetupPage() {
     setProfile((prev: any) => {
       const meds = Array.isArray(prev.maintenance_medications) ? [...prev.maintenance_medications] : [];
       meds.splice(idx, 1);
-<<<<<<< HEAD
-      const newProfile = { ...prev, maintenance_medications: meds };
-      checkForChanges(newProfile);
-=======
       
       const newProfile = { ...prev, maintenance_medications: meds };
       
@@ -1938,7 +2013,6 @@ export default function PatientProfileSetupPage() {
         setHasUnsavedChanges(hasChanges);
       }
       
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
       return newProfile;
     });
   };
@@ -2384,11 +2458,17 @@ export default function PatientProfileSetupPage() {
                         {fieldErrors.course && <div className="text-red-500 text-xs mt-1">{fieldErrors.course}</div>}
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Year Level *</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Year Level *
+                          {profile?.user_type === 'Incoming Freshman' && (
+                            <span className="ml-2 text-xs text-gray-500">(Auto-set to 1st Year)</span>
+                          )}
+                        </label>
                         <select
-                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'}`}
+                          className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.year_level ? 'border-red-500' : 'border-gray-300'} ${profile?.user_type === 'Incoming Freshman' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                           value={profile?.year_level || ''}
                           onChange={e => handleProfileChange('year_level', e.target.value)}
+                          disabled={profile?.user_type === 'Incoming Freshman'}
                         >
                           <option value="">Select year level</option>
                           {getUserTypeOptions('year_levels').length > 0 ? (
@@ -2575,6 +2655,67 @@ export default function PatientProfileSetupPage() {
                       <option value="Other">Other</option>
                     </select>
                   </div>
+                  
+                  {/* Show nationality specification field when Foreigner is selected */}
+                  {profile?.nationality === 'Foreigner' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Specify Nationality *
+                      </label>
+                      <input
+                        type="text"
+                        className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.nationality_specify ? 'border-red-500' : 'border-gray-300'}`}
+                        value={profile?.nationality_specify || ''}
+                        onChange={e => handleProfileChange('nationality_specify', e.target.value)}
+                        placeholder="e.g., American, Japanese, Korean, etc."
+                      />
+                      {fieldErrors.nationality_specify && (
+                        <div className="text-red-500 text-xs mt-1">{fieldErrors.nationality_specify}</div>
+                      )}
+                      
+                      {/* Show previously specified nationalities as checkboxes */}
+                      {profile?.custom_nationalities && Array.isArray(profile.custom_nationalities) && profile.custom_nationalities.length > 0 && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium text-gray-700 mb-2">Or select from your previously specified nationalities:</label>
+                          <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                            {profile.custom_nationalities.map((customNat: string, natIdx: number) => {
+                              const currentValue = String(profile?.nationality_specify || '').trim().toLowerCase();
+                              const checkboxValue = String(customNat || '').trim().toLowerCase();
+                              const isChecked = currentValue === checkboxValue && currentValue !== '';
+                              
+                              if (process.env.NODE_ENV === 'development' && natIdx === 0) {
+                                console.log('Nationality checkbox debug:', {
+                                  currentValue,
+                                  checkboxValue,
+                                  isChecked,
+                                  rawCurrent: profile?.nationality_specify,
+                                  rawCheckbox: customNat
+                                });
+                              }
+                              
+                              return (
+                                <label key={natIdx} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                  <input
+                                    type="checkbox"
+                                    className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                                    checked={isChecked}
+                                    onChange={e => {
+                                      if (e.target.checked) {
+                                        handleProfileChange('nationality_specify', customNat);
+                                      } else {
+                                        handleProfileChange('nationality_specify', '');
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-sm text-gray-700">{customNat}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                   <div>
@@ -2846,6 +2987,8 @@ export default function PatientProfileSetupPage() {
                             <label htmlFor={`comorbid-${item.id}-sub-${subOption}`} className="ml-2 text-sm text-gray-700 cursor-pointer">{subOption}</label>
                           </div>
                         ))}
+                        {fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`] && 
+                         <div className="text-red-500 text-xs mt-1">{fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_sub`]}</div>}
                       </div>
                     )}
                     
@@ -2864,6 +3007,60 @@ export default function PatientProfileSetupPage() {
                         />
                         {fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`] && 
                          <div className="text-red-500 text-xs mt-1">{fieldErrors[`comorbid_${item.label.toLowerCase().replace(/\s+/g, '_')}_spec`]}</div>}
+                        
+                        {/* Show previously specified values as checkboxes - only for THIS illness */}
+                        {(() => {
+                          const illnessKey = item.label.toLowerCase().replace(/\s+/g, '_');
+                          const illnessSpecs = profile?.custom_comorbid_specifications?.[illnessKey];
+                          
+                          if (illnessSpecs && Array.isArray(illnessSpecs) && illnessSpecs.length > 0) {
+                            return (
+                              <div className="mt-3">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">Or select from your previously specified {item.label.toLowerCase()}:</label>
+                                <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                                  {illnessSpecs.map((customSpec: string, specIdx: number) => {
+                                    const fieldName = `comorbid_${illnessKey}_spec`;
+                                    const currentValue = String(profile?.[fieldName] || '').trim().toLowerCase();
+                                    const checkboxValue = String(customSpec || '').trim().toLowerCase();
+                                    const isChecked = currentValue === checkboxValue && currentValue !== '';
+                                    
+                                    if (process.env.NODE_ENV === 'development' && specIdx === 0) {
+                                      console.log(`${item.label} specification checkbox debug:`, {
+                                        illnessKey,
+                                        fieldName,
+                                        currentValue,
+                                        checkboxValue,
+                                        isChecked,
+                                        rawCurrent: profile?.[fieldName],
+                                        rawCheckbox: customSpec,
+                                        allSpecs: illnessSpecs
+                                      });
+                                    }
+                                    
+                                    return (
+                                      <label key={specIdx} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                        <input
+                                          type="checkbox"
+                                          className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                                          checked={isChecked}
+                                          onChange={e => {
+                                            if (e.target.checked) {
+                                              handleProfileChange(fieldName, customSpec);
+                                            } else {
+                                              handleProfileChange(fieldName, '');
+                                            }
+                                          }}
+                                        />
+                                        <span className="text-sm text-gray-700">{customSpec}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </div>
                     )}
                     
@@ -2938,6 +3135,64 @@ export default function PatientProfileSetupPage() {
                       }}
                     />
                     {fieldErrors.other_comorbid_specify && <div className="text-red-500 text-xs mt-1">{fieldErrors.other_comorbid_specify}</div>}
+                    
+                    {/* Show previously specified comorbid illnesses as checkboxes */}
+                    {profile?.custom_comorbid_illnesses && Array.isArray(profile.custom_comorbid_illnesses) && profile.custom_comorbid_illnesses.length > 0 && (
+                      <div className="mt-3">
+                        <label className="block text-xs font-medium text-gray-700 mb-2">Or select from your previously specified conditions:</label>
+                        <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                          {profile.custom_comorbid_illnesses.map((customIllness: string, illIdx: number) => {
+                            const currentValue = String(profile?.other_comorbid_specify || '').trim().toLowerCase();
+                            const checkboxValue = String(customIllness || '').trim().toLowerCase();
+                            const isChecked = currentValue === checkboxValue && currentValue !== '';
+                            
+                            if (process.env.NODE_ENV === 'development' && illIdx === 0) {
+                              console.log('Comorbid illness checkbox debug:', {
+                                currentValue,
+                                checkboxValue,
+                                isChecked,
+                                rawCurrent: profile?.other_comorbid_specify,
+                                rawCheckbox: customIllness
+                              });
+                            }
+                            
+                            return (
+                              <label key={illIdx} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                <input
+                                  type="checkbox"
+                                  className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                                  checked={isChecked}
+                                  onChange={e => {
+                                    const currentIllnesses = Array.isArray(profile?.comorbid_illnesses) ? [...profile.comorbid_illnesses] : [];
+                                    
+                                    if (e.target.checked) {
+                                      // Remove previous other_comorbid_specify from array
+                                      if (profile?.other_comorbid_specify && profile.other_comorbid_specify.trim() !== '') {
+                                        const filteredIllnesses = currentIllnesses.filter(illness => illness !== profile.other_comorbid_specify.trim());
+                                        handleProfileChange('comorbid_illnesses', filteredIllnesses);
+                                      }
+                                      // Set new value
+                                      handleProfileChange('other_comorbid_specify', customIllness);
+                                      // Add new value to array
+                                      const updatedIllnesses = currentIllnesses.filter(illness => illness !== profile?.other_comorbid_specify?.trim());
+                                      updatedIllnesses.push(customIllness.trim());
+                                      handleProfileChange('comorbid_illnesses', updatedIllnesses);
+                                    } else {
+                                      // Clear the field
+                                      handleProfileChange('other_comorbid_specify', '');
+                                      // Remove from array
+                                      const filteredIllnesses = currentIllnesses.filter(illness => illness !== customIllness.trim());
+                                      handleProfileChange('comorbid_illnesses', filteredIllnesses);
+                                    }
+                                  }}
+                                />
+                                <span className="text-sm text-gray-700">{customIllness}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2967,23 +3222,11 @@ export default function PatientProfileSetupPage() {
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium text-gray-800">Medication #{idx + 1}</span>
                       <button
-<<<<<<< HEAD
-                        className="bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm hover:bg-red-600 transition-colors shadow-sm"
-                        onClick={() => handleRemoveMedication(idx)}
-                        type="button"
-                        title="Remove this medication"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
-=======
                         className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm hover:bg-red-600 transition-colors"
                         onClick={() => handleRemoveMedication(idx)}
                         type="button"
                         title="Remove medication"
                       >×</button>
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
                     </div>
                     
                     <div className="space-y-3">
@@ -2991,11 +3234,19 @@ export default function PatientProfileSetupPage() {
                         <label className="block text-xs font-medium text-gray-700 mb-1">Drug Name *</label>
                         <select
                           className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_drug`] ? 'border-red-500' : 'border-gray-300'}`}
-                          value={med.drug || ''}
-                          onChange={e => handleMedicationChange(idx, 'drug', e.target.value)}
+                          value={med.drug_type || med.drug || ''}
+                          onChange={e => {
+                            const value = e.target.value;
+                            const meds = [...(profile?.maintenance_medications || [])];
+                            meds[idx] = { ...meds[idx], drug_type: value, drug: value };
+                            if (value !== 'Others') {
+                              meds[idx].custom_drug = '';
+                            }
+                            handleProfileChange('maintenance_medications', meds);
+                          }}
                         >
                           <option value="">Select a drug</option>
-                          {['Paracetamol', 'Ibuprofen', 'Amoxicillin', 'Metformin', 'Atorvastatin', 'Losartan', 'Omeprazole', 'Simvastatin', 'Aspirin', 'Levothyroxine', 'Other'].map(drugName => (
+                          {['Paracetamol', 'Ibuprofen', 'Amoxicillin', 'Metformin', 'Atorvastatin', 'Losartan', 'Omeprazole', 'Simvastatin', 'Aspirin', 'Levothyroxine', 'Others'].map(drugName => (
                             <option key={drugName} value={drugName}>{drugName}</option>
                           ))}
                         </select>
@@ -3003,6 +3254,64 @@ export default function PatientProfileSetupPage() {
                           <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_drug`]}</div>
                         )}
                       </div>
+                      
+                      {(med.drug_type === 'Others' || med.drug === 'Others') && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Specify Drug Name *</label>
+                          <input
+                            type="text"
+                            placeholder="Enter drug name"
+                            className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_custom_drug`] ? 'border-red-500' : 'border-gray-300'}`}
+                            value={med.custom_drug || ''}
+                            onChange={e => handleMedicationChange(idx, 'custom_drug', e.target.value)}
+                          />
+                          {fieldErrors[`medication_${idx}_custom_drug`] && (
+                            <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_custom_drug`]}</div>
+                          )}
+                          
+                          {/* Show previously specified custom drugs as checkboxes */}
+                          {profile?.custom_drug_names && Array.isArray(profile.custom_drug_names) && profile.custom_drug_names.length > 0 && (
+                            <div className="mt-3">
+                              <label className="block text-xs font-medium text-gray-700 mb-2">Or select from your previously specified drugs:</label>
+                              <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                                {profile.custom_drug_names.map((customDrug: string, drugIdx: number) => {
+                                  const currentValue = String(med.custom_drug || '').trim().toLowerCase();
+                                  const checkboxValue = String(customDrug || '').trim().toLowerCase();
+                                  const isChecked = currentValue === checkboxValue && currentValue !== '';
+                                  
+                                  if (process.env.NODE_ENV === 'development' && drugIdx === 0 && idx === 0) {
+                                    console.log('Drug checkbox debug:', {
+                                      currentValue,
+                                      checkboxValue,
+                                      isChecked,
+                                      rawCurrent: med.custom_drug,
+                                      rawCheckbox: customDrug
+                                    });
+                                  }
+                                  
+                                  return (
+                                    <label key={drugIdx} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                      <input
+                                        type="checkbox"
+                                        className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                                        checked={isChecked}
+                                        onChange={e => {
+                                          if (e.target.checked) {
+                                            handleMedicationChange(idx, 'custom_drug', customDrug);
+                                          } else {
+                                            handleMedicationChange(idx, 'custom_drug', '');
+                                          }
+                                        }}
+                                      />
+                                      <span className="text-sm text-gray-700">{customDrug}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                       
                       <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -3041,13 +3350,47 @@ export default function PatientProfileSetupPage() {
                           <label className="block text-xs font-medium text-gray-700 mb-1">Frequency *</label>
                           <select
                             className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_frequency`] ? 'border-red-500' : 'border-gray-300'}`}
-                            value={med.frequency || ''}
-                            onChange={e => handleMedicationChange(idx, 'frequency', e.target.value)}
+                            value={med.frequency_type || med.frequency || ''}
+                            onChange={e => {
+                              if (e.target.value === 'specify') {
+                                handleMedicationChange(idx, 'frequency_type', 'specify');
+                                handleMedicationChange(idx, 'frequency', '');
+                                handleMedicationChange(idx, 'custom_frequency', '');
+                              } else {
+                                handleMedicationChange(idx, 'frequency_type', '');
+                                handleMedicationChange(idx, 'frequency', e.target.value);
+                                handleMedicationChange(idx, 'custom_frequency', '');
+                              }
+                            }}
                           >
                             {freqOptions.map(f => <option key={f} value={f}>{f}</option>)}
+                            <option value="specify">Specify frequency</option>
                           </select>
                           {fieldErrors[`medication_${idx}_frequency`] && (
                             <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_frequency`]}</div>
+                          )}
+                          
+                          {/* Custom frequency input when "Specify" is selected */}
+                          {med.frequency_type === 'specify' && (
+                            <div className="mt-2">
+                              <input
+                                type="text"
+                                placeholder="e.g., Every 4 hours, 3 times per week"
+                                className={`w-full border rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${fieldErrors[`medication_${idx}_custom_frequency`] ? 'border-red-500' : 'border-gray-300'}`}
+                                value={med.custom_frequency || ''}
+                                onChange={e => {
+                                  const value = e.target.value;
+                                  handleMedicationChange(idx, 'custom_frequency', value);
+                                  // Also set the frequency field to the custom value for storage
+                                  if (value.trim()) {
+                                    handleMedicationChange(idx, 'frequency', value.trim());
+                                  }
+                                }}
+                              />
+                              {fieldErrors[`medication_${idx}_custom_frequency`] && (
+                                <div className="text-red-500 text-xs mt-1">{fieldErrors[`medication_${idx}_custom_frequency`]}</div>
+                              )}
+                            </div>
                           )}
                         </div>
                         <div>
@@ -3600,6 +3943,48 @@ export default function PatientProfileSetupPage() {
                           value={profile?.menstrual_symptoms_other || ''}
                           onChange={e => handleProfileChange('menstrual_symptoms_other', e.target.value)}
                         />
+                        
+                        {/* Show previously specified menstrual symptoms as checkboxes */}
+                        {profile?.custom_menstrual_symptoms && Array.isArray(profile.custom_menstrual_symptoms) && profile.custom_menstrual_symptoms.length > 0 && (
+                          <div className="mt-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-2">Or select from your previously specified symptoms:</label>
+                            <div className="space-y-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                              {profile.custom_menstrual_symptoms.map((customSymptom: string, sympIdx: number) => {
+                                const currentValue = String(profile?.menstrual_symptoms_other || '').trim().toLowerCase();
+                                const checkboxValue = String(customSymptom || '').trim().toLowerCase();
+                                const isChecked = currentValue === checkboxValue && currentValue !== '';
+                                
+                                if (process.env.NODE_ENV === 'development' && sympIdx === 0) {
+                                  console.log('Menstrual symptom checkbox debug:', {
+                                    currentValue,
+                                    checkboxValue,
+                                    isChecked,
+                                    rawCurrent: profile?.menstrual_symptoms_other,
+                                    rawCheckbox: customSymptom
+                                  });
+                                }
+                                
+                                return (
+                                  <label key={sympIdx} className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-1 rounded">
+                                    <input
+                                      type="checkbox"
+                                      className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                                      checked={isChecked}
+                                      onChange={e => {
+                                        if (e.target.checked) {
+                                          handleProfileChange('menstrual_symptoms_other', customSymptom);
+                                        } else {
+                                          handleProfileChange('menstrual_symptoms_other', '');
+                                        }
+                                      }}
+                                    />
+                                    <span className="text-sm text-gray-700">{customSymptom}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -4245,6 +4630,7 @@ export default function PatientProfileSetupPage() {
             'blood_type': 'Blood Type',
             'religion': 'Religion',
             'nationality': 'Nationality',
+            'nationality_specify': 'Nationality Specification',
             'civil_status': 'Civil Status',
             'email': 'Email Address',
             'contact_number': 'Contact Number',
@@ -4360,13 +4746,13 @@ export default function PatientProfileSetupPage() {
             {/* Mobile-first Header */}
             <div className="text-center mb-4 sm:mb-6">
               {/* Edit Mode and Changes Indicator */}
-              {existingProfileId && (
+              {profile?.id && (
                 <div className="flex flex-col sm:flex-row items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg border">
                   <div className="flex items-center space-x-4 mb-2 sm:mb-0">
                     <span className="text-sm text-gray-600">
-                      Profile v{profileVersion} • {currentSchoolYear?.academic_year} • {currentSemester?.replace('_', ' ')}
+                      Profile v{profile?.version || 1} • {currentSchoolYear?.academic_year} • {currentSemester?.replace('_', ' ')}
                     </span>
-                    {hasChanges && (
+                    {hasUnsavedChanges && (
                       <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                         <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -4376,7 +4762,7 @@ export default function PatientProfileSetupPage() {
                     )}
                   </div>
                   <div className="flex space-x-2">
-                    {!isEditMode && !hasChanges && (
+                    {!isEditMode && !hasUnsavedChanges && (
                       <button
                         onClick={handleEditClick}
                         className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]"
@@ -4401,7 +4787,7 @@ export default function PatientProfileSetupPage() {
               
               <div className="flex items-center justify-center mb-3 sm:mb-4">
                 <div className="flex items-center bg-white rounded-full px-3 sm:px-4 py-2 shadow-lg">
-                  <span className="inline-block w-8 h-8 sm:w-10 sm:h-10 bg-[#800000] text-white rounded-full flex items-center justify-center font-bold text-lg sm:text-xl mr-2 sm:mr-3">{currentStep}</span>
+                  <span className="w-8 h-8 sm:w-10 sm:h-10 bg-[#800000] text-white rounded-full flex items-center justify-center font-bold text-lg sm:text-xl mr-2 sm:mr-3">{currentStep}</span>
                   <span className="text-base sm:text-lg lg:text-2xl font-bold text-[#800000]">{steps[currentStep-1].title}</span>
                 </div>
               </div>
@@ -4552,31 +4938,6 @@ export default function PatientProfileSetupPage() {
                   </button>
                   
                   <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
-<<<<<<< HEAD
-                    {/* Save Changes button for edit mode */}
-                    {hasChanges && existingProfileId && (
-                      <button
-                        onClick={async () => {
-                          await handleProfileSave();
-                          // Refresh profile data after save
-                          if (currentSchoolYear && currentSemester) {
-                            await fetchProfile();
-                          }
-                        }}
-                        disabled={loading}
-                        className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 active:bg-green-800 active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
-                      >
-                        {loading ? 'Saving...' : `Save Changes (v${profileVersion + 1})`}
-                      </button>
-                    )}
-                    
-                    {/* Regular Next/Submit button */}
-                    <button
-                      onClick={handleNext}
-                      className="w-full sm:w-auto px-4 sm:px-6 py-3 sm:py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] active:bg-[#600000] active:scale-95 transition-all duration-200 shadow-md text-center text-sm sm:text-base"
-                    >
-                      {currentStep === steps.length ? 'Submit Profile' : 'Next →'}
-=======
                     {/* Save Changes Button - only show in edit mode with unsaved changes */}
                     {isEditMode && hasUnsavedChanges && (
                       <button
@@ -4601,7 +4962,6 @@ export default function PatientProfileSetupPage() {
                         ? (isEditMode || hasUnsavedChanges ? 'Submit Profile' : 'Continue') 
                         : 'Next →'
                       }
->>>>>>> 5f1a5b1363bdc69040b5bbcaa1c00033b28263db
                     </button>
                   </div>
                 </div>

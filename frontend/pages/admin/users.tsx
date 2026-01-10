@@ -361,49 +361,49 @@ export default function AdminUsers() {
 
         {/* Statistics Cards */}
         {stats && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-white p-4 rounded-lg shadow">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
               <div className="flex items-center">
-                <FaUsers className="text-blue-500 text-2xl mr-3" />
+                <FaUsers className="text-blue-500 text-xl sm:text-2xl mr-2 sm:mr-3" />
                 <div>
-                  <p className="text-sm text-gray-600">Total Users</p>
-                  <p className="text-2xl font-bold">{stats.total_users}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Total Users</p>
+                  <p className="text-lg sm:text-2xl font-bold">{stats.total_users}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
               <div className="flex items-center">
-                <FaUserCheck className="text-green-500 text-2xl mr-3" />
+                <FaUserCheck className="text-green-500 text-xl sm:text-2xl mr-2 sm:mr-3" />
                 <div>
-                  <p className="text-sm text-gray-600">Active</p>
-                  <p className="text-2xl font-bold">{stats.active_users}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Active</p>
+                  <p className="text-lg sm:text-2xl font-bold">{stats.active_users}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
               <div className="flex items-center">
-                <FaUserSlash className="text-red-500 text-2xl mr-3" />
+                <FaUserSlash className="text-red-500 text-xl sm:text-2xl mr-2 sm:mr-3" />
                 <div>
-                  <p className="text-sm text-gray-600">Blocked</p>
-                  <p className="text-2xl font-bold">{stats.blocked_users}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Blocked</p>
+                  <p className="text-lg sm:text-2xl font-bold">{stats.blocked_users}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
               <div className="flex items-center">
-                <FaCheck className="text-teal-500 text-2xl mr-3" />
+                <FaCheck className="text-teal-500 text-xl sm:text-2xl mr-2 sm:mr-3" />
                 <div>
-                  <p className="text-sm text-gray-600">Verified</p>
-                  <p className="text-2xl font-bold">{stats.verified_users}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Verified</p>
+                  <p className="text-lg sm:text-2xl font-bold">{stats.verified_users}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg shadow">
+            <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
               <div className="flex items-center">
-                <FaClock className="text-orange-500 text-2xl mr-3" />
+                <FaClock className="text-orange-500 text-xl sm:text-2xl mr-2 sm:mr-3" />
                 <div>
-                  <p className="text-sm text-gray-600">Students</p>
-                  <p className="text-2xl font-bold">{stats.user_type_counts.student || 0}</p>
+                  <p className="text-xs sm:text-sm text-gray-600">Students</p>
+                  <p className="text-lg sm:text-2xl font-bold">{stats.user_type_counts.student || 0}</p>
                 </div>
               </div>
             </div>
@@ -411,29 +411,29 @@ export default function AdminUsers() {
         )}
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="space-y-4">
+        <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
+          <div className="space-y-3 sm:space-y-4">
             {/* Search Bar */}
             <div className="flex items-center">
-              <FaSearch className="text-gray-400 mr-2" />
+              <FaSearch className="text-gray-400 mr-2 flex-shrink-0" />
               <input
                 type="text"
                 placeholder="Search by name, email, username, or grade level..."
-                className="flex-1 border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="flex-1 border rounded-lg px-3 py-1.5 sm:py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
 
             {/* Filter Row */}
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <div className="flex items-center">
-                <FaFilter className="text-gray-400 mr-2" />
-                <span className="text-sm font-medium text-gray-700 mr-2">Filters:</span>
+                <FaFilter className="text-gray-400 mr-2 flex-shrink-0" />
+                <span className="text-xs sm:text-sm font-medium text-gray-700 mr-2">Filters:</span>
               </div>
 
               <select
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="flex-1 sm:flex-none border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
               >
@@ -444,7 +444,7 @@ export default function AdminUsers() {
               </select>
 
               <select
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="flex-1 sm:flex-none border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
               >
@@ -455,7 +455,7 @@ export default function AdminUsers() {
               </select>
 
               <select
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="flex-1 sm:flex-none border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={filterVerification}
                 onChange={(e) => setFilterVerification(e.target.value)}
               >
@@ -465,7 +465,7 @@ export default function AdminUsers() {
               </select>
 
               <select
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="flex-1 sm:flex-none border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={filterConsultation}
                 onChange={(e) => setFilterConsultation(e.target.value)}
               >
@@ -475,7 +475,7 @@ export default function AdminUsers() {
               </select>
 
               <select
-                className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                className="flex-1 sm:flex-none border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                 value={sortField}
                 onChange={(e) => setSortField(e.target.value as 'name' | 'date' | 'email')}
               >
@@ -486,7 +486,7 @@ export default function AdminUsers() {
 
               <button
                 onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                className="border rounded-lg px-3 py-2 text-sm hover:bg-gray-50 flex items-center"
+                className="border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm hover:bg-gray-50 flex items-center"
                 title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
               >
                 {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
@@ -496,7 +496,7 @@ export default function AdminUsers() {
                 filterVerification !== 'all' || filterConsultation !== 'all') && (
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-red-600 hover:text-red-800 underline"
+                  className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline"
                 >
                   Clear Filters
                 </button>
@@ -504,7 +504,7 @@ export default function AdminUsers() {
             </div>
 
             {/* Results Summary */}
-            <div className="text-sm text-gray-600">
+            <div className="text-xs sm:text-sm text-gray-600">
               Showing {paginatedUsers.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length} users
             </div>
           </div>
@@ -517,7 +517,7 @@ export default function AdminUsers() {
               <thead className="bg-gray-50">
                 <tr>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSortChange('name')}
                   >
                     <div className="flex items-center">
@@ -527,17 +527,17 @@ export default function AdminUsers() {
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Consultation Access
                   </th>
                   <th 
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                     onClick={() => handleSortChange('date')}
                   >
                     <div className="flex items-center">
@@ -547,7 +547,7 @@ export default function AdminUsers() {
                       )}
                     </div>
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -570,14 +570,14 @@ export default function AdminUsers() {
                 ) : (
                   paginatedUsers.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         {getUserTypeIcon(user.user_type)}
                         <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-xs sm:text-sm font-medium text-gray-900">
                             {user.full_name || user.username}
                           </div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-xs text-gray-500">{user.email}</div>
                         </div>
                       </div>
                     </td>
@@ -593,39 +593,39 @@ export default function AdminUsers() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(user)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       {user.can_book_consultation ? (
-                        <span className="text-green-600 flex items-center">
-                          <FaCheck className="mr-1" /> Can Book
+                        <span className="text-green-600 flex items-center text-xs sm:text-sm">
+                          <FaCheck className="mr-1 flex-shrink-0" /> <span className="hidden sm:inline">Can Book</span><span className="sm:hidden">Yes</span>
                         </span>
                       ) : (
-                        <span className="text-red-600 flex items-center">
-                          <FaBan className="mr-1" /> Blocked
+                        <span className="text-red-600 flex items-center text-xs sm:text-sm">
+                          <FaBan className="mr-1 flex-shrink-0" /> <span className="hidden sm:inline">Blocked</span><span className="sm:hidden">No</span>
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
                       {user.date_joined ? new Date(user.date_joined).toLocaleDateString() : 'N/A'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium">
+                      <div className="flex space-x-1 sm:space-x-2">
                         {user.user_type !== 'admin' && (
                           <>
                             {user.is_blocked ? (
                               <button
                                 onClick={() => openBlockModal(user, 'unblock')}
-                                className="text-green-600 hover:text-green-900 flex items-center"
+                                className="text-green-600 hover:text-green-900 flex items-center p-1 rounded hover:bg-green-50"
                                 title="Unblock user"
                               >
-                                <FaUnlock className="mr-1" /> Unblock
+                                <FaUnlock className="sm:mr-1" /> <span className="hidden sm:inline">Unblock</span>
                               </button>
                             ) : (
                               <button
                                 onClick={() => openBlockModal(user, 'block')}
-                                className="text-red-600 hover:text-red-900 flex items-center"
+                                className="text-red-600 hover:text-red-900 flex items-center p-1 rounded hover:bg-red-50"
                                 title="Block user"
                               >
-                                <FaLock className="mr-1" /> Block
+                                <FaLock className="sm:mr-1" /> <span className="hidden sm:inline">Block</span>
                               </button>
                             )}
                           </>
@@ -641,7 +641,7 @@ export default function AdminUsers() {
 
           {/* Pagination */}
           {filteredUsers.length > 0 && (
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200">
               <div className="flex-1 flex justify-between sm:hidden">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
@@ -669,7 +669,7 @@ export default function AdminUsers() {
               <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                 <div className="flex items-center space-x-4">
                   <div>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-xs sm:text-sm text-gray-700">
                       Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
                       <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredUsers.length)}</span> of{' '}
                       <span className="font-medium">{filteredUsers.length}</span> results
@@ -682,7 +682,7 @@ export default function AdminUsers() {
                         setItemsPerPage(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
+                      className="border rounded-lg px-2 py-1 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-[#800000]"
                     >
                       <option value={5}>5 per page</option>
                       <option value={10}>10 per page</option>
@@ -703,7 +703,7 @@ export default function AdminUsers() {
                           : 'bg-white text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <FaChevronLeft className="h-4 w-4" />
+                      <FaChevronLeft className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                     
                     {/* Page Numbers */}
@@ -761,7 +761,7 @@ export default function AdminUsers() {
                           : 'bg-white text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <FaChevronRight className="h-4 w-4" />
+                      <FaChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
                     </button>
                   </nav>
                 </div>

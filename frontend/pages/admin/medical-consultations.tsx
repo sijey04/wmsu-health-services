@@ -441,29 +441,29 @@ function AdminMedicalConsultations() {
   }, []); // Empty dependency array ensures this runs only once
 
   const renderTable = (data: any[], loading: boolean, error: string | null, isHistory = false) => {
-    if (loading) return <div className="text-center p-6">Loading...</div>;
-    if (error) return <div className="text-center p-6 text-red-500">{error}</div>;
-    if (data.length === 0) return <div className="text-center p-6">No records found.</div>;
+    if (loading) return <div className="text-center p-4 sm:p-6 text-sm">Loading...</div>;
+    if (error) return <div className="text-center p-4 sm:p-6 text-sm text-red-500">{error}</div>;
+    if (data.length === 0) return <div className="text-center p-4 sm:p-6 text-sm">No records found.</div>;
     
     return (
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-[#800000]">
           <tr>
-            <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Patient Name</th>
-            <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Purpose</th>
-            <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">{isHistory ? 'Date' : 'Appointment Time'}</th>
-            <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
-            {!isHistory && <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Profile</th>}
-            {isHistory && <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Reason</th>}
-            <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+            <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Patient Name</th>
+            <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Purpose</th>
+            <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">{isHistory ? 'Date' : 'Appointment Time'}</th>
+            <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+            {!isHistory && <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Profile</th>}
+            {isHistory && <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Reason</th>}
+            <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {data.map((record: any) => (
             <tr key={record.id} className="hover:bg-gray-50 transition-colors duration-200">
-              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.patient_name}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.purpose}</td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{isHistory ? new Date(record.appointment_date).toLocaleString() : record.appointment_time}</td>
+              <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{record.patient_name}</td>
+              <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{record.purpose}</td>
+              <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{isHistory ? new Date(record.appointment_date).toLocaleString() : record.appointment_time}</td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                     record.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -475,43 +475,43 @@ function AdminMedicalConsultations() {
                 </span>
               </td>
               {!isHistory && (
-                 <td className="px-6 py-4 whitespace-nowrap">
+                 <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
                     <button 
                       title="View Profile" 
                       onClick={() => handleViewPatientProfile(record.patient)}
-                      className="p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
+                      className="p-1.5 sm:p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
                     >
-                      <UserCircleIcon className="h-6 w-6" />
+                      <UserCircleIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </button>
                   </td>
               )}
-              {isHistory && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{record.reason || record.purpose}</td>}
-              <td className="px-6 py-4 whitespace-nowrap flex items-center space-x-2">
+              {isHistory && <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{record.reason || record.purpose}</td>}
+              <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap flex items-center space-x-1 sm:space-x-2">
                 {isHistory ? (
                   <>
                     <button 
                       title="View Details" 
                       onClick={() => handleViewAppointmentDetails(record)}
-                      className="p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
+                      className="p-1.5 sm:p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
                     >
-                      <EyeIcon className="h-6 w-6" />
+                      <EyeIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </button>
                     {/* Show view results button for completed appointments with form data */}
                     {record.status === 'completed' && record.has_form_data && (
                       <>
                         <button 
                           title="View Results" 
-                          className="p-2 rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200"
+                          className="p-1.5 sm:p-2 rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200"
                           onClick={() => handleViewFormData(record)}
                         >
-                          <DocumentTextIcon className="h-6 w-6" />
+                          <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                         </button>
                         <button 
                           title="Download PDF" 
-                          className="p-2 rounded-full text-green-400 hover:bg-green-100 hover:text-green-600 transition-colors duration-200"
+                          className="p-1.5 sm:p-2 rounded-full text-green-400 hover:bg-green-100 hover:text-green-600 transition-colors duration-200"
                           onClick={() => handleDownloadFormData(record)}
                         >
-                          <PrinterIcon className="h-6 w-6" />
+                          <PrinterIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                         </button>
                       </>
                     )}
@@ -521,9 +521,9 @@ function AdminMedicalConsultations() {
                     <button 
                       title="View Appointment" 
                       onClick={() => handleViewAppointmentDetails(record)}
-                      className="p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
+                      className="p-1.5 sm:p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
                     >
-                      <EyeIcon className="h-6 w-6" />
+                      <EyeIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                     </button>
                     
                     {/* Show examination form button only for non-completed appointments */}
@@ -531,9 +531,9 @@ function AdminMedicalConsultations() {
                       <button 
                         title="Examination Form" 
                         onClick={() => handleOpenMedicalForm(record.id)}
-                        className="p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
+                        className="p-1.5 sm:p-2 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition-colors duration-200"
                       >
-                        <DocumentTextIcon className="h-6 w-6" />
+                        <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       </button>
                     )}
                     
@@ -542,17 +542,17 @@ function AdminMedicalConsultations() {
                       <>
                         <button 
                           title="View Results" 
-                          className="p-2 rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200"
+                          className="p-1.5 sm:p-2 rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200"
                           onClick={() => handleViewFormData(record)}
                         >
-                          <DocumentTextIcon className="h-6 w-6" />
+                          <DocumentTextIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                         </button>
                         <button 
                           title="Download PDF" 
-                          className="p-2 rounded-full text-green-400 hover:bg-green-100 hover:text-green-600 transition-colors duration-200"
+                          className="p-1.5 sm:p-2 rounded-full text-green-400 hover:bg-green-100 hover:text-green-600 transition-colors duration-200"
                           onClick={() => handleDownloadFormData(record)}
                         >
-                          <PrinterIcon className="h-6 w-6" />
+                          <PrinterIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                         </button>
                       </>
                     )}
@@ -562,9 +562,9 @@ function AdminMedicalConsultations() {
                       <button 
                         title="Approve Appointment" 
                         onClick={() => openConfirmationModal('approve', record.id)} 
-                        className="p-2 rounded-full text-green-400 hover:bg-green-100 hover:text-green-600 transition-colors duration-200"
+                        className="p-1.5 sm:p-2 rounded-full text-green-400 hover:bg-green-100 hover:text-green-600 transition-colors duration-200"
                       >
-                        <CheckCircleIcon className="h-6 w-6" />
+                        <CheckCircleIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       </button>
                     )}
                     
@@ -573,9 +573,9 @@ function AdminMedicalConsultations() {
                       <button 
                         title="Reschedule Appointment" 
                         onClick={() => handleOpenRescheduleModal(record)}
-                        className="p-2 rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200"
+                        className="p-1.5 sm:p-2 rounded-full text-blue-400 hover:bg-blue-100 hover:text-blue-600 transition-colors duration-200"
                       >
-                        <CalendarIcon className="h-6 w-6" />
+                        <CalendarIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       </button>
                     )}
                     
@@ -584,9 +584,9 @@ function AdminMedicalConsultations() {
                       <button 
                         title="Cancel Appointment" 
                         onClick={() => openConfirmationModal('cancel', record.id)}
-                        className="p-2 rounded-full text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors duration-200"
+                        className="p-1.5 sm:p-2 rounded-full text-red-400 hover:bg-red-100 hover:text-red-600 transition-colors duration-200"
                       >
-                        <XIcon className="h-6 w-6" />
+                        <XIcon className="h-5 w-5 sm:h-6 sm:w-6" />
                       </button>
                     )}
                   </>
@@ -601,38 +601,40 @@ function AdminMedicalConsultations() {
 
   return (
     <AdminLayout>
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Medical Consultations</h1>
-          <p className="text-gray-600">Manage medical appointments and view consultation history</p>
+        <div className="mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Medical Consultations</h1>
+          <p className="text-sm sm:text-base text-gray-600">Manage medical appointments and view consultation history</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="flex justify-between border-b border-gray-200">
-            <div className="flex">
+          <div className="flex flex-col sm:flex-row justify-between border-b border-gray-200">
+            <div className="flex overflow-x-auto">
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${
                   activeTab === 'medicalAppointments'
                     ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
                 onClick={() => setActiveTab('medicalAppointments')}
               >
-                Medical Appointments
+                <span className="hidden sm:inline">Medical Appointments</span>
+                <span className="sm:hidden">Appointments</span>
               </button>
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${
                   activeTab === 'todaysAppointments'
                     ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                 }`}
                 onClick={() => setActiveTab('todaysAppointments')}
               >
-                Today&apos;s Appointments
+                <span className="hidden sm:inline">Today&apos;s Appointments</span>
+                <span className="sm:hidden">Today</span>
               </button>
               <button
-                className={`py-3 px-6 text-lg font-medium transition-all duration-200 focus:outline-none ${
+                className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${
                   activeTab === 'history'
                     ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50'
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
@@ -644,11 +646,11 @@ function AdminMedicalConsultations() {
             </div>
             
             {/* School Year Selector */}
-            <div className="py-3 px-6">
+            <div className="py-2 px-3 sm:py-3 sm:px-6 w-full sm:w-auto">
               <select
                 value={selectedSchoolYear}
                 onChange={(e) => handleSchoolYearChange(e.target.value)}
-                className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                className="w-full sm:w-64 px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                 disabled={loadingSchoolYears}
               >
                 <option value="">All School Years</option>
@@ -661,7 +663,7 @@ function AdminMedicalConsultations() {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-3 sm:p-6">
             {activeTab === 'medicalAppointments' && (
               <div>
                 {/* Filters Section */}
@@ -674,7 +676,7 @@ function AdminMedicalConsultations() {
                         placeholder="Search by patient name..."
                         value={searchAppointmentsTerm}
                         onChange={(e) => setSearchAppointmentsTerm(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="w-full border border-gray-300 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       />
                       <svg
                         className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
@@ -710,7 +712,7 @@ function AdminMedicalConsultations() {
                       <select
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                       >
                         <option value="all">All Dates</option>
                         <option value="today">Today</option>
@@ -721,7 +723,7 @@ function AdminMedicalConsultations() {
                       <select
                         value={sortAppointmentsBy}
                         onChange={(e) => setSortAppointmentsBy(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                       >
                         <option value="none">Sort by Date (Recent)</option>
                         <option value="name">Sort by Name</option>
@@ -731,7 +733,7 @@ function AdminMedicalConsultations() {
                       {(searchAppointmentsTerm || statusFilter !== 'all' || dateFilter !== 'all' || sortAppointmentsBy !== 'none') && (
                         <button
                           onClick={clearFilters}
-                          className="text-sm text-red-600 hover:text-red-800 underline"
+                          className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
                         >
                           Clear Filters
                         </button>
@@ -745,13 +747,13 @@ function AdminMedicalConsultations() {
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                   {renderTable(paginatedAppointments, loadingAppointments, appointmentsError)}
                 </div>
                 
                 {/* Pagination */}
                 {filteredAppointments.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
@@ -869,8 +871,8 @@ function AdminMedicalConsultations() {
             {activeTab === 'todaysAppointments' && (
               <div>
                 {/* Filters Section */}
-                <div className="bg-white rounded-lg shadow p-4 mb-6">
-                  <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                       <input
@@ -878,10 +880,10 @@ function AdminMedicalConsultations() {
                         placeholder="Search by patient name..."
                         value={searchTodaysTerm}
                         onChange={(e) => setSearchTodaysTerm(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="w-full border border-gray-300 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       />
                       <svg
-                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        className="absolute left-2 sm:left-3 top-2 sm:top-2.5 h-4 w-4 sm:h-5 sm:w-5 text-gray-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -896,13 +898,13 @@ function AdminMedicalConsultations() {
                     </div>
 
                     {/* Filter Row */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <span className="text-xs sm:text-sm font-medium text-gray-700 w-full sm:w-auto">Filters:</span>
                       
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                       >
                         <option value="all">All Status</option>
                         <option value="confirmed">Confirmed</option>
@@ -912,7 +914,7 @@ function AdminMedicalConsultations() {
                       <select
                         value={timeFilter}
                         onChange={(e) => setTimeFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                       >
                         <option value="today">Today</option>
                         <option value="this_week">This Week</option>
@@ -922,7 +924,7 @@ function AdminMedicalConsultations() {
                       {(searchTodaysTerm || statusFilter !== 'all') && (
                         <button
                           onClick={clearFilters}
-                          className="text-sm text-red-600 hover:text-red-800 underline"
+                          className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
                         >
                           Clear Filters
                         </button>
@@ -930,19 +932,19 @@ function AdminMedicalConsultations() {
                     </div>
 
                     {/* Results Summary */}
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs sm:text-sm text-gray-600">
                       Showing {paginatedTodaysAppointments.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredTodaysAppointments.length)} of {filteredTodaysAppointments.length} appointments
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                   {renderTable(paginatedTodaysAppointments, loadingTodaysAppointments, todaysAppointmentsError)}
                 </div>
                 
                 {/* Pagination */}
                 {filteredTodaysAppointments.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
@@ -1060,8 +1062,8 @@ function AdminMedicalConsultations() {
             {activeTab === 'history' && (
               <div>
                 {/* Filters Section */}
-                <div className="bg-white rounded-lg shadow p-4 mb-6">
-                  <div className="space-y-4">
+                <div className="bg-white rounded-lg shadow p-3 sm:p-4 mb-4 sm:mb-6">
+                  <div className="space-y-3 sm:space-y-4">
                     {/* Search Bar */}
                     <div className="relative">
                       <input
@@ -1069,10 +1071,10 @@ function AdminMedicalConsultations() {
                         placeholder="Search history..."
                         value={searchHistoryTerm}
                         onChange={(e) => setSearchHistoryTerm(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="w-full border border-gray-300 rounded-lg pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
                       />
                       <svg
-                        className="absolute left-3 top-2.5 h-5 w-5 text-gray-400"
+                        className="absolute left-2 sm:left-3 top-2 sm:top-2.5 h-4 w-4 sm:h-5 sm:w-5 text-gray-400"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1087,13 +1089,13 @@ function AdminMedicalConsultations() {
                     </div>
 
                     {/* Filter Row */}
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className="text-sm font-medium text-gray-700">Filters:</span>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                      <span className="text-xs sm:text-sm font-medium text-gray-700 w-full sm:w-auto">Filters:</span>
                       
                       <select
                         value={filterHistoryBy}
                         onChange={(e) => setFilterHistoryBy(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none"
+                        className="border border-gray-300 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none flex-1 sm:flex-none"
                       >
                         <option value="all">All Records</option>
                         <option value="completed">Completed</option>
@@ -1103,7 +1105,7 @@ function AdminMedicalConsultations() {
                       {(searchHistoryTerm || filterHistoryBy !== 'all') && (
                         <button
                           onClick={clearFilters}
-                          className="text-sm text-red-600 hover:text-red-800 underline"
+                          className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
                         >
                           Clear Filters
                         </button>
@@ -1111,19 +1113,19 @@ function AdminMedicalConsultations() {
                     </div>
 
                     {/* Results Summary */}
-                    <div className="text-sm text-gray-600">
+                    <div className="text-xs sm:text-sm text-gray-600">
                       Showing {paginatedHistory.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} - {Math.min(currentPage * itemsPerPage, filteredHistory.length)} of {filteredHistory.length} records
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">
                    {renderTable(paginatedHistory, loadingHistory, historyError, true)}
                 </div>
                 
                 {/* Pagination */}
                 {filteredHistory.length > 0 && (
-                  <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-4">
+                  <div className="bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between border-t border-gray-200 mt-3 sm:mt-4">
                     <div className="flex-1 flex justify-between sm:hidden">
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}

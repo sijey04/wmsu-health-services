@@ -210,6 +210,7 @@ class Patient(models.Model):
     blood_type = models.CharField(max_length=5, choices=BLOOD_TYPE_CHOICES, blank=True, null=True)
     religion = models.CharField(max_length=50, choices=RELIGION_CHOICES, blank=True, null=True)
     nationality = models.CharField(max_length=50, choices=NATIONALITY_CHOICES, blank=True, null=True)
+    nationality_specify = models.CharField(max_length=100, blank=True, null=True, help_text='Specify nationality if Foreigner is selected')
     civil_status = models.CharField(max_length=20, choices=CIVIL_STATUS_CHOICES, blank=True, null=True)
     
     # Emergency Contact
@@ -228,6 +229,11 @@ class Patient(models.Model):
     # Format: {'illness_name_sub': ['selected_sub_option1', 'selected_sub_option2'], 'illness_name_spec': 'specification_text'}
     comorbid_illness_details = models.JSONField(blank=True, null=True, help_text='Enhanced comorbid illness sub-options and specifications')
     maintenance_medications = models.JSONField(blank=True, null=True, help_text='List of maintenance medications')
+    custom_drug_names = models.JSONField(blank=True, null=True, help_text='List of custom drug names specified by the user')
+    custom_nationalities = models.JSONField(blank=True, null=True, help_text='List of custom nationalities specified by the user')
+    custom_comorbid_illnesses = models.JSONField(blank=True, null=True, help_text='List of custom comorbid illnesses specified by the user (for "Other Condition")')
+    custom_comorbid_specifications = models.JSONField(blank=True, null=True, help_text='Object mapping illness names to their custom specifications (e.g., {"food_allergies": ["Peanuts", "Shrimp"]})')
+    custom_menstrual_symptoms = models.JSONField(blank=True, null=True, help_text='List of custom menstrual symptoms specified by the user')
     vaccination_history = models.JSONField(blank=True, null=True, help_text='Vaccination history for all vaccines')
     
     # Past Medical & Surgical History
