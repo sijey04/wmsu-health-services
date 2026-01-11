@@ -67,6 +67,7 @@ interface Patient {
   school_year?: {
     id: number;
     academic_year: string;
+    semester_type?: string;
     is_current?: boolean;
   };
   
@@ -135,15 +136,42 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 
   const displayedProfile = selectedProfile || patient;
 
-  // Sort profiles by school year, with current year first
-  const sortedProfiles = allPatientProfiles.sort((a, b) => {
-    if (a.school_year?.is_current) return -1;
-    if (b.school_year?.is_current) return 1;
-    return (b.school_year?.academic_year || '').localeCompare(a.school_year?.academic_year || '');
+  // Filter profiles to only show those belonging to the current patient's user account
+  // This prevents showing edit history from other users
+  const userProfiles = allPatientProfiles.filter(profile => 
+    profile.user === patient.user
+  );
+
+  // Sort all profiles by date (most recent first) to show complete edit history
+  const sortedProfiles = userProfiles.sort((a, b) => {
+    const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+    const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+    return dateB - dateA; // Most recent first
   });
 
+  // Get the most recent profile for the current semester
   const currentProfile = sortedProfiles.find(p => p.school_year?.is_current) || patient;
-  const pastProfiles = sortedProfiles.filter(p => !p.school_year?.is_current && p.id !== patient.id);
+  
+  // Get all other profiles (edit history)
+  const profileHistory = sortedProfiles.filter(p => p.id !== currentProfile.id);
+  
+  // Helper to format profile version label
+  const getProfileVersionLabel = (profile: Patient, index: number) => {
+    const date = new Date(profile.updated_at || profile.created_at || '');
+    const dateStr = date.toLocaleString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    if (profile.school_year?.is_current && index === 0) {
+      return `${profile.school_year.academic_year}${profile.school_year.semester_type ? ` - ${profile.school_year.semester_type}` : ''} (Current) - ${dateStr}`;
+    } else {
+      return `${profile.school_year?.academic_year || 'Unknown'}${profile.school_year?.semester_type ? ` - ${profile.school_year.semester_type}` : ''} - ${dateStr}`;
+    }
+  };
 
   // Helper function to safely render array data that might contain strings or objects
   const renderArrayData = (data: any[], field: string): string => {
@@ -449,9 +477,10 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                   </tr>
                   {profile.school_year && (
                     <tr>
-                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">School Year:</td>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Semester:</td>
                       <td className="border border-gray-400 p-2">
                         {profile.school_year.academic_year}
+                        {profile.school_year.semester_type && ` - ${profile.school_year.semester_type}`}
                         {profile.school_year.is_current && ' (Current)'}
                       </td>
                     </tr>
@@ -732,19 +761,18 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
           <div className="flex items-center gap-4">
             {allPatientProfiles.length > 0 && (
               <div className="text-right">
-                <label className="text-xs font-medium text-gray-500 block mb-1">VIEW PROFILE FROM:</label>
+                <label className="text-xs font-medium text-gray-500 block mb-1">VIEW PROFILE VERSION:</label>
                 <select 
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm max-w-md"
                   value={displayedProfile.id || ''}
                   onChange={(e) => {
-                    const profile = allPatientProfiles.find(p => p.id === parseInt(e.target.value));
+                    const profile = sortedProfiles.find(p => p.id === parseInt(e.target.value));
                     if (profile) handleProfileSelect(profile);
                   }}
                 >
-                  {sortedProfiles.map(profile => (
+                  {sortedProfiles.map((profile, index) => (
                     <option key={profile.id} value={profile.id}>
-                      {profile.school_year?.academic_year || 'Unknown Year'} 
-                      {profile.school_year?.is_current && ' (Current)'}
+                      {getProfileVersionLabel(profile, index)}
                     </option>
                   ))}
                 </select>
@@ -759,7 +787,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
         PATIENT HEALTH PROFILE & CONSULTATIONS RECORD
         {displayedProfile.school_year && (
           <span className="ml-4 text-sm opacity-90">
-            Academic Year: {displayedProfile.school_year.academic_year}
+            {displayedProfile.school_year.academic_year}
+            {displayedProfile.school_year.semester_type && ` - ${displayedProfile.school_year.semester_type}`}
             {displayedProfile.school_year.is_current && ' (Current)'}
           </span>
         )}
@@ -779,7 +808,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             >
               Current Profile
             </button>
-            {pastProfiles.length > 0 && (
+            {profileHistory.length > 0 && (
               <button
                 className={`py-4 px-2 border-b-2 font-medium text-sm ${
                   activeTab === 'history' 
@@ -788,7 +817,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 }`}
                 onClick={() => setActiveTab('history')}
               >
-                Profile History ({pastProfiles.length})
+                Edit History ({profileHistory.length})
               </button>
             )}
             <button
@@ -820,7 +849,20 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             </div>
           ) : activeTab === 'waiver' ? (
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-lg font-bold text-[#8B0000] mb-4">Signed Waiver</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-bold text-[#8B0000]">Signed Waiver</h2>
+                {waiver && (
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-[#8B0000] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-800 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print Waiver
+                  </button>
+                )}
+              </div>
               {loadingWaiver ? (
                 <div className="flex justify-center items-center py-12">
                   <svg className="animate-spin h-8 w-8 text-[#8B0000]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -903,50 +945,90 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             <div className="space-y-6">
               {/* Profile History */}
               <div className="bg-white rounded-lg shadow-lg p-6">
-                <h2 className="text-lg font-bold text-[#8B0000] mb-4">Profile History</h2>
-                {pastProfiles.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No previous profiles found.</p>
+                <h2 className="text-lg font-bold text-[#8B0000] mb-4">Profile Edit History</h2>
+                <p className="text-sm text-gray-600 mb-4">
+                  View all previous versions of this profile, including edits and updates made over time.
+                </p>
+                {profileHistory.length === 0 ? (
+                  <p className="text-gray-500 text-center py-8">No previous profile versions found.</p>
                 ) : (
-                  <div className="grid gap-4">
-                    {pastProfiles.map(profile => (
-                      <div key={profile.id} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h3 className="font-medium text-gray-900">
-                              Academic Year: {profile.school_year?.academic_year || 'Unknown'}
-                            </h3>
-                            <p className="text-sm text-gray-500">
-                              Profile ID: {profile.id} | 
-                              Created: {profile.created_at ? new Date(profile.created_at).toLocaleDateString() : 'N/A'}
-                            </p>
+                  <div className="space-y-4">
+                    {profileHistory.map((profile, index) => {
+                      const isCurrentSemester = profile.school_year?.is_current;
+                      const editDate = new Date(profile.updated_at || profile.created_at || '');
+                      
+                      return (
+                        <div key={profile.id} className="border border-gray-200 rounded-lg p-5 hover:border-[#8B0000] transition-colors">
+                          <div className="flex justify-between items-start mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <h3 className="font-semibold text-gray-900">
+                                  {profile.school_year?.academic_year || 'Unknown'}
+                                  {profile.school_year?.semester_type && ` - ${profile.school_year.semester_type}`}
+                                </h3>
+                                {isCurrentSemester && (
+                                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+                                    Current Semester
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-600 space-y-1">
+                                <p>
+                                  <span className="font-medium">Last Updated:</span>{' '}
+                                  {editDate.toLocaleString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                </p>
+                                <p>
+                                  <span className="font-medium">Profile ID:</span> {profile.id}
+                                </p>
+                                <p>
+                                  <span className="font-medium">Created:</span>{' '}
+                                  {profile.created_at ? new Date(profile.created_at).toLocaleString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  }) : 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => handleProfileSelect(profile)}
+                              className="px-4 py-2 text-sm bg-[#8B0000] text-white rounded-lg hover:bg-red-800 transition-colors font-medium"
+                            >
+                              View This Version
+                            </button>
                           </div>
-                          <button
-                            onClick={() => handleProfileSelect(profile)}
-                            className="px-3 py-1 text-sm bg-[#8B0000] text-white rounded hover:bg-red-800 transition-colors"
-                          >
-                            View Details
-                          </button>
+                          
+                          <div className="border-t border-gray-200 pt-3 mt-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="font-medium text-gray-600">Age:</span>
+                                <span className="ml-2 text-gray-900">{profile.age || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Department:</span>
+                                <span className="ml-2 text-gray-900">{profile.department || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Blood Type:</span>
+                                <span className="ml-2 text-gray-900">{profile.blood_type || 'N/A'}</span>
+                              </div>
+                              <div>
+                                <span className="font-medium text-gray-600">Contact:</span>
+                                <span className="ml-2 text-gray-900">{profile.contact_number || 'N/A'}</span>
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium text-gray-600">Age:</span>
-                            <span className="ml-2">{profile.age || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-600">Department:</span>
-                            <span className="ml-2">{profile.department || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-600">Blood Type:</span>
-                            <span className="ml-2">{profile.blood_type || 'N/A'}</span>
-                          </div>
-                          <div>
-                            <span className="font-medium text-gray-600">Contact:</span>
-                            <span className="ml-2">{profile.contact_number || 'N/A'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

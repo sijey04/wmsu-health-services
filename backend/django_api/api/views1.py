@@ -215,7 +215,27 @@ class PatientViewSet(viewsets.ModelViewSet):
             except (ValueError, TypeError):
                 pass
         
-        return queryset.select_related('user', 'school_year').order_by('-created_at')
+        # Apply deduplication for admin/staff view - show only latest profile per email
+        if user.is_staff or user.user_type in ['staff', 'admin']:
+            from django.db.models import Max
+            from django.db.models.functions import Coalesce
+            from django.db.models import Value
+            
+            # Get the email to use for each patient (prefer patient.email, fallback to user.email)
+            queryset = queryset.annotate(
+                dedupe_email=Coalesce('email', 'user__email', Value(''))
+            )
+            
+            # Find the latest profile ID for each unique email
+            # Use both created_at and id to ensure we get the most recent
+            latest_per_email = queryset.values('dedupe_email').annotate(
+                latest_id=Max('id')
+            ).values_list('latest_id', flat=True)
+            
+            # Filter to only include the latest profiles
+            queryset = queryset.filter(id__in=latest_per_email)
+        
+        return queryset.select_related('user', 'school_year').order_by('-created_at', '-id')
 
     def perform_create(self, serializer):
         """Set user when creating patient profile"""

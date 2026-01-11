@@ -83,9 +83,12 @@ export default function AnnouncementModal({ isOpen, onClose }: AnnouncementModal
   };
 
   const handleClose = async () => {
-    // Mark current announcement as viewed before closing
+    // Mark all remaining announcements as viewed before closing
     if (announcements.length > 0) {
-      await markAsViewed(announcements[currentIndex].id);
+      // Mark current and any remaining announcements as viewed
+      for (let i = currentIndex; i < announcements.length; i++) {
+        await markAsViewed(announcements[i].id);
+      }
     }
     onClose();
   };

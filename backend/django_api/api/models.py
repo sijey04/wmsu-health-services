@@ -286,9 +286,11 @@ class Patient(models.Model):
     semester_id = models.IntegerField(blank=True, null=True)
     
     class Meta:
-        unique_together = ['user', 'school_year', 'semester']
+        # Removed unique_together constraint to support profile versioning
+        # Multiple profiles per user per semester are allowed for version history
         indexes = [
             models.Index(fields=['user', 'school_year', 'semester']),
+            models.Index(fields=['user', 'created_at']),  # For efficient version retrieval
         ]
     
     def __str__(self):

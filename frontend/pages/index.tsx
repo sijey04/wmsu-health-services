@@ -19,7 +19,11 @@ export default function Home() {  // Authentication state
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [showPostLoginModal, setShowPostLoginModal] = useState(false);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
-  const [hasCheckedAnnouncements, setHasCheckedAnnouncements] = useState(false);
+  const [hasCheckedAnnouncements, setHasCheckedAnnouncements] = useState(() => {
+    // Only check once per session - backend tracks which announcements have been viewed
+    if (typeof window === 'undefined') return false;
+    return sessionStorage.getItem('announcements_checked') === 'true';
+  });
   const [user, setUser] = useState<any>(null);
   const [userDismissedModal, setUserDismissedModal] = useState(false);
   
@@ -113,9 +117,11 @@ export default function Home() {  // Authentication state
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    sessionStorage.removeItem('announcements_checked'); // Reset for next user
     setIsLoggedIn(false);
     setUser(null);
     setUserDismissedModal(false); // Reset dismissal state on logout
+    setHasCheckedAnnouncements(false); // Reset announcement check state
   };const handleLoginSuccess = (gradeLevel: string, user: any) => {
     // Re-check authentication status
     const token = localStorage.getItem('access_token');
@@ -171,8 +177,10 @@ export default function Home() {  // Authentication state
         const announcements = await response.json();
         if (announcements && announcements.length > 0) {
           setShowAnnouncementModal(true);
-          setHasCheckedAnnouncements(true);
         }
+        // Mark as checked for this session
+        setHasCheckedAnnouncements(true);
+        sessionStorage.setItem('announcements_checked', 'true');
       }
     } catch (error) {
       console.error('Error checking for announcements:', error);

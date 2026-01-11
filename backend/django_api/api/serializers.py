@@ -112,6 +112,31 @@ class PatientSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    school_year = serializers.SerializerMethodField()
+    
+    def get_school_year(self, obj):
+        """Return full school year details instead of just ID"""
+        # If patient has a school_year assigned, return it
+        if obj.school_year:
+            return {
+                'id': obj.school_year.id,
+                'academic_year': obj.school_year.academic_year,
+                'semester_type': obj.school_year.semester_type,
+                'is_current': obj.school_year.is_current,
+            }
+        
+        # For legacy patients without school_year, return current semester
+        from .models import AcademicSchoolYear
+        try:
+            current_semester = AcademicSchoolYear.objects.get(is_current=True)
+            return {
+                'id': current_semester.id,
+                'academic_year': current_semester.academic_year,
+                'semester_type': current_semester.semester_type,
+                'is_current': current_semester.is_current,
+            }
+        except AcademicSchoolYear.DoesNotExist:
+            return None
     
     class Meta:
         model = Patient

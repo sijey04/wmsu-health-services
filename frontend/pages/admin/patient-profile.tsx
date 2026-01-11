@@ -249,8 +249,9 @@ export default function AdminPatientProfile() {
     if (semesters.length > 0) {
       semesters.forEach(semester => {
         // Patients are now associated with semester records via school_year field
+        // school_year is an object with {id, academic_year, semester_type, is_current}
         const semesterPatients = patientsData.filter(patient => 
-          patient.school_year === semester.id || patient.semester_id === semester.id
+          patient.school_year?.id === semester.id || patient.school_year === semester.id || patient.semester_id === semester.id
         );
         
         stats[semester.id] = {
@@ -728,9 +729,9 @@ export default function AdminPatientProfile() {
                                 {semesters.length > 0 ? (
                                   patient.school_year || patient.semester_id ? (
                                     <div>
-                                      <div className="font-medium">{getSemesterLabel(patient.school_year || patient.semester_id)}</div>
+                                      <div className="font-medium">{getSemesterLabel(patient.school_year?.id || patient.school_year || patient.semester_id)}</div>
                                       <div className="text-xs text-gray-500">
-                                        {semesters.find(s => s.id === (patient.school_year || patient.semester_id))?.is_current && (
+                                        {(patient.school_year?.is_current || semesters.find(s => s.id === (patient.school_year?.id || patient.school_year || patient.semester_id))?.is_current) && (
                                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
                                             Current
                                           </span>

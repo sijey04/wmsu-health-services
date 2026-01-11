@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { patientProfileAPI, djangoApiClient } from '../../utils/api';
 import FeedbackModal from '../../components/feedbackmodal';
+import ProfileSaveConfirmationModal from '../../components/ProfileSaveConfirmationModal';
 import axios from 'axios';
 
 const steps = [
@@ -22,6 +23,7 @@ export default function PatientProfileSetupPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<any>({});
@@ -66,6 +68,8 @@ export default function PatientProfileSetupPage() {
   const [originalProfile, setOriginalProfile] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isNewProfile, setIsNewProfile] = useState(false); // Track if this is a newly created profile
+  const [showSaveConfirmation, setShowSaveConfirmation] = useState(false);
+  const [pendingSaveData, setPendingSaveData] = useState<FormData | null>(null);
 
   const progress = (currentStep / steps.length) * 100;
 
@@ -215,13 +219,24 @@ export default function PatientProfileSetupPage() {
       if (currentSchoolYear?.id) {
         // Use the semester record ID which already ties to academic_year + semester_type
         params.school_year = currentSchoolYear.id;
+        // Also send semester parameter to ensure backend uses the versioning-aware query
+        params.semester = currentSemester;
         console.log('Fetching profile for semester record ID:', currentSchoolYear.id);
         console.log('Academic Year:', currentSchoolYear.academic_year);
         console.log('Semester Type:', currentSchoolYear.semester_type);
+        console.log('Semester Code:', currentSemester);
       }
       
       const res = await patientProfileAPI.get(params);
       let profileData = res.data;
+      
+      // Add cache-busting timestamp to photo URL to prevent browser caching issues
+      if (profileData.photo && typeof profileData.photo === 'string' && profileData.photo.length > 0) {
+        // Append timestamp to force browser to fetch new image
+        const separator = profileData.photo.includes('?') ? '&' : '?';
+        profileData.photo = `${profileData.photo}${separator}t=${Date.now()}`;
+      }
+      
       // Get user info from localStorage
       const userStr = localStorage.getItem('user');
       if (userStr) {
@@ -1424,7 +1439,7 @@ export default function PatientProfileSetupPage() {
     });
   };
 
-  const handleProfileSave = async () => {
+  const handleProfileSave = async (): Promise<boolean> => {
     setLoading(true);
     setError('');
     setSuccess(false);
@@ -1589,84 +1604,24 @@ export default function PatientProfileSetupPage() {
         console.warn('No current semester record available - profile will be created without semester association');
       }
 
-      // Check if we need to create a new profile version or update existing one
-      let shouldCreateNewVersion = false;
-      
-      // Logic for versioning:
-      // 1. If it's a new profile (no existing ID), always create new
-      // 2. If it's an existing profile with changes, create new version (versioning)
-      // 3. If it's a newly created profile being edited, just update (overwrite)
+      // Versioning Logic:
+      // - If no existing profile (no ID), create new profile without asking
+      // - If editing ANY existing profile (with ID), ask user whether to edit or create new version
       
       if (!profile?.id) {
-        // No ID means it's a completely new profile
-        shouldCreateNewVersion = true;
-      } else if (isNewProfile && hasUnsavedChanges) {
-        // This is a profile that was just created in this session, overwrite it
-        shouldCreateNewVersion = false;
-      } else if (!isNewProfile && hasUnsavedChanges) {
-        // This is an existing profile with changes, create new version
-        shouldCreateNewVersion = true;
-        // Add version increment logic
-        const currentVersion = profile.version || 1;
-        formData.append('version', (currentVersion + 1).toString());
-        formData.append('previous_version_id', profile.id.toString());
-      } else if (currentSchoolYear?.id && profile?.school_year && currentSemester && profile?.semester) {
-        // Different school year or semester, create new profile
-        shouldCreateNewVersion = profile.school_year !== currentSchoolYear.id || profile.semester !== currentSemester;
-      } else if ((currentSchoolYear?.id && !profile?.school_year) || (currentSemester && !profile?.semester)) {
-        // Profile has no school year or semester but we have active ones, create new profile
-        shouldCreateNewVersion = true;
-      }
-
-      const getSemesterDisplayName = (sem: string) => {
-        switch (sem) {
-          case '1st_semester': return 'First Semester';
-          case '2nd_semester': return 'Second Semester';  
-          case 'summer': return 'Summer Semester';
-          default: return sem;
-        }
-      };
-
-      if (shouldCreateNewVersion) {
-        // Create a new profile version
-        // Remove the id to force creation of a new record
-        formData.delete('id');
-        const response = await patientProfileAPI.create(formData);
-        const semesterDisplay = getSemesterDisplayName(currentSemester);
-        if (hasUnsavedChanges && profile?.id && !isNewProfile) {
-          setFeedbackMessage(`New profile version created for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-        } else {
-          setFeedbackMessage(`Profile saved for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-        }
-        setAutoFilledFromYear(currentSchoolYear.academic_year);
-        setAutoFilledFromSemester(semesterDisplay);
-        setIsAutoFilled(true);
-        
-        // Reset change tracking
-        setHasUnsavedChanges(false);
-        setIsEditMode(false);
-        setIsNewProfile(false); // After saving, it's no longer a new profile
+        // No ID means it's a completely new profile - create it directly
+        await performSave(formData, true, currentSchoolYear, currentSemester);
       } else {
-        // Update the existing profile (overwrite)
-        await patientProfileAPI.update(formData);
-        const semesterDisplay = getSemesterDisplayName(currentSemester);
-        if (isNewProfile) {
-          setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-          setIsNewProfile(false); // After updating, it's no longer a new profile
-        } else {
-          setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${currentSchoolYear.academic_year}!`);
-        }
-        
-        // Reset change tracking
-        setHasUnsavedChanges(false);
-        setIsEditMode(false);
+        // This is an existing profile (with ID) being edited - ALWAYS ask user for their preference
+        // This gives users full control over whether to update current record or create new version
+        setPendingSaveData(formData);
+        setShowSaveConfirmation(true);
+        setLoading(false); // Stop loading while waiting for user decision
+        return true; // Return true to indicate waiting for user confirmation
       }
-      
-      // Refresh the profile data
-      await fetchProfile();
-      
-      setSuccess(true);
-      setFeedbackOpen(true);
+
+      // Function execution happens in performSave or after user confirmation
+      return false; // Return false to indicate save completed
     } catch (err: any) {
       let msg = 'Failed to update profile.';
       if (err.response && err.response.data) {
@@ -1679,8 +1634,123 @@ export default function PatientProfileSetupPage() {
       setError(msg);
       setFeedbackMessage(msg);
       setFeedbackOpen(true);
+      return false; // Return false on error
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to execute the actual save operation
+  const performSave = async (formData: FormData, createNewVersion: boolean, schoolYear: any, semester: string) => {
+    try {
+      const getSemesterDisplayName = (sem: string) => {
+        switch (sem) {
+          case '1st_semester': return 'First Semester';
+          case '2nd_semester': return 'Second Semester';  
+          case 'summer': return 'Summer Semester';
+          default: return sem;
+        }
+      };
+
+      if (createNewVersion) {
+        // Create a new profile version
+        // Remove the id to force creation of a new record
+        formData.delete('id');
+        
+        // Add version metadata if updating from existing profile
+        if (profile?.id && !isNewProfile) {
+          const currentVersion = profile.version || 1;
+          formData.append('version', (currentVersion + 1).toString());
+          formData.append('previous_version_id', profile.id.toString());
+        }
+        
+        const response = await patientProfileAPI.create(formData);
+        const semesterDisplay = getSemesterDisplayName(semester);
+        
+        if (profile?.id && !isNewProfile) {
+          // Editing an existing profile - new version created
+          setFeedbackMessage(`Profile changes saved as new version for ${semesterDisplay}, ${schoolYear.academic_year}!`);
+        } else {
+          // Creating first profile
+          setFeedbackMessage(`Profile created for ${semesterDisplay}, ${schoolYear.academic_year}!`);
+        }
+        
+        setAutoFilledFromYear(schoolYear.academic_year);
+        setAutoFilledFromSemester(semesterDisplay);
+        setIsAutoFilled(true);
+        
+        // Reset change tracking
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+        setIsNewProfile(false); // After saving, it's no longer a new profile
+      } else {
+        // Update the existing profile (only for profiles created in this session or user chose "Edit")
+        await patientProfileAPI.update(formData);
+        const semesterDisplay = getSemesterDisplayName(semester);
+        setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${schoolYear.academic_year}!`);
+        
+        // Reset change tracking
+        setHasUnsavedChanges(false);
+        setIsEditMode(false);
+        setIsNewProfile(false); // After updating, it's no longer a new profile
+      }
+      
+      // Refresh the profile data
+      await fetchProfile();
+      
+      setSuccess(true);
+      setFeedbackOpen(true);
+    } catch (err: any) {
+      let msg = 'Failed to save profile.';
+      if (err.response && err.response.data) {
+        if (typeof err.response.data === 'string') {
+          msg = err.response.data;
+        } else if (typeof err.response.data === 'object') {
+          msg = Object.values(err.response.data).flat().join(' ');
+        }
+      }
+      setError(msg);
+      setFeedbackMessage(msg);
+      setFeedbackOpen(true);
+      throw err; // Re-throw to be caught by the outer try-catch
+    }
+  };
+
+  // Handle user's decision from the confirmation modal
+  const handleSaveConfirmation = async (createNewVersion: boolean) => {
+    setShowSaveConfirmation(false);
+    setLoading(true);
+    
+    try {
+      if (pendingSaveData && currentSchoolYear && currentSemester) {
+        await performSave(pendingSaveData, createNewVersion, currentSchoolYear, currentSemester);
+        
+        // After save, trigger redirect if we're on the final step
+        if (currentStep === steps.length) {
+          setTimeout(() => {
+            if (option === 'Request Medical Certificate') {
+              router.push('/patient/upload-documents');
+            } else if (option === 'Book Dental Consultation') {
+              router.push({
+                pathname: '/patient/dental-information-record',
+                query: { ...router.query, option: 'Book Dental Consultation' }
+              });
+            } else if (option === 'Book Medical Consultation') {
+              router.push('/appointments/medical');
+            } else {
+              // Redirect back to the first step instead of dashboard
+              setCurrentStep(1);
+              setFeedbackMessage('Profile saved successfully! You can now update it or proceed with other actions.');
+              setFeedbackOpen(true);
+            }
+          }, 2000);
+        }
+      }
+    } catch (err) {
+      console.error('Error saving profile:', err);
+    } finally {
+      setLoading(false);
+      setPendingSaveData(null);
     }
   };
 
@@ -1711,6 +1781,7 @@ export default function PatientProfileSetupPage() {
       return;
     }
 
+    setPhotoUploading(true);
     setLoading(true);
     try {
       const formData = new FormData();
@@ -1755,12 +1826,12 @@ export default function PatientProfileSetupPage() {
         return newErrors;
       });
       
-      // Refresh the profile data
-      await fetchProfile();
-      
-      // Clear the preview and file since it's now saved
+      // Clear the preview and file BEFORE refreshing to ensure clean state
       setPhotoFile(null);
       setPhotoPreview(null);
+      
+      // Refresh the profile data
+      await fetchProfile();
       
     } catch (err: any) {
       let msg = 'Failed to update profile photo.';
@@ -1776,6 +1847,7 @@ export default function PatientProfileSetupPage() {
       setFeedbackMessage(msg);
       setFeedbackOpen(true);
     } finally {
+      setPhotoUploading(false);
       setLoading(false);
     }
   };
@@ -1804,10 +1876,8 @@ export default function PatientProfileSetupPage() {
         return newErrors;
       });
 
-      // Set preview immediately
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
+      // Don't set preview - we'll show the uploaded photo directly from server
+      // This prevents showing stale preview data after upload completes
       
       // Upload immediately if profile exists, otherwise store for later
       handleIndependentPhotoUpload(file);
@@ -2168,7 +2238,12 @@ export default function PatientProfileSetupPage() {
               </label>
               <label htmlFor="photo-upload" className="cursor-pointer group">
                 <div className="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed rounded-lg transition-all duration-200 border-gray-400 bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200">
-                  {photoPreview ? (
+                  {photoUploading ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#800000]"></div>
+                      <span className="text-xs text-gray-600 mt-2">Uploading...</span>
+                    </div>
+                  ) : photoPreview ? (
                     <div className="relative w-full h-full">
                       <img src={photoPreview} alt="Preview" className="object-cover w-full h-full rounded-md" />
                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
@@ -2179,7 +2254,7 @@ export default function PatientProfileSetupPage() {
                     </div>
                   ) : (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0 && profile.photo !== 'null' && profile.photo !== 'undefined') ? (
                     <div className="relative w-full h-full">
-                      <img src={profile.photo} alt="Current Photo" className="object-cover w-full h-full rounded-md" />
+                      <img src={profile.photo} alt="Current Photo" className="object-cover w-full h-full rounded-md" key={profile.photo} />
                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
                         <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           Tap to change
@@ -4697,9 +4772,16 @@ export default function PatientProfileSetupPage() {
     } else {
       // Final submission - save if in edit mode or if there are changes
       if (isEditMode || hasUnsavedChanges) {
-        await handleProfileSave();
+        const waitingForConfirmation = await handleProfileSave();
+        
+        // If waiting for user confirmation, don't redirect yet
+        // The redirect will happen in handleSaveConfirmation after user makes their choice
+        if (waitingForConfirmation) {
+          return; // Wait for user's decision via modal
+        }
       }
       
+      // Only redirect if save is complete (not waiting for confirmation)
       setTimeout(() => {
         if (option === 'Request Medical Certificate') {
           router.push('/patient/upload-documents');
@@ -4735,6 +4817,16 @@ export default function PatientProfileSetupPage() {
   return (
     <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick}>
       <FeedbackModal open={feedbackOpen} message={feedbackMessage} onClose={() => setFeedbackOpen(false)} />
+      <ProfileSaveConfirmationModal 
+        open={showSaveConfirmation}
+        onClose={() => {
+          setShowSaveConfirmation(false);
+          setPendingSaveData(null);
+          setLoading(false);
+        }}
+        onConfirm={handleSaveConfirmation}
+        loading={loading}
+      />
       {/* Plain white background */}
       <div className="fixed inset-0 w-full h-full bg-white -z-10" />
       <div className="min-h-screen py-2 sm:py-4 px-3 sm:px-6 lg:px-8">
