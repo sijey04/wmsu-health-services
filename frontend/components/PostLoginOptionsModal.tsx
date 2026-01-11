@@ -104,10 +104,17 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
 
   const handleOptionSelect = (option: string) => {
     onClose();
+    
+    // Generate a unique navigation token to prevent direct URL access
+    const navigationToken = btoa(`${Date.now()}-${Math.random().toString(36)}`);
+    sessionStorage.setItem('appointment_navigation_token', navigationToken);
+    sessionStorage.setItem('appointment_option', option);
+    sessionStorage.setItem('navigation_timestamp', Date.now().toString());
+    
     if (onOptionSelect) {
       onOptionSelect(option);
     } else {
-      router.push(`/patient/waiver?option=${encodeURIComponent(option)}`);
+      router.push(`/patient/waiver?option=${encodeURIComponent(option)}&token=${navigationToken}`);
     }
   };
 

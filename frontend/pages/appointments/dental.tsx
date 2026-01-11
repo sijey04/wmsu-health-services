@@ -216,6 +216,7 @@ class RequirementsChecker {
 
 export default function DentalAppointmentPage() {
   const router = useRouter();
+  const [invalidAccess, setInvalidAccess] = useState(false);
   const [campus, setCampus] = useState('A'); // Fixed to Campus A only
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -227,6 +228,41 @@ export default function DentalAppointmentPage() {
   const [currentSchoolYear, setCurrentSchoolYear] = useState<any>(null);
   const [currentSemester, setCurrentSemester] = useState<string>('');
   const [patientId, setPatientId] = useState<number | null>(null);
+
+  // Validate navigation token to prevent direct URL access
+  useEffect(() => {
+    const validateNavigation = () => {
+      const { token } = router.query;
+      const storedToken = sessionStorage.getItem('appointment_navigation_token');
+      const timestamp = sessionStorage.getItem('navigation_timestamp');
+      
+      // Check if token exists and matches
+      if (!token || !storedToken || token !== storedToken) {
+        setInvalidAccess(true);
+        setTimeout(() => router.push('/'), 2000);
+        return false;
+      }
+      
+      // Check if token is expired (5 minutes)
+      if (timestamp) {
+        const tokenAge = Date.now() - parseInt(timestamp);
+        if (tokenAge > 5 * 60 * 1000) { // 5 minutes
+          setInvalidAccess(true);
+          sessionStorage.removeItem('appointment_navigation_token');
+          sessionStorage.removeItem('appointment_option');
+          sessionStorage.removeItem('navigation_timestamp');
+          setTimeout(() => router.push('/'), 2000);
+          return false;
+        }
+      }
+      
+      return true;
+    };
+    
+    if (router.isReady) {
+      validateNavigation();
+    }
+  }, [router.isReady, router.query]);
 
   // Load initial data
   useEffect(() => {
@@ -449,6 +485,20 @@ export default function DentalAppointmentPage() {
 
   return (
     <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick}>
+      {invalidAccess ? (
+        <div className="flex flex-col items-center justify-center min-h-screen px-4">
+          <div className="bg-red-50 border-2 border-red-500 rounded-lg p-8 max-w-md text-center">
+            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h2 className="text-2xl font-bold text-red-800 mb-2">Invalid Access</h2>
+            <p className="text-red-700 mb-4">
+              You cannot access this page directly. Please go through the proper booking flow.
+            </p>
+            <p className="text-sm text-gray-600">Redirecting to home page...</p>
+          </div>
+        </div>
+      ) : (
       <div className="min-h-[80vh] flex items-center justify-center bg-gray-100 p-4">
         <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 w-full max-w-2xl">
             {submitted ? (
@@ -599,6 +649,7 @@ export default function DentalAppointmentPage() {
             )}
           </div>
         </div>
+      )}
     </Layout>
   );
 }
