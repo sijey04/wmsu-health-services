@@ -279,21 +279,64 @@ export default function AdminPatientProfile() {
 
   const handleViewProfile = async (patientId: number) => {
     const patient = patients.find((p) => p.id === patientId);
-    setSelectedPatient(patient);
+    
+    console.log('=== handleViewProfile Debug ===');
+    console.log('Patient clicked:', patient);
+    console.log('Patient ID:', patientId);
+    console.log('Patient User ID:', patient?.user);
     
     // Fetch all patient profiles for this user
     let allProfiles = [];
     if (patient && patient.user) {
       try {
+        console.log('=== handleViewProfile Debug ===');
+        console.log('Patient clicked:', patient);
+        console.log('Patient ID:', patient.id);
+        console.log('User ID:', patient.user);
+        console.log('Fetching all profiles for user:', patient.user);
+        
         const allProfilesResponse = await patientsAPI.getByUserId(patient.user);
-        allProfiles = allProfilesResponse.data;
+        console.log('Raw API response:', allProfilesResponse);
+        console.log('Response data:', allProfilesResponse.data);
+        console.log('Response data type:', typeof allProfilesResponse.data);
+        console.log('Is array?', Array.isArray(allProfilesResponse.data));
+        
+        // Ensure we always have an array
+        let profilesData = allProfilesResponse.data;
+        if (!Array.isArray(profilesData)) {
+          console.warn('API returned non-array, converting to array');
+          profilesData = profilesData ? [profilesData] : [];
+        }
+        
+        allProfiles = profilesData;
+        
+        console.log('All profiles fetched:', allProfiles);
+        console.log('All profiles count:', allProfiles.length);
+        
+        // Sort profiles by date to find the most recent one
+        const sortedProfiles = allProfiles.sort((a: any, b: any) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return dateB - dateA; // Most recent first
+        });
+        
+        console.log('Sorted profiles:', sortedProfiles);
+        
+        // Set the most recent profile as the selected patient
+        setSelectedPatient(sortedProfiles[0] || patient);
+        console.log('Selected patient (most recent):', sortedProfiles[0] || patient);
       } catch (error) {
         console.error("Failed to fetch all patient profiles:", error);
         allProfiles = [patient]; // Fallback to single profile
+        setSelectedPatient(patient);
       }
     } else {
       allProfiles = [patient]; // If no user linked, just use the current profile
+      setSelectedPatient(patient);
     }
+    
+    console.log('Setting allPatientProfiles to:', allProfiles);
+    console.log('=== End handleViewProfile Debug ===');
     
     setAllPatientProfiles(allProfiles);
     setViewModalOpen(true);

@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions, status, serializers
+﻿from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -568,10 +568,29 @@ class PatientViewSet(viewsets.ModelViewSet):
         if not data.get('student_id'):
             data['student_id'] = f"TEMP-{user.id}"
         
+        
+        # Handle existing photo preservation for version creation
+        # Don't include photo in data if no new photo is uploaded
+        # The serializer will preserve the existing photo field from the previous version
+        if not request.FILES.get('photo') and request.data.get('existing_photo'):
+            # Remove photo from data to avoid validation errors
+            # Photo will be copied from previous version after creation
+            if 'photo' in data:
+                data.pop('photo')
         # ALWAYS CREATE NEW - Frontend controls update vs create via separate endpoints
         serializer = PatientProfileUpdateSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             patient = serializer.save(user=user, school_year=school_year, semester=semester)
+            
+            # Copy photo from previous version if requested
+            existing_photo_path = request.data.get('existing_photo')
+            if existing_photo_path and not request.FILES.get('photo'):
+                # Remove any query parameters from the path
+                photo_path_clean = existing_photo_path.split('?')[0]
+                # Assign the same photo path to the new profile
+                patient.photo = photo_path_clean
+                patient.save(update_fields=['photo'])
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -672,23 +691,28 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def by_user_id(self, request):
-        """Get patient profile by user ID (for frontend compatibility)"""
+        """Get all patient profiles by user ID (returns all versions/updates across semesters)"""
         user_id = request.query_params.get('user_id')
         if not user_id:
             return Response({'detail': 'user_id parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             target_user = CustomUser.objects.get(id=user_id)
-            current_patient_profile = target_user.get_current_patient_profile()
-            if not current_patient_profile:
-                return Response({'detail': 'No patient profile found for this user.'}, status=status.HTTP_404_NOT_FOUND)
             
             # Check permissions
             if not (request.user.is_staff or request.user.user_type in ['staff', 'admin']):
                 if target_user != request.user:
                     raise PermissionDenied("You can only view your own patient profile.")
             
-            serializer = self.get_serializer(current_patient_profile)
+            # Get ALL patient profiles for this user (all versions/updates)
+            # Order by most recent first (updated_at, then created_at)
+            profiles = target_user.patient_profiles.select_related('school_year').order_by('-updated_at', '-created_at')
+            
+            if not profiles.exists():
+                return Response({'detail': 'No patient profile found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Return all profiles to show complete history
+            serializer = self.get_serializer(profiles, many=True)
             return Response(serializer.data)
         except CustomUser.DoesNotExist:
             return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -4449,10 +4473,29 @@ class PatientViewSet(viewsets.ModelViewSet):
         if not data.get('student_id'):
             data['student_id'] = f"TEMP-{user.id}"
         
+        # Handle existing photo preservation for version creation
+        # Don't include photo in data if no new photo is uploaded
+        # The serializer will preserve the existing photo field from the previous version
+        if not request.FILES.get('photo') and request.data.get('existing_photo'):
+            # Remove photo from data to avoid validation errors
+            # Photo will be copied from previous version after creation
+            if 'photo' in data:
+                data.pop('photo')
+        
         # ALWAYS CREATE NEW - Frontend controls update vs create via separate endpoints
         serializer = PatientProfileUpdateSerializer(data=data, context={'request': request})
         if serializer.is_valid():
             patient = serializer.save(user=user, school_year=school_year, semester=semester)
+            
+            # Copy photo from previous version if requested
+            existing_photo_path = request.data.get('existing_photo')
+            if existing_photo_path and not request.FILES.get('photo'):
+                # Remove any query parameters from the path
+                photo_path_clean = existing_photo_path.split('?')[0]
+                # Assign the same photo path to the new profile
+                patient.photo = photo_path_clean
+                patient.save(update_fields=['photo'])
+            
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -4553,23 +4596,28 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def by_user_id(self, request):
-        """Get patient profile by user ID (for frontend compatibility)"""
+        """Get all patient profiles by user ID (returns all versions/updates across semesters)"""
         user_id = request.query_params.get('user_id')
         if not user_id:
             return Response({'detail': 'user_id parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
         
         try:
             target_user = CustomUser.objects.get(id=user_id)
-            current_patient_profile = target_user.get_current_patient_profile()
-            if not current_patient_profile:
-                return Response({'detail': 'No patient profile found for this user.'}, status=status.HTTP_404_NOT_FOUND)
             
             # Check permissions
             if not (request.user.is_staff or request.user.user_type in ['staff', 'admin']):
                 if target_user != request.user:
                     raise PermissionDenied("You can only view your own patient profile.")
             
-            serializer = self.get_serializer(current_patient_profile)
+            # Get ALL patient profiles for this user (all versions/updates)
+            # Order by most recent first (updated_at, then created_at)
+            profiles = target_user.patient_profiles.select_related('school_year').order_by('-updated_at', '-created_at')
+            
+            if not profiles.exists():
+                return Response({'detail': 'No patient profile found for this user.'}, status=status.HTTP_404_NOT_FOUND)
+            
+            # Return all profiles to show complete history
+            serializer = self.get_serializer(profiles, many=True)
             return Response(serializer.data)
         except CustomUser.DoesNotExist:
             return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -4646,7 +4694,7 @@ class PatientViewSet(viewsets.ModelViewSet):
             'last_name': user.last_name or '',
             'middle_name': user.middle_name or '',
             'name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
-            'student_id': f"TEMP-{user.id}",
+            'patient_name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
             'has_existing_profile': existing_profile is not None,
             'current_school_year': current_school_year.id if current_school_year else None,
             'current_school_year_name': str(current_school_year) if current_school_year else None,

@@ -104,14 +104,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   const [waiver, setWaiver] = React.useState<Waiver | null>(null);
   const [loadingWaiver, setLoadingWaiver] = React.useState(false);
 
-  React.useEffect(() => {
-    if (patient) {
-      setSelectedProfile(patient);
-      fetchWaiver();
-    }
-  }, [patient]);
-
-  const fetchWaiver = async () => {
+  const fetchWaiver = React.useCallback(async () => {
     if (!patient?.user) return;
     
     setLoadingWaiver(true);
@@ -126,34 +119,115 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     } finally {
       setLoadingWaiver(false);
     }
-  };
+  }, [patient?.user]);
+
+  React.useEffect(() => {
+    console.log('=== PatientProfileModal Debug ===');
+    console.log('Patient:', patient);
+    console.log('Patient User ID:', patient?.user);
+    console.log('All Patient Profiles received:', allPatientProfiles);
+    console.log('All Patient Profiles count:', allPatientProfiles.length);
+    
+    if (patient && allPatientProfiles.length > 0) {
+      // Set the most recent profile as the default selected profile
+      // Use string comparison to handle both string and number user IDs
+      const userProfiles = allPatientProfiles.filter(profile => 
+        String(profile.user) === String(patient.user)
+      );
+      
+      console.log('Filtered User Profiles:', userProfiles);
+      console.log('Filtered User Profiles count:', userProfiles.length);
+      
+      // Create a new sorted array (don't mutate)
+      const sortedByDate = [...userProfiles].sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+        return dateB - dateA; // Most recent first
+      });
+      
+      console.log('Sorted Profiles:', sortedByDate);
+      console.log('Sorted Profiles count:', sortedByDate.length);
+      
+      // Use the most recent profile, or fall back to patient prop
+      const mostRecentProfile = sortedByDate[0] || patient;
+      console.log('Most Recent Profile selected:', mostRecentProfile);
+      setSelectedProfile(mostRecentProfile);
+      fetchWaiver();
+    } else if (patient) {
+      // If no profiles array yet, just use patient
+      console.log('No allPatientProfiles, using patient directly');
+      setSelectedProfile(patient);
+      fetchWaiver();
+    }
+    console.log('=== End PatientProfileModal Debug ===');
+  }, [patient, allPatientProfiles, fetchWaiver]);
+
+  // Filter and sort profiles - must be before early return to avoid conditional hook calls
+  const sortedProfiles = React.useMemo(() => {
+    console.log('=== sortedProfiles useMemo Debug ===');
+    console.log('patient?.user:', patient?.user);
+    console.log('patient?.user type:', typeof patient?.user);
+    console.log('allPatientProfiles.length:', allPatientProfiles.length);
+    
+    if (!patient?.user || !allPatientProfiles.length) {
+      console.log('Returning empty array - no patient user or no profiles');
+      return [];
+    }
+    
+    // Filter profiles to only show those belonging to the current patient's user account
+    // Use loose equality to handle both string and number types
+    const userProfiles = allPatientProfiles.filter(profile => {
+      const matches = String(profile.user) === String(patient.user);
+      console.log(`Profile ${profile.id} user: ${profile.user} (${typeof profile.user}), patient user: ${patient.user} (${typeof patient.user}), matches: ${matches}`);
+      return matches;
+    });
+    
+    console.log('User Profiles (filtered):', userProfiles);
+    console.log('User Profiles count:', userProfiles.length);
+    
+    // Sort all profiles by date (most recent first) to show complete edit history
+    const sorted = [...userProfiles].sort((a, b) => {
+      const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+      return dateB - dateA; // Most recent first
+    });
+    
+    console.log('Sorted profiles:', sorted);
+    console.log('Sorted profiles count:', sorted.length);
+    console.log('=== End sortedProfiles Debug ===');
+    
+    return sorted;
+  }, [patient?.user, allPatientProfiles]);
 
   if (!open || !patient) return null;
 
   const handleProfileSelect = (profile: Patient) => {
     setSelectedProfile(profile);
+    setActiveTab('current'); // Switch to Current Profile tab to view the selected version
   };
 
   const displayedProfile = selectedProfile || patient;
 
-  // Filter profiles to only show those belonging to the current patient's user account
-  // This prevents showing edit history from other users
-  const userProfiles = allPatientProfiles.filter(profile => 
-    profile.user === patient.user
-  );
-
-  // Sort all profiles by date (most recent first) to show complete edit history
-  const sortedProfiles = userProfiles.sort((a, b) => {
-    const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
-    const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
-    return dateB - dateA; // Most recent first
-  });
-
-  // Get the most recent profile for the current semester
-  const currentProfile = sortedProfiles.find(p => p.school_year?.is_current) || patient;
+  // Get the most recent profile (latest update) as the current one to display
+  const currentProfile = sortedProfiles[0] || patient;
   
-  // Get all other profiles (edit history)
-  const profileHistory = sortedProfiles.filter(p => p.id !== currentProfile.id);
+  // Get all other profiles (edit history) - all previous updates/versions
+  // Use string comparison to avoid type mismatch issues between string and number IDs
+  const profileHistory = sortedProfiles.filter(p => {
+    const isDifferent = String(p.id) !== String(currentProfile?.id);
+    console.log(`Profile ${p.id} vs Current ${currentProfile?.id}: isDifferent=${isDifferent}`);
+    return isDifferent;
+  });
+  
+  console.log('=== Display Logic Debug ===');
+  console.log('displayedProfile:', displayedProfile);
+  console.log('displayedProfile.id:', displayedProfile?.id, 'type:', typeof displayedProfile?.id);
+  console.log('currentProfile:', currentProfile);
+  console.log('currentProfile.id:', currentProfile?.id, 'type:', typeof currentProfile?.id);
+  console.log('sortedProfiles.length:', sortedProfiles.length);
+  console.log('profileHistory count:', profileHistory.length);
+  console.log('profileHistory:', profileHistory);
+  console.log('=== End Display Logic Debug ===');
   
   // Helper to format profile version label
   const getProfileVersionLabel = (profile: Patient, index: number) => {
@@ -166,10 +240,14 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       minute: '2-digit'
     });
     
-    if (profile.school_year?.is_current && index === 0) {
-      return `${profile.school_year.academic_year}${profile.school_year.semester_type ? ` - ${profile.school_year.semester_type}` : ''} (Current) - ${dateStr}`;
+    const academicInfo = `${profile.school_year?.academic_year || 'Unknown'}${profile.school_year?.semester_type ? ` - ${profile.school_year.semester_type}` : ''}`;
+    
+    if (index === 0) {
+      // Most recent profile
+      return `${academicInfo} (Latest Update) - ${dateStr}`;
     } else {
-      return `${profile.school_year?.academic_year || 'Unknown'}${profile.school_year?.semester_type ? ` - ${profile.school_year.semester_type}` : ''} - ${dateStr}`;
+      // Previous versions
+      return `${academicInfo} - ${dateStr}`;
     }
   };
 

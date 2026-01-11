@@ -1591,8 +1591,25 @@ export default function PatientProfileSetupPage() {
           }
         }
       }
+      
+      // Handle photo: use new photo if uploaded, otherwise preserve existing photo
       if (photoFile) {
         formData.append('photo', photoFile);
+      } else if (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0) {
+        // Remove cache-busting timestamp and extract relative path
+        let photoPath = profile.photo.split('?')[0];
+        
+        // Strip the media URL prefix (e.g., http://localhost:8000/media/)
+        // to get just the relative path (e.g., patient_photos/filename.jpg)
+        if (photoPath.includes('/media/')) {
+          photoPath = photoPath.split('/media/')[1];
+        }
+        
+        formData.append('existing_photo', photoPath);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Preserving existing photo (relative path):', photoPath);
+        }
       }
 
       // Add school year (semester record) - this already includes academic_year + semester_type

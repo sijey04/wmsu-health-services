@@ -66,6 +66,7 @@ urlpatterns = [
     # Profile setup specific endpoints that use views.py for better autofill and previous year fetching
     path('patients/my_profile/', ProfilePatientViewSet.as_view({'get': 'my_profile'}), name='profile-setup-my-profile'),
     path('patients/my_profiles/', ProfilePatientViewSet.as_view({'get': 'my_profiles'}), name='profile-setup-my-profiles'),
+    path('patients/by_user_id/', ProfilePatientViewSet.as_view({'get': 'by_user_id'}), name='profile-setup-by-user-id'),
     path('patients/autofill_data/', ProfilePatientViewSet.as_view({'get': 'autofill_data'}), name='profile-setup-autofill-data'),
     path('patients/create_my_profile/', ProfilePatientViewSet.as_view({'post': 'create_my_profile'}), name='profile-setup-create-my-profile'),
     path('patients/update_my_profile/', ProfilePatientViewSet.as_view({'put': 'update_my_profile', 'patch': 'update_my_profile'}), name='profile-setup-update-my-profile'),
