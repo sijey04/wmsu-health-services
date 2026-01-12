@@ -1742,6 +1742,50 @@ class UserTypeInformation(models.Model):
             self.save()
 
 
+class Course(models.Model):
+    """
+    Model to store courses and academic programs offered by the university
+    This allows admins to manage what courses are available and active
+    """
+    name = models.CharField(max_length=200, help_text='Full name of the course (e.g., BS Computer Science)')
+    code = models.CharField(max_length=20, blank=True, null=True, help_text='Course code (e.g., BSCS)')
+    college = models.CharField(max_length=200, blank=True, null=True, help_text='College offering the course')
+    department = models.CharField(max_length=200, blank=True, null=True, help_text='Department offering the course')
+    is_active = models.BooleanField(default=True, help_text='Whether this course is currently active and available for selection')
+    
+    # Metadata
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='created_courses'
+    )
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Course/Program'
+        verbose_name_plural = 'Courses/Programs'
+    
+    def __str__(self):
+        if self.code:
+            return f"{self.name} ({self.code})"
+        return self.name
+    
+    def get_full_display(self):
+        """Return a full display string with college and department"""
+        parts = [self.name]
+        if self.code:
+            parts.append(f"({self.code})")
+        if self.college:
+            parts.append(f"- {self.college}")
+        if self.department:
+            parts.append(f"/ {self.department}")
+        return ' '.join(parts)
+
+
 class ContentManagement(models.Model):
     """Model to store dynamic content for the home page and modals"""
     # Hero Section

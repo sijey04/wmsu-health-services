@@ -9,7 +9,7 @@ from .views import (
     FamilyMedicalHistoryItemViewSet, SystemConfigurationViewSet,
     ProfileRequirementViewSet, DocumentRequirementViewSet, CampusScheduleViewSet,
     DentistScheduleViewSet, PatientViewSet as ProfilePatientViewSet,
-    UserTypeInformationViewSet, AnnouncementViewSet
+    UserTypeInformationViewSet, AnnouncementViewSet, CourseViewSet
 )
 from .views1 import MedicalFormDataViewSet, PatientViewSet as GeneralPatientViewSet, DentalInformationRecordViewSet
 from .views2 import AppointmentSchedulingViewSet, DentalMedicineSupplyViewSet
@@ -59,6 +59,7 @@ admin_controls_router.register(r'admin-controls/system_configuration', SystemCon
 admin_controls_router.register(r'admin-controls/profile_requirements', ProfileRequirementViewSet, basename='admin-controls-profile-requirements')
 admin_controls_router.register(r'admin-controls/document_requirements', DocumentRequirementViewSet, basename='admin-controls-document-requirements')
 admin_controls_router.register(r'admin-controls/user-type-information', UserTypeInformationViewSet, basename='admin-controls-user-type-information')
+admin_controls_router.register(r'admin-controls/courses', CourseViewSet, basename='admin-controls-courses')
 admin_controls_router.register(r'admin-controls/campus_schedules', CampusScheduleViewSet, basename='admin-controls-campus-schedules')
 admin_controls_router.register(r'admin-controls/dentist_schedules', DentistScheduleViewSet, basename='admin-controls-dentist-schedules')
 

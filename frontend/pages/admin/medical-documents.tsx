@@ -2,7 +2,7 @@ import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
 import FeedbackModal from '../../components/feedbackmodal';
 import { useState, useEffect, useMemo } from 'react';
-import { medicalDocumentsAPI, academicSchoolYearsAPI } from '../../utils/api';
+import { medicalDocumentsAPI, academicSchoolYearsAPI, djangoApiClient } from '../../utils/api';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 
@@ -61,6 +61,13 @@ function AdminMedicalDocuments() {
 
   // Document browsing state
   const [currentDocIndex, setCurrentDocIndex] = useState(0);
+
+  // Dynamic document requirements state
+  const [documentRequirements, setDocumentRequirements] = useState<Array<{
+    key: string;
+    label: string;
+    backendField: string;
+  }>>([]);
 
   // Fetch academic years
   const fetchAcademicYears = async () => {
@@ -176,9 +183,40 @@ function AdminMedicalDocuments() {
     }
   };
 
+  // Load document requirements from admin controls
+  const loadDocumentRequirements = async () => {
+    try {
+      const response = await djangoApiClient.get('/admin-controls/document_requirements/');
+      const requirements = response.data || [];
+      
+      // Convert backend requirements to display format
+      const formattedFields = requirements
+        .filter((req: any) => req.is_active)
+        .map((req: any) => ({
+          key: req.field_name,
+          label: req.display_name + (req.validity_period_months ? ` (${req.validity_period_months} months)` : ''),
+          backendField: req.field_name
+        }));
+
+      setDocumentRequirements(formattedFields);
+    } catch (error) {
+      console.error('Error loading document requirements:', error);
+      // Fallback to default requirements if API fails
+      setDocumentRequirements([
+        { key: 'chest_xray', label: 'Chest X-Ray (6 months)', backendField: 'chest_xray' },
+        { key: 'cbc', label: 'CBC', backendField: 'cbc' },
+        { key: 'blood_typing', label: 'Blood Typing', backendField: 'blood_typing' },
+        { key: 'urinalysis', label: 'Urinalysis', backendField: 'urinalysis' },
+        { key: 'drug_test', label: 'Drug Test (1 year)', backendField: 'drug_test' },
+        { key: 'hepa_b', label: 'Hepa B', backendField: 'hepa_b' },
+      ]);
+    }
+  };
+
   // Fetch initial data
   useEffect(() => {
     if (!initialLoaded) {
+      loadDocumentRequirements();
       fetchAcademicYears();
     }
   }, [initialLoaded]);
@@ -345,14 +383,8 @@ function AdminMedicalDocuments() {
 
   // Helper to render file links
   const renderFileLinks = (doc: any) => {
-    const files = [
-      { key: 'chest_xray', label: 'Chest X-Ray (6 months)' },
-      { key: 'cbc', label: 'CBC' },
-      { key: 'blood_typing', label: 'Blood Typing' },
-      { key: 'urinalysis', label: 'Urinalysis' },
-      { key: 'drug_test', label: 'Drug Test (1 year)' },
-      { key: 'hepa_b', label: 'Hepa B' },
-    ];
+    // Use dynamic document requirements if loaded, otherwise use empty array
+    const files = documentRequirements.length > 0 ? documentRequirements : [];
     
     return files.filter(f => doc[f.key]).map((f, idx) => (
       <div key={f.key} className="flex items-center mb-2">
@@ -375,10 +407,11 @@ function AdminMedicalDocuments() {
       return doc.completion_percentage;
     }
     
-    // Calculate completion percentage if not provided
-    const requiredFiles = ['chest_xray', 'cbc', 'blood_typing', 'urinalysis', 'drug_test', 'hepa_b'];
-    const completedFiles = requiredFiles.filter(field => doc[field]).length;
-    return Math.round((completedFiles / requiredFiles.length) * 100);
+    // Calculate completion percentage based on dynamic document requirements
+    if (documentRequirements.length === 0) return 0;
+    
+    const completedFiles = documentRequirements.filter(field => doc[field.key]).length;
+    return Math.round((completedFiles / documentRequirements.length) * 100);
   };
 
   // Helper to get status color
@@ -400,17 +433,11 @@ function AdminMedicalDocuments() {
 
   // Helper to get available images from document
   const getAvailableImages = (doc: any) => {
-    const files = [
-      { key: 'chest_xray', label: 'Chest X-Ray (6 months)' },
-      { key: 'cbc', label: 'CBC' },
-      { key: 'blood_typing', label: 'Blood Typing' },
-      { key: 'urinalysis', label: 'Urinalysis' },
-      { key: 'drug_test', label: 'Drug Test (1 year)' },
-      { key: 'hepa_b', label: 'Hepa B' },
-    ];
+    // Use dynamic document requirements
+    const files = documentRequirements.length > 0 ? documentRequirements : [];
     
     return files
-      .filter(f => doc[f.key] && doc[f.key].match(/\.(jpg|jpeg|png|gif)$/i))
+      .filter(f => doc[f.key] && doc[f.key].match(/\.(jpg|jpeg|png|gif|avif)$/i))
       .map(f => ({
         key: f.key,
         label: f.label,
@@ -2057,13 +2084,14 @@ function AdminMedicalDocuments() {
                 </div>
                 
                 {(() => {
-                  const files = [
-                    { key: 'chest_xray', label: 'Chest X-Ray (6 months)' },
-                    { key: 'cbc', label: 'CBC' },
-                    { key: 'blood_typing', label: 'Blood Typing' },
-                    { key: 'urinalysis', label: 'Urinalysis' },
-                    { key: 'drug_test', label: 'Drug Test (1 year)' },
-                    { key: 'hepa_b', label: 'Hepa B' },
+                  // Use dynamic document requirements
+                  const files = documentRequirements.length > 0 ? documentRequirements : [
+                    { key: 'chest_xray', label: 'Chest X-Ray (6 months)', backendField: 'chest_xray' },
+                    { key: 'cbc', label: 'CBC', backendField: 'cbc' },
+                    { key: 'blood_typing', label: 'Blood Typing', backendField: 'blood_typing' },
+                    { key: 'urinalysis', label: 'Urinalysis', backendField: 'urinalysis' },
+                    { key: 'drug_test', label: 'Drug Test (1 year)', backendField: 'drug_test' },
+                    { key: 'hepa_b', label: 'Hepa B', backendField: 'hepa_b' },
                   ];
                   
                   const availableFiles = files.filter(f => selectedDocument[f.key]);
@@ -2485,14 +2513,14 @@ function AdminMedicalDocuments() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Document Progress</h3>
                   <div className="bg-gray-50 rounded-xl p-6">
                     <div className="space-y-4">
-                      {[
-                        { key: 'chest_xray', label: 'Chest X-Ray' },
-                        { key: 'cbc', label: 'CBC' },
-                        { key: 'blood_typing', label: 'Blood Typing' },
-                        { key: 'urinalysis', label: 'Urinalysis' },
-                        { key: 'drug_test', label: 'Drug Test' },
-                        { key: 'hepa_b', label: 'Hepa B' },
-                      ].map((doc) => (
+                      {(documentRequirements.length > 0 ? documentRequirements : [
+                        { key: 'chest_xray', label: 'Chest X-Ray', backendField: 'chest_xray' },
+                        { key: 'cbc', label: 'CBC', backendField: 'cbc' },
+                        { key: 'blood_typing', label: 'Blood Typing', backendField: 'blood_typing' },
+                        { key: 'urinalysis', label: 'Urinalysis', backendField: 'urinalysis' },
+                        { key: 'drug_test', label: 'Drug Test', backendField: 'drug_test' },
+                        { key: 'hepa_b', label: 'Hepa B', backendField: 'hepa_b' },
+                      ]).map((doc) => (
                         <div key={doc.key} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">{doc.label}:</span>
                           <div className="flex items-center space-x-2">

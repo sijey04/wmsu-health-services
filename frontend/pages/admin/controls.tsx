@@ -127,6 +127,16 @@ interface UserTypeInformation {
   isNew?: boolean;
 }
 
+interface Course {
+  id: string;
+  name: string;
+  code: string;
+  college: string;
+  department: string;
+  is_active: boolean;
+  isNew?: boolean;
+}
+
 export default function AdminControls() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('profile');
@@ -144,6 +154,7 @@ export default function AdminControls() {
   const [familyMedicalHistories, setFamilyMedicalHistories] = useState<FamilyMedicalHistoryItem[]>([]);
   const [dentalMedicines, setDentalMedicines] = useState<DentalMedicine[]>([]);
   const [userTypeInformation, setUserTypeInformation] = useState<UserTypeInformation[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
 
   const [saving, setSaving] = useState(false);
   
@@ -473,6 +484,59 @@ export default function AdminControls() {
         console.warn('Dental Medicines API not available');
       }
 
+      // Load courses/programs if the endpoint is available
+      try {
+        const coursesResponse = await djangoApiClient.get('/admin-controls/courses/');
+        if (coursesResponse.data) {
+          const loadedCourses = coursesResponse.data.map((course: any) => ({
+            id: course.id.toString(),
+            name: course.name,
+            code: course.code || '',
+            college: course.college || '',
+            department: course.department || '',
+            is_active: course.is_active
+          }));
+          setCourses(loadedCourses);
+          // Save to localStorage as backup
+          localStorage.setItem('wmsu_courses_data', JSON.stringify(loadedCourses));
+        }
+      } catch (error) {
+        console.warn('Courses API not available, using localStorage or fallback data');
+        
+        // Helper function to load fallback courses
+        const loadFallbackCourses = () => {
+          const fallbackCourses = [
+            { id: '1', name: 'BS Computer Science', code: 'BSCS', college: 'College of Science and Mathematics', department: 'Computer Science', is_active: true },
+            { id: '2', name: 'BS Information Technology', code: 'BSIT', college: 'College of Science and Mathematics', department: 'Information Technology', is_active: true },
+            { id: '3', name: 'BS Nursing', code: 'BSN', college: 'College of Nursing', department: 'Nursing', is_active: true },
+            { id: '4', name: 'BS Business Administration', code: 'BSBA', college: 'College of Business Administration', department: 'Business', is_active: true },
+            { id: '5', name: 'BS Education', code: 'BSED', college: 'College of Education', department: 'Education', is_active: true },
+            { id: '6', name: 'BS Engineering', code: 'BSE', college: 'College of Engineering', department: 'Engineering', is_active: true },
+            { id: '7', name: 'BS Psychology', code: 'BSPSY', college: 'College of Liberal Arts', department: 'Psychology', is_active: true },
+            { id: '8', name: 'BA Communication', code: 'BACOMM', college: 'College of Liberal Arts', department: 'Communication', is_active: true },
+            { id: '9', name: 'BS Biology', code: 'BSBIO', college: 'College of Science and Mathematics', department: 'Biology', is_active: true },
+            { id: '10', name: 'BS Food Technology', code: 'BSFT', college: 'College of Home Economics', department: 'Food Technology', is_active: true },
+          ];
+          setCourses(fallbackCourses);
+          // Save fallback to localStorage
+          localStorage.setItem('wmsu_courses_data', JSON.stringify(fallbackCourses));
+        };
+        
+        // Try to load from localStorage first
+        const storedCourses = localStorage.getItem('wmsu_courses_data');
+        if (storedCourses) {
+          try {
+            setCourses(JSON.parse(storedCourses));
+            console.log('Loaded courses from localStorage');
+          } catch (parseError) {
+            console.error('Error parsing stored courses, using fallback');
+            loadFallbackCourses();
+          }
+        } else {
+          loadFallbackCourses();
+        }
+      }
+
     } catch (error) {
       console.error('Error loading settings:', error);
       showAlert('error', 'Failed to load settings');
@@ -557,6 +621,15 @@ export default function AdminControls() {
 
   const handleSave = async () => {
     setSaving(true);
+    
+    // Always save courses to localStorage first (regardless of API availability)
+    try {
+      localStorage.setItem('wmsu_courses_data', JSON.stringify(courses));
+      console.log('✅ Courses saved to localStorage:', courses.length, courses);
+    } catch (storageError) {
+      console.error('❌ Failed to save to localStorage:', storageError);
+    }
+    
     try {
       await Promise.all([
         djangoApiClient.post('/admin-controls/profile_requirements/update_profile_requirements/', {
@@ -824,6 +897,55 @@ export default function AdminControls() {
         ));
       }
 
+      // Save courses/programs if API is available
+      try {
+        const newCourses = courses.filter(course => course.isNew);
+        if (newCourses.length > 0) {
+          await Promise.all(newCourses.map(course => 
+            djangoApiClient.post('/admin-controls/courses/', {
+              name: course.name,
+              code: course.code,
+              college: course.college,
+              department: course.department,
+              is_active: course.is_active
+            })
+          ));
+        }
+        
+        // Update existing courses
+        const existingCourses = courses.filter(course => !course.isNew);
+        if (existingCourses.length > 0) {
+          await Promise.all(existingCourses.map(course => 
+            djangoApiClient.put(`/admin-controls/courses/${course.id}/`, {
+              name: course.name,
+              code: course.code,
+              college: course.college,
+              department: course.department,
+              is_active: course.is_active
+            })
+          ));
+        }
+        
+        // Reload courses data after successful save
+        const coursesResponse = await djangoApiClient.get('/admin-controls/courses/');
+        if (coursesResponse.data) {
+          const reloadedCourses = coursesResponse.data.map((course: any) => ({
+            id: course.id.toString(),
+            name: course.name,
+            code: course.code || '',
+            college: course.college || '',
+            department: course.department || '',
+            is_active: course.is_active
+          }));
+          setCourses(reloadedCourses);
+          localStorage.setItem('wmsu_courses_data', JSON.stringify(reloadedCourses));
+        }
+      } catch (coursesError) {
+        console.log('Courses endpoint not available, saving to localStorage instead');
+        // Save to localStorage when backend isn't available
+        localStorage.setItem('wmsu_courses_data', JSON.stringify(courses));
+      }
+
       showAlert('success', 'Settings saved successfully!');
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -962,6 +1084,7 @@ export default function AdminControls() {
         { id: 'profile', name: 'Profile Requirements', icon: '👤' },
         { id: 'documents', name: 'Document Requirements', icon: '📄' },
         { id: 'usertypes', name: 'User Type Information', icon: '👥' },
+        { id: 'courses', name: 'Courses/Programs', icon: '🎓' },
         { id: 'campus', name: 'Campus Schedules', icon: '🏢' },
         { id: 'dentist', name: 'Dentist Schedules', icon: '🦷' },
         { id: 'schoolyears', name: 'Academic Years', icon: '🗓️' }
@@ -1301,6 +1424,54 @@ export default function AdminControls() {
     );
   };
 
+  // Helper functions for Courses/Programs
+  const addCourse = () => {
+    const newItem: Course = {
+      id: Date.now().toString(),
+      name: '',
+      code: '',
+      college: '',
+      department: '',
+      is_active: true,
+      isNew: true
+    };
+    setCourses(prev => [...prev, newItem]);
+  };
+
+  const updateCourse = (id: string, field: keyof Course, value: any) => {
+    setCourses(prev => 
+      prev.map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    );
+  };
+
+  const removeCourse = async (id: string) => {
+    try {
+      // If it's not a new item, try to delete it from the backend
+      const item = courses.find(item => item.id === id);
+      if (item && !item.isNew) {
+        try {
+          await djangoApiClient.delete(`/admin-controls/courses/${id}/`);
+        } catch (backendError) {
+          console.log('Backend delete not available, removing from localStorage only');
+        }
+      }
+      
+      // Remove from local state
+      const updatedCourses = courses.filter(item => item.id !== id);
+      setCourses(updatedCourses);
+      
+      // Save updated list to localStorage
+      localStorage.setItem('wmsu_courses_data', JSON.stringify(updatedCourses));
+      
+      showAlert('success', 'Course removed successfully');
+    } catch (error) {
+      console.error('Error removing course:', error);
+      showAlert('error', 'Failed to remove course');
+    }
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -1459,6 +1630,71 @@ export default function AdminControls() {
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                             min="1"
                           />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Specific Courses/Programs
+                            <span className="text-xs text-gray-500 font-normal ml-2">(Leave empty for all students)</span>
+                          </label>
+                          <div className="space-y-2">
+                            {/* Display selected courses as tags */}
+                            {document.specificCourses && document.specificCourses.length > 0 && (
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                {document.specificCourses.map((course, index) => (
+                                  <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {course}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = { 
+                                          ...document, 
+                                          specificCourses: document.specificCourses.filter((_, i) => i !== index) 
+                                        };
+                                        setDocumentRequirements(prev => prev.map(req => 
+                                          req.id === document.id ? updated : req
+                                        ));
+                                      }}
+                                      className="ml-1 inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-blue-200"
+                                    >
+                                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                      </svg>
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {/* Course selection dropdown */}
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value && !document.specificCourses.includes(e.target.value)) {
+                                  const updated = { 
+                                    ...document, 
+                                    specificCourses: [...(document.specificCourses || []), e.target.value] 
+                                  };
+                                  setDocumentRequirements(prev => prev.map(req => 
+                                    req.id === document.id ? updated : req
+                                  ));
+                                  e.target.value = '';
+                                }
+                              }}
+                              className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                            >
+                              <option value="">-- Add a course/program --</option>
+                              {courses
+                                .filter(course => course.is_active)
+                                .map(course => (
+                                  <option key={course.id} value={course.name}>
+                                    {course.name} {course.code ? `(${course.code})` : ''}
+                                  </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-gray-500">
+                              {document.specificCourses && document.specificCourses.length > 0 
+                                ? `This document is required for ${document.specificCourses.length} specific course(s)/program(s)`
+                                : 'This document is required for all students'}
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1839,6 +2075,103 @@ export default function AdminControls() {
                               </div>
                             </div>
                           ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Courses/Programs Tab */}
+            {activeTab === 'courses' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Courses & Programs</h3>
+                    <p className="text-sm text-gray-500">Manage available courses and academic programs</p>
+                  </div>
+                  <button
+                    onClick={addCourse}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#8B1538] hover:bg-[#7a1230] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8B1538]"
+                  >
+                    Add Course/Program
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {courses.map((course) => (
+                    <div key={course.id} className="border border-gray-200 rounded-lg p-4 sm:p-6 bg-white">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            checked={course.is_active}
+                            onChange={(e) => updateCourse(course.id, 'is_active', e.target.checked)}
+                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded mt-1"
+                          />
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={course.name}
+                              onChange={(e) => updateCourse(course.id, 'name', e.target.value)}
+                              placeholder="Course/Program Name (e.g., BS Computer Science)"
+                              className="text-lg font-medium text-gray-900 border-0 border-b-2 border-transparent hover:border-gray-300 focus:border-[#8B1538] focus:outline-none px-0 py-1 w-full"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            course.is_active 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {course.is_active ? 'Active' : 'Inactive'}
+                          </span>
+                          <button
+                            onClick={() => confirmDelete(
+                              `Are you sure you want to delete "${course.name}"?`,
+                              () => removeCourse(course.id)
+                            )}
+                            className="text-red-600 hover:text-red-800"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Course Code</label>
+                          <input
+                            type="text"
+                            value={course.code}
+                            onChange={(e) => updateCourse(course.id, 'code', e.target.value)}
+                            placeholder="e.g., BSCS"
+                            className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">College</label>
+                          <input
+                            type="text"
+                            value={course.college}
+                            onChange={(e) => updateCourse(course.id, 'college', e.target.value)}
+                            placeholder="e.g., College of Science"
+                            className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                          <input
+                            type="text"
+                            value={course.department}
+                            onChange={(e) => updateCourse(course.id, 'department', e.target.value)}
+                            placeholder="e.g., Computer Science"
+                            className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
+                          />
                         </div>
                       </div>
                     </div>

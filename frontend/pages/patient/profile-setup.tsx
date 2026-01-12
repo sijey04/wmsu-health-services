@@ -44,6 +44,7 @@ export default function PatientProfileSetupPage() {
   const [profileRequirements, setProfileRequirements] = useState<any[]>([]);
   const [userTypeInformations, setUserTypeInformations] = useState<any[]>([]);
   const [currentUserTypeConfig, setCurrentUserTypeConfig] = useState<any>(null);
+  const [availableCourses, setAvailableCourses] = useState<any[]>([]); // Dynamic courses from backend
   const [availableFields, setAvailableFields] = useState<any>({
     personal: [],
     health: [],
@@ -1280,9 +1281,56 @@ export default function PatientProfileSetupPage() {
       }
     };
 
+    // Load available courses from backend
+    const loadCourses = async () => {
+      try {
+        const response = await djangoApiClient.get('/admin-controls/courses/');
+        if (response.data) {
+          const activeCourses = response.data.filter((course: any) => course.is_active);
+          setAvailableCourses(activeCourses);
+          console.log('Courses loaded from API:', activeCourses.length);
+          // Save to localStorage for future use
+          localStorage.setItem('wmsu_courses_data', JSON.stringify(response.data));
+        }
+      } catch (error) {
+        console.warn('Courses API not available, checking localStorage');
+        
+        // Try to load from localStorage first
+        const storedCourses = localStorage.getItem('wmsu_courses_data');
+        if (storedCourses) {
+          try {
+            const parsedCourses = JSON.parse(storedCourses);
+            // Filter only active courses
+            const activeCourses = parsedCourses.filter((course: any) => course.is_active === true);
+            setAvailableCourses(activeCourses);
+            console.log('Courses loaded from localStorage:', activeCourses.length);
+            return;
+          } catch (parseError) {
+            console.error('Error parsing stored courses, using fallback');
+          }
+        }
+        
+        // Fallback to static list if localStorage is empty
+        console.log('Using fallback courses');
+        setAvailableCourses([
+          { id: 1, name: 'BS Computer Science', code: 'BSCS', college: 'College of Science and Mathematics', department: 'Computer Science', is_active: true },
+          { id: 2, name: 'BS Information Technology', code: 'BSIT', college: 'College of Science and Mathematics', department: 'Information Technology', is_active: true },
+          { id: 3, name: 'BS Nursing', code: 'BSN', college: 'College of Nursing', department: 'Nursing', is_active: true },
+          { id: 4, name: 'BS Business Administration', code: 'BSBA', college: 'College of Business Administration', department: 'Business', is_active: true },
+          { id: 5, name: 'BS Education', code: 'BSED', college: 'College of Education', department: 'Education', is_active: true },
+          { id: 6, name: 'BS Engineering', code: 'BSE', college: 'College of Engineering', department: 'Engineering', is_active: true },
+          { id: 7, name: 'BS Psychology', code: 'BSPSY', college: 'College of Liberal Arts', department: 'Psychology', is_active: true },
+          { id: 8, name: 'BA Communication', code: 'BACOMM', college: 'College of Liberal Arts', department: 'Communication', is_active: true },
+          { id: 9, name: 'BS Biology', code: 'BSBIO', college: 'College of Science and Mathematics', department: 'Biology', is_active: true },
+          { id: 10, name: 'BS Food Technology', code: 'BSFT', college: 'College of Home Economics', department: 'Food Technology', is_active: true },
+        ]);
+      }
+    };
+
     loadCurrentSchoolYear();
     loadUserTypeInformations();
     loadMedicalLists();
+    loadCourses();
   }, []);
 
   // Fetch profile after school year and semester are loaded
@@ -1746,7 +1794,10 @@ export default function PatientProfileSetupPage() {
         if (currentStep === steps.length) {
           setTimeout(() => {
             if (option === 'Request Medical Certificate') {
-              router.push('/patient/upload-documents');
+              router.push({
+                pathname: '/patient/upload-documents',
+                query: router.query
+              });
             } else if (option === 'Book Dental Consultation') {
               router.push({
                 pathname: '/patient/dental-information-record',
@@ -2523,12 +2574,21 @@ export default function PatientProfileSetupPage() {
                           onChange={e => handleProfileChange('course', e.target.value)}
                         >
                           <option value="">Select course</option>
+                          {/* First priority: User type specific courses */}
                           {getUserTypeOptions('courses').length > 0 ? (
                             getUserTypeOptions('courses').map((course: string) => (
                               <option key={course} value={course}>{course}</option>
                             ))
+                          ) : 
+                          /* Second priority: Admin-configured courses from backend */
+                          availableCourses.length > 0 ? (
+                            availableCourses.map((course: any) => (
+                              <option key={course.id} value={course.name}>
+                                {course.name} {course.code ? `(${course.code})` : ''}
+                              </option>
+                            ))
                           ) : (
-                            // Fallback options if no UserTypeInformation configuration
+                            // Fallback options if no configuration is available
                             <>
                               <option value="BS Business Administration">BS Business Administration</option>
                               <option value="BS Computer Science">BS Computer Science</option>
@@ -4801,7 +4861,10 @@ export default function PatientProfileSetupPage() {
       // Only redirect if save is complete (not waiting for confirmation)
       setTimeout(() => {
         if (option === 'Request Medical Certificate') {
-          router.push('/patient/upload-documents');
+          router.push({
+            pathname: '/patient/upload-documents',
+            query: router.query
+          });
         } else if (option === 'Book Dental Consultation') {
           router.push({
             pathname: '/patient/dental-information-record',
@@ -4833,6 +4896,7 @@ export default function PatientProfileSetupPage() {
 
   return (
     <Layout onLoginClick={handleLoginClick} onSignupClick={handleSignupClick}>
+      <>
       <FeedbackModal open={feedbackOpen} message={feedbackMessage} onClose={() => setFeedbackOpen(false)} />
       <ProfileSaveConfirmationModal 
         open={showSaveConfirmation}
@@ -5143,6 +5207,7 @@ export default function PatientProfileSetupPage() {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
       `}</style>
+      </>
     </Layout>
   );
 }

@@ -87,12 +87,20 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
 
       if (response.ok) {
         const data = await response.json();
-        // If the user has any medical document record from any academic year, they've already requested
-        // Check if data is an array (list of documents) or a single document object
+        
+        // Only consider documents with certain statuses as "already requested"
+        // Allow re-upload if the previous request was rejected or advised for consultation
+        const activeStatuses = ['pending', 'verified', 'issued'];
+        
         if (Array.isArray(data)) {
-          setHasRequestedCertificate(data.length > 0);
+          // Check if there are any documents with active statuses
+          const hasActiveRequest = data.some((doc: any) => activeStatuses.includes(doc.status));
+          setHasRequestedCertificate(hasActiveRequest);
+        } else if (data.id) {
+          // Single document - check if status is in active statuses
+          setHasRequestedCertificate(activeStatuses.includes(data.status));
         } else {
-          setHasRequestedCertificate(!!data.id);
+          setHasRequestedCertificate(false);
         }
       }
     } catch (error) {
@@ -188,8 +196,7 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-sm text-blue-800">
-                You have already requested a medical certificate previously. Only one medical certificate request is allowed per student.
-                Check your <span className="font-medium">patient dashboard</span> for the status of your existing request.
+                You have an active medical certificate request. Check your <span className="font-medium">appointments</span> for the status. If your documents were rejected or you were advised for consultation, you can submit a new request after addressing the issues.
               </p>
             </div>
           </div>

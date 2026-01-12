@@ -15,7 +15,7 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, ContentManagement, Announcement, UserAnnouncementView
+    DentalInformationRecord, ContentManagement, Announcement, UserAnnouncementView, Course
 )
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
@@ -28,7 +28,7 @@ from .serializers import (
     AcademicSchoolYearSerializer, UserManagementSerializer, UserBlockSerializer,
     ComorbidIllnessSerializer, VaccinationSerializer, PastMedicalHistoryItemSerializer,
     FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer, ContentManagementSerializer,
-    AnnouncementSerializer, UserAnnouncementViewSerializer
+    AnnouncementSerializer, UserAnnouncementViewSerializer, CourseSerializer
 )
 from rest_framework.views import APIView
 from django.db.models import Q, Count
@@ -2945,8 +2945,10 @@ class DocumentRequirementViewSet(viewsets.ModelViewSet):
         """Filter based on user permissions"""
         user = self.request.user
         if user.is_staff or user.user_type in ['staff', 'admin']:
+            # Staff can see all document requirements
             return DocumentRequirement.objects.all()
-        return DocumentRequirement.objects.none()
+        # Patients can only see active document requirements
+        return DocumentRequirement.objects.filter(is_active=True)
     
     def perform_create(self, serializer):
         """Only staff can create document requirements"""
@@ -7306,8 +7308,10 @@ class DocumentRequirementViewSet(viewsets.ModelViewSet):
         """Filter based on user permissions"""
         user = self.request.user
         if user.is_staff or user.user_type in ['staff', 'admin']:
+            # Staff can see all document requirements
             return DocumentRequirement.objects.all()
-        return DocumentRequirement.objects.none()
+        # Patients can only see active document requirements
+        return DocumentRequirement.objects.filter(is_active=True)
     
     def perform_create(self, serializer):
         """Only staff can create document requirements"""
@@ -7590,6 +7594,116 @@ class UserTypeInformationViewSet(viewsets.ModelViewSet):
             return Response({'message': f'User type "{user_type_name}" deleted successfully'})
         except UserTypeInformation.DoesNotExist:
             return Response({'error': 'User type not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class CourseViewSet(viewsets.ModelViewSet):
+    """ViewSet for managing courses and academic programs"""
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_permissions(self):
+        """Only allow admin users to modify courses"""
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            permission_classes = [permissions.IsAuthenticated]
+            return [permission() for permission in permission_classes]
+        return super().get_permissions()
+    
+    def get_queryset(self):
+        """Return courses, optionally filtered by active status"""
+        queryset = Course.objects.all().order_by('name')
+        
+        # Filter by active status if requested
+        is_active = self.request.query_params.get('is_active', None)
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        return queryset
+    
+    def perform_create(self, serializer):
+        """Set the created_by field when creating a new course"""
+        if not (self.request.user.is_staff or self.request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can create courses")
+        
+        serializer.save(created_by=self.request.user)
+    
+    def perform_update(self, serializer):
+        """Only admin users can update courses"""
+        if not (self.request.user.is_staff or self.request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can update courses")
+        
+        serializer.save()
+    
+    def perform_destroy(self, instance):
+        """Only admin users can delete courses"""
+        if not (self.request.user.is_staff or self.request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can delete courses")
+        
+        # Check if this course is being used by any patients
+        from .models import Patient
+        patients_using_course = Patient.objects.filter(course=instance.name).count()
+        if patients_using_course > 0:
+            raise serializers.ValidationError(
+                f"Cannot delete course '{instance.name}' because it is currently used by {patients_using_course} patient(s)"
+            )
+        
+        instance.delete()
+    
+    @action(detail=False, methods=['get'])
+    def active_only(self, request):
+        """Get only active courses"""
+        active_courses = Course.objects.filter(is_active=True).order_by('name')
+        serializer = self.get_serializer(active_courses, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def toggle_active(self, request, pk=None):
+        """Toggle the active status of a course"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can toggle course status")
+        
+        course = self.get_object()
+        course.is_active = not course.is_active
+        course.save()
+        
+        return Response({
+            'message': f'Course "{course.name}" has been {"activated" if course.is_active else "deactivated"}',
+            'is_active': course.is_active
+        })
+    
+    @action(detail=False, methods=['post'])
+    def bulk_update(self, request):
+        """Bulk update multiple courses"""
+        if not (request.user.is_staff or request.user.user_type == 'admin'):
+            raise PermissionDenied("Only admin users can bulk update courses")
+        
+        courses_data = request.data.get('courses', [])
+        updated_count = 0
+        
+        for course_data in courses_data:
+            course_id = course_data.get('id')
+            if course_id:
+                try:
+                    course = Course.objects.get(id=course_id)
+                    
+                    # Update fields if provided
+                    if 'name' in course_data:
+                        course.name = course_data['name']
+                    if 'code' in course_data:
+                        course.code = course_data['code']
+                    if 'college' in course_data:
+                        course.college = course_data['college']
+                    if 'department' in course_data:
+                        course.department = course_data['department']
+                    if 'is_active' in course_data:
+                        course.is_active = course_data['is_active']
+                    
+                    course.save()
+                    updated_count += 1
+                except Course.DoesNotExist:
+                    continue
+        
+        return Response({'message': f'{updated_count} courses updated successfully'})
 
 
 class CampusScheduleViewSet(viewsets.ModelViewSet):

@@ -8,7 +8,7 @@ from .models import (
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
     DentalInformationRecord, DentalMedicineSupply, UserTypeInformation, ContentManagement,
-    Announcement, UserAnnouncementView
+    Announcement, UserAnnouncementView, Course
 )
 
 
@@ -1051,6 +1051,39 @@ class UserTypeInformationSerializer(serializers.ModelSerializer):
         if not isinstance(value, list):
             raise serializers.ValidationError("Position types must be a list.")
         return [str(position).strip() for position in value if str(position).strip()]
+    
+    def create(self, validated_data):
+        """Set the created_by field to the current user"""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['created_by'] = request.user
+        return super().create(validated_data)
+
+
+class CourseSerializer(serializers.ModelSerializer):
+    """Serializer for Course model"""
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    full_display = serializers.CharField(source='get_full_display', read_only=True)
+    
+    class Meta:
+        model = Course
+        fields = [
+            'id', 'name', 'code', 'college', 'department', 'is_active',
+            'full_display', 'created_at', 'updated_at', 'created_by', 'created_by_name'
+        ]
+        read_only_fields = ['created_at', 'updated_at', 'created_by', 'created_by_name', 'full_display']
+    
+    def validate_name(self, value):
+        """Validate that the course name is not empty"""
+        if not value or not value.strip():
+            raise serializers.ValidationError("Course name cannot be empty.")
+        return value.strip()
+    
+    def validate_code(self, value):
+        """Validate and normalize course code"""
+        if value:
+            return value.strip().upper()
+        return value
     
     def create(self, validated_data):
         """Set the created_by field to the current user"""

@@ -578,19 +578,47 @@ const AppointmentsPage = () => {
                 </span>
               </div>
               
-              {/* Show reason for consultation if applicable */}
-              {medicalDocumentStatus.status === 'for_consultation' && medicalDocumentStatus.consultation_reason && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4">
-                  <h4 className="text-sm sm:text-base font-semibold text-yellow-800 mb-2">Consultation Reason:</h4>
-                  <p className="text-sm text-yellow-700">{medicalDocumentStatus.consultation_reason}</p>
-                </div>
-              )}
-              
               {/* Show rejection reason if applicable */}
               {medicalDocumentStatus.status === 'rejected' && medicalDocumentStatus.rejection_reason && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4">
                   <h4 className="text-sm sm:text-base font-semibold text-red-800 mb-2">Rejection Reason:</h4>
-                  <p className="text-sm text-red-700">{medicalDocumentStatus.rejection_reason}</p>
+                  <p className="text-sm text-red-700 mb-4">{medicalDocumentStatus.rejection_reason}</p>
+                  <button
+                    onClick={() => {
+                      // Generate navigation token and redirect to document upload
+                      const navigationToken = btoa(`${Date.now()}-${Math.random().toString(36)}`);
+                      sessionStorage.setItem('appointment_navigation_token', navigationToken);
+                      sessionStorage.setItem('appointment_option', 'Request Medical Certificate');
+                      sessionStorage.setItem('navigation_timestamp', Date.now().toString());
+                      router.push(`/patient/waiver?option=${encodeURIComponent('Request Medical Certificate')}&token=${navigationToken}`);
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
+                  >
+                    <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Re-submit Documents
+                  </button>
+                </div>
+              )}
+              
+              {/* Show reason for consultation if applicable */}
+              {medicalDocumentStatus.status === 'for_consultation' && medicalDocumentStatus.consultation_reason && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 sm:p-4 mb-4">
+                  <h4 className="text-sm sm:text-base font-semibold text-yellow-800 mb-2">Consultation Reason:</h4>
+                  <p className="text-sm text-yellow-700 mb-4">{medicalDocumentStatus.consultation_reason}</p>
+                  <button
+                    onClick={() => {
+                      // Redirect directly to medical consultation booking
+                      router.push('/appointments/book?type=medical');
+                    }}
+                    className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
+                  >
+                    <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Book Consultation Appointment
+                  </button>
                 </div>
               )}
               
@@ -883,8 +911,8 @@ const AppointmentsPage = () => {
                         </div>
                       )}
                       
-                      {/* Action buttons for confirmed appointments that are at least 3 days away */}
-                      {(appt.status === 'confirmed' || appt.status === 'pending') && canModifyAppointment(appt.appointment_date) && (
+                      {/* Action buttons for appointments that can be modified */}
+                      {['confirmed', 'pending', 'scheduled'].includes(appt.status) && canModifyAppointment(appt.appointment_date) && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
                           <div className="flex flex-col sm:flex-row gap-2">
                             <button
@@ -906,11 +934,9 @@ const AppointmentsPage = () => {
                               Cancel
                             </button>
                           </div>
-                          {!canModifyAppointment(appt.appointment_date) && (
-                            <p className="text-xs text-gray-500 mt-2">
-                              * Appointments can only be modified up to 3 days before the scheduled date
-                            </p>
-                          )}
+                          <p className="text-xs text-gray-500 mt-2">
+                            * Appointments can only be modified up to 3 days before the scheduled date
+                          </p>
                         </div>
                       )}
                     </div>

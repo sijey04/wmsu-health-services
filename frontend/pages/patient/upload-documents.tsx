@@ -59,13 +59,12 @@ export default function UploadDocumentsPage() {
   const router = useRouter();
   const [invalidAccess, setInvalidAccess] = useState(false);
   
-  // --- MOCK USER DATA ---
-  // This should be replaced with actual user data from your auth context or state management
+  // User profile data - loaded from backend
   const [userProfile, setUserProfile] = useState({
     isFreshman: true,
-    course: 'College of Nursing', // Example: Change to a different course to test logic
+    course: '', // Will be loaded from patient profile
+    userType: '', // e.g., 'student', 'faculty', 'staff'
   });
-  // --------------------
 
   const [documentFields, setDocumentFields] = useState(allDocumentFields);
   const [apiLoaded, setApiLoaded] = useState(false);
@@ -117,6 +116,41 @@ export default function UploadDocumentsPage() {
       const response = await djangoApiClient.get('/patients/my_profile/');
       if (response.data?.id) {
         setCurrentPatientId(response.data.id);
+        
+        // Extract user profile information
+        const profileData = response.data;
+        
+        console.log('=== Patient Profile Data Debug ===');
+        console.log('Full Profile Data:', profileData);
+        console.log('grade_level:', profileData.grade_level);
+        console.log('year_level:', profileData.year_level);
+        console.log('course:', profileData.course);
+        console.log('program:', profileData.program);
+        console.log('user_type:', profileData.user_type);
+        
+        // Determine if user is a freshman based on user_type, grade_level, or year_level
+        const userType = (profileData.user_type || '').toLowerCase();
+        const gradeLevel = (profileData.grade_level || profileData.year_level || '').toLowerCase();
+        const isFreshman = userType.includes('freshman') || 
+                          userType.includes('incoming freshman') ||
+                          gradeLevel.includes('freshman') || 
+                          gradeLevel.includes('1st year') ||
+                          gradeLevel === '1';
+        
+        console.log('userType value:', userType);
+        console.log('gradeLevel value:', gradeLevel);
+        console.log('isFreshman result:', isFreshman);
+        console.log('=== End Debug ===');
+        
+        // Get course/program information
+        const course = profileData.course || profileData.program || '';
+        const userTypeValue = profileData.user_type || 'student';
+        
+        setUserProfile({
+          isFreshman,
+          course,
+          userType: userTypeValue
+        });
       }
     } catch (error: any) {
       console.error('Error loading current patient ID:', error);
@@ -215,30 +249,27 @@ export default function UploadDocumentsPage() {
   };
 
   const filteredDocumentFields = useMemo(() => {
+    // Only show documents for incoming freshmen
     if (!userProfile.isFreshman) {
-      // Hide all documents if not a freshman, per the image
       return [];
     }
     
     // Filter documents based on requirements and user's course
     const filtered = documentFields.filter(field => {
-      // If it's required for all, include it
-      if (field.required && field.specificCourses.length === 0) {
-        return true;
-      }
-      
-      // If it has specific course requirements, check if user's course matches
-      if (field.specificCourses.length > 0) {
+      // If it has specific course requirements
+      if (field.specificCourses && field.specificCourses.length > 0) {
+        // Only include if user's course matches one of the specific courses
         const courseMatches = field.specificCourses.includes(userProfile.course);
-        // Make hepatitis test required if user's course is in the specific courses list
-        if (field.name === 'hepaB' && courseMatches) {
+        // If course matches, mark as required
+        if (courseMatches) {
           field.required = true;
         }
-        return courseMatches || field.required;
+        return courseMatches;
       }
       
-      // Include non-required documents
-      return true;
+      // If no specific course requirements, include based on its required status
+      // This handles documents that are required for all freshmen
+      return field.required;
     });
     
     return filtered;
@@ -252,11 +283,92 @@ export default function UploadDocumentsPage() {
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [currentPatientId, setCurrentPatientId] = useState<number | null>(null);
+  const [converting, setConverting] = useState<{ [key: string]: boolean }>({});
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, name: string) => {
+  // Convert image to AVIF format to save storage
+  const convertImageToAVIF = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+
+      img.onload = async () => {
+        try {
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          // Draw image
+          ctx.drawImage(img, 0, 0);
+
+          // Convert to AVIF blob (with quality 0.85 for good balance)
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to convert image'));
+                return;
+              }
+
+              // Create new file with .avif extension
+              const originalName = file.name.replace(/\.[^/.]+$/, '');
+              const avifFile = new File([blob], `${originalName}.avif`, {
+                type: 'image/avif',
+                lastModified: Date.now(),
+              });
+
+              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${avifFile.name} (${(avifFile.size / 1024).toFixed(2)}KB)`);
+              resolve(avifFile);
+            },
+            'image/avif',
+            0.85
+          );
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, name: string) => {
     if (e.target.files && e.target.files[0]) {
-      setFiles((prev) => ({ ...prev, [name]: e.target.files![0] }));
-      setMissingFields((prev) => prev.filter((f) => f !== name));
+      const originalFile = e.target.files[0];
+      const isImage = originalFile.type.startsWith('image/');
+
+      // If it's an image, convert to AVIF
+      if (isImage && originalFile.type !== 'image/avif') {
+        try {
+          setConverting((prev) => ({ ...prev, [name]: true }));
+          const avifFile = await convertImageToAVIF(originalFile);
+          setFiles((prev) => ({ ...prev, [name]: avifFile }));
+          setMissingFields((prev) => prev.filter((f) => f !== name));
+        } catch (error) {
+          console.error('Error converting image to AVIF:', error);
+          // Fallback to original file if conversion fails
+          setFiles((prev) => ({ ...prev, [name]: originalFile }));
+          setMissingFields((prev) => prev.filter((f) => f !== name));
+        } finally {
+          setConverting((prev) => ({ ...prev, [name]: false }));
+        }
+      } else {
+        // For non-images (PDF, DOCX) or already AVIF, use original file
+        setFiles((prev) => ({ ...prev, [name]: originalFile }));
+        setMissingFields((prev) => prev.filter((f) => f !== name));
+      }
     }
   };
 
@@ -357,7 +469,7 @@ export default function UploadDocumentsPage() {
                 Your medical documents have been uploaded successfully. We will process your request soon.
               </p>
               <button
-                onClick={() => window.location.href = '/patient/appointments'}
+                onClick={() => window.location.href = '/appointments'}
                 className="bg-[#800000] hover:bg-[#a83232] text-white px-6 py-3 rounded-lg font-medium transition-colors duration-200"
               >
                 View Appointments
@@ -374,7 +486,9 @@ export default function UploadDocumentsPage() {
               </div>
               <h3 className="text-xl font-semibold mb-4">No Document Requirements</h3>
               <p className="text-gray-300">
-                No document upload requirements available. Please check your profile setup.
+                {!userProfile.isFreshman 
+                  ? 'Document upload is only required for incoming freshmen.' 
+                  : 'No document upload requirements available. Please check your profile setup.'}
               </p>
             </div>
           </div>
@@ -605,8 +719,9 @@ export default function UploadDocumentsPage() {
                           type="file"
                           accept=".pdf,.docx,.jpg,.jpeg,.png"
                           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          onChange={(e) => {
-                            handleFileChange(e, field.name);
+                          disabled={converting[field.name]}
+                          onChange={async (e) => {
+                            await handleFileChange(e, field.name);
                             // Auto-advance to next field after upload
                             if (e.target.files && e.target.files[0] && currentViewIndex < filteredDocumentFields.length - 1) {
                               setTimeout(() => setCurrentViewIndex(currentViewIndex + 1), 500);
@@ -614,13 +729,25 @@ export default function UploadDocumentsPage() {
                           }}
                         />
                         <div className="px-3 py-4 md:px-4 md:py-6 text-center">
-                          {files[field.name] ? (
+                          {converting[field.name] ? (
+                            <div className="space-y-1 md:space-y-2">
+                              <svg className="w-5 h-5 md:w-6 md:h-6 text-[#800000] mx-auto animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              <p className="text-xs font-medium text-[#800000]">Converting to AVIF...</p>
+                              <p className="text-xs text-gray-500">Optimizing for storage</p>
+                            </div>
+                          ) : files[field.name] ? (
                             <div className="space-y-1 md:space-y-2">
                               <svg className="w-5 h-5 md:w-6 md:h-6 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
                               <p className="text-xs font-medium text-gray-900 truncate px-2">{files[field.name].name}</p>
-                              <p className="text-xs text-green-600">✓ Ready • Tap to replace</p>
+                              <p className="text-xs text-green-600">
+                                ✓ Ready • {(files[field.name].size / 1024).toFixed(1)}KB
+                                {files[field.name].type === 'image/avif' && ' (Optimized)'}
+                              </p>
+                              <p className="text-xs text-gray-500">Tap to replace</p>
                             </div>
                           ) : (
                             <div className="space-y-1 md:space-y-2">
