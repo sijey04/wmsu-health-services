@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../components/AdminLayout';
 import { djangoApiClient } from '../../utils/api';
 import SignaturePad from 'signature_pad';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import dayjs, { Dayjs } from 'dayjs';
 
 export default function AdminAccountSettings() {
   // User account states
@@ -20,10 +25,18 @@ export default function AdminAccountSettings() {
     ptr_number: '',
     phone_number: '',
     assigned_campuses: [],
-    signature: null
+    signature: null,
+    available_days: [],
+    time_slots: [],
+    blocked_dates: [],
+    daily_appointment_limit: 10
   });
   const [signatureFile, setSignatureFile] = useState(null);
   const [currentSignature, setCurrentSignature] = useState('');
+  
+  // Position options - dynamically loaded from backend
+  const [positionOptions, setPositionOptions] = useState<string[]>([]);
+  const [loadingPositions, setLoadingPositions] = useState(true);
   
   // Signature pad refs
   const sigPad = useRef<any>(null);
@@ -44,6 +57,7 @@ export default function AdminAccountSettings() {
 
   useEffect(() => {
     fetchUserData();
+    fetchPositionOptions();
   }, []);
 
   useEffect(() => {
@@ -55,6 +69,32 @@ export default function AdminAccountSettings() {
       });
     }
   }, [activeTab]);
+
+  const fetchPositionOptions = async () => {
+    setLoadingPositions(true);
+    try {
+      // Fetch positions from staff roles endpoint
+      const response = await djangoApiClient.get('/admin-controls/staff-roles/');
+      if (response.data && Array.isArray(response.data)) {
+        setPositionOptions(response.data.map((role: any) => role.label || role.name));
+      }
+    } catch (error) {
+      console.warn('Failed to fetch positions from backend, using defaults');
+      // Fallback to default positions
+      setPositionOptions([
+        'Administrator',
+        'Medical Staff',
+        'Doctor',
+        'Nurse',
+        'Dentist',
+        'Dental Staff',
+        'General Staff',
+        'Receptionist'
+      ]);
+    } finally {
+      setLoadingPositions(false);
+    }
+  };
 
   const fetchUserData = async () => {
     setLoading(true);
@@ -102,7 +142,11 @@ export default function AdminAccountSettings() {
                 staffData.assigned_campuses.split(',').filter(c => c.trim()) : 
                 staffData.assigned_campuses) : 
               ['a'],
-            signature: staffData.signature
+            signature: staffData.signature,
+            available_days: staffData.available_days || [],
+            time_slots: staffData.time_slots || [],
+            blocked_dates: staffData.blocked_dates || [],
+            daily_appointment_limit: staffData.daily_appointment_limit || 10
           });
           setCurrentSignature(staffData.signature || '');
           
@@ -118,7 +162,11 @@ export default function AdminAccountSettings() {
               ptr_number: '',
               phone_number: '',
               assigned_campuses: ['a'], // Default to Campus A
-              signature: null
+              signature: null,
+              available_days: [],
+              time_slots: [],
+              blocked_dates: [],
+              daily_appointment_limit: 10
             });
           } else {
             console.error('Error fetching staff details:', staffError);
@@ -130,7 +178,11 @@ export default function AdminAccountSettings() {
               ptr_number: '',
               phone_number: '',
               assigned_campuses: ['a'], // Default to Campus A
-              signature: null
+              signature: null,
+              available_days: [],
+              time_slots: [],
+              blocked_dates: [],
+              daily_appointment_limit: 10
             });
           }
         } finally {
@@ -146,7 +198,11 @@ export default function AdminAccountSettings() {
           ptr_number: '',
           phone_number: '',
           assigned_campuses: ['a'],
-          signature: null
+          signature: null,
+          available_days: [],
+          time_slots: [],
+          blocked_dates: [],
+          daily_appointment_limit: 10
         });
       }
     } catch (error) {
@@ -214,6 +270,10 @@ export default function AdminAccountSettings() {
       formData.append('ptr_number', staffDetails.ptr_number || '');
       formData.append('phone_number', staffDetails.phone_number || '');
       formData.append('assigned_campuses', staffDetails.assigned_campuses.join(','));
+      formData.append('available_days', JSON.stringify(staffDetails.available_days));
+      formData.append('time_slots', JSON.stringify(staffDetails.time_slots));
+      formData.append('blocked_dates', JSON.stringify(staffDetails.blocked_dates));
+      formData.append('daily_appointment_limit', staffDetails.daily_appointment_limit.toString());
 
       // Check if signature pad has a signature
       if (signaturePadInstance.current && !signaturePadInstance.current.isEmpty()) {
@@ -315,6 +375,26 @@ export default function AdminAccountSettings() {
               }`}
             >
               Staff Details
+            </button>
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'schedule'
+                  ? 'border-[#800000] text-[#800000]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Work Schedule
+            </button>
+            <button
+              onClick={() => setActiveTab('blocked')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'blocked'
+                  ? 'border-[#800000] text-[#800000]'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Blocked Dates
             </button>
           </nav>
         </div>
@@ -434,13 +514,18 @@ export default function AdminAccountSettings() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Position</label>
-                <input 
-                  type="text" 
-                  value={staffDetails.position} 
-                  onChange={e => setStaffDetails({...staffDetails, position: e.target.value})} 
-                  className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]" 
+                <select
+                  value={staffDetails.position}
+                  onChange={e => setStaffDetails({...staffDetails, position: e.target.value})}
+                  className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
                   required
-                />
+                  disabled={loadingPositions}
+                >
+                  <option value="">{loadingPositions ? 'Loading positions...' : 'Select Position'}</option>
+                  {positionOptions.map(position => (
+                    <option key={position} value={position}>{position}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -569,6 +654,468 @@ export default function AdminAccountSettings() {
               {loading ? 'Saving...' : 'Save Staff Details'}
             </button>
           </form>
+          </>
+        )}
+
+        {/* Work Schedule Tab */}
+        {activeTab === 'schedule' && (
+          <>
+            {staffDetailsLoading && (
+              <div className="mb-6 p-4 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg">
+                Loading schedule details...
+              </div>
+            )}
+            <form onSubmit={handleStaffDetailsSave} className="space-y-8">
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-blue-700">
+                      Configure your work schedule. This information helps patients book appointments with you at the right times.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Available Days */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-4">Available Days</label>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                    <label key={day} className="flex items-center space-x-2 p-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-all hover:border-[#800000]">
+                      <input
+                        type="checkbox"
+                        checked={staffDetails.available_days.includes(day)}
+                        onChange={(e) => {
+                          const updatedDays = e.target.checked
+                            ? [...staffDetails.available_days, day]
+                            : staffDetails.available_days.filter(d => d !== day);
+                          setStaffDetails({...staffDetails, available_days: updatedDays});
+                        }}
+                        className="w-5 h-5 text-[#800000] border-gray-300 rounded focus:ring-[#800000]"
+                      />
+                      <span className="text-sm font-medium text-gray-700">{day.substring(0, 3)}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-sm text-gray-500 mt-2">Select the days you are available for consultations.</p>
+              </div>
+
+              {/* Time Slots */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-4">Time Slots</label>
+                <div className="space-y-3 mb-4">
+                  {staffDetails.time_slots.length === 0 ? (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="mt-2 text-sm text-gray-600">No time slots added yet</p>
+                      <p className="text-xs text-gray-500">Click the button below to add your first time slot</p>
+                    </div>
+                  ) : (
+                    staffDetails.time_slots.map((slot, index) => {
+                      const [startTime, endTime] = typeof slot === 'string' ? slot.split('-') : ['', ''];
+                      return (
+                        <div key={index} className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg border border-gray-200">
+                          <div className="flex-shrink-0 text-gray-500">
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1 flex items-center space-x-2">
+                            <div className="flex-1">
+                              <label className="block text-xs text-gray-600 mb-1">Start Time</label>
+                              <input
+                                type="time"
+                                value={startTime?.trim() || ''}
+                                onChange={(e) => {
+                                  const newSlots = [...staffDetails.time_slots];
+                                  const currentEndTime = endTime?.trim() || '';
+                                  newSlots[index] = `${e.target.value}-${currentEndTime}`;
+                                  setStaffDetails({...staffDetails, time_slots: newSlots});
+                                }}
+                                className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
+                              />
+                            </div>
+                            <div className="flex-shrink-0 text-gray-400 mt-5">to</div>
+                            <div className="flex-1">
+                              <label className="block text-xs text-gray-600 mb-1">End Time</label>
+                              <input
+                                type="time"
+                                value={endTime?.trim() || ''}
+                                onChange={(e) => {
+                                  const newSlots = [...staffDetails.time_slots];
+                                  const currentStartTime = startTime?.trim() || '';
+                                  newSlots[index] = `${currentStartTime}-${e.target.value}`;
+                                  setStaffDetails({...staffDetails, time_slots: newSlots});
+                                }}
+                                className="w-full border border-gray-300 rounded-lg shadow-sm py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
+                              />
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newSlots = staffDetails.time_slots.filter((_, i) => i !== index);
+                              setStaffDetails({...staffDetails, time_slots: newSlots});
+                            }}
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-colors"
+                            title="Remove time slot"
+                          >
+                            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStaffDetails({...staffDetails, time_slots: [...staffDetails.time_slots, '-']});
+                  }}
+                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-sm font-medium text-gray-600 hover:border-[#800000] hover:text-[#800000] hover:bg-gray-50 transition-all flex items-center justify-center space-x-2"
+                >
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Add Time Slot</span>
+                </button>
+                <p className="text-xs text-gray-500 mt-3">
+                  💡 <strong>Tip:</strong> Select start and end times for each consultation slot
+                </p>
+              </div>
+
+              {/* Daily Appointment Limit */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Daily Appointment Limit</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="50"
+                  value={staffDetails.daily_appointment_limit}
+                  onChange={(e) => setStaffDetails({...staffDetails, daily_appointment_limit: parseInt(e.target.value) || 1})}
+                  className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Maximum number of appointments you can accept per day (1-50)
+                </p>
+              </div>
+
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-amber-700">
+                      <strong>Note:</strong> Schedule changes and blocked dates will be reflected in the appointment booking system immediately after saving.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span>Save Work Schedule</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </>
+        )}
+
+        {/* Blocked Dates Tab */}
+        {activeTab === 'blocked' && (
+          <>
+            {staffDetailsLoading && (
+              <div className="mb-6 p-4 bg-blue-100 border border-blue-400 text-blue-700 rounded-lg">
+                Loading blocked dates...
+              </div>
+            )}
+            <form onSubmit={handleStaffDetailsSave} className="space-y-8">
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-blue-700">
+                      Block specific dates when you won&apos;t be available for appointments. Blocked dates will prevent patients from booking on those days.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Blocked Dates Calendar */}
+              <div>
+                <div className="space-y-6">
+                  {/* Enhanced MUI Calendar */}
+                  <div className="bg-gradient-to-br from-gray-50 to-white border-2 border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                    <div className="bg-gradient-to-r from-[#800000] to-[#a83232] p-4">
+                      <h3 className="text-white font-semibold text-lg flex items-center">
+                        <svg className="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Select Dates to Block
+                      </h3>
+                      <p className="text-white text-sm mt-1 opacity-90">Click any date to block or unblock it</p>
+                    </div>
+                    
+                    <div className="p-6 flex justify-center">
+                      <LocalizationProvider dateAdapter={AdapterDayjs}>
+                        <DateCalendar
+                          value={null}
+                          minDate={dayjs()}
+                          onChange={(newValue: Dayjs | null) => {
+                            if (newValue) {
+                              const dateString = newValue.format('YYYY-MM-DD');
+                              if (staffDetails.blocked_dates.includes(dateString)) {
+                                // Remove date if already blocked
+                                setStaffDetails({
+                                  ...staffDetails,
+                                  blocked_dates: staffDetails.blocked_dates.filter(d => d !== dateString)
+                                });
+                              } else {
+                                // Add date to blocked list
+                                setStaffDetails({
+                                  ...staffDetails,
+                                  blocked_dates: [...staffDetails.blocked_dates, dateString].sort()
+                                });
+                              }
+                            }
+                          }}
+                          slots={{
+                            day: (dayProps: any) => {
+                              const dateString = dayProps.day.format('YYYY-MM-DD');
+                              const isBlocked = staffDetails.blocked_dates.includes(dateString);
+                              const isPast = dayProps.day.isBefore(dayjs(), 'day');
+                              
+                              return (
+                                <div className="relative">
+                                  <PickersDay
+                                    {...dayProps}
+                                    disabled={isPast}
+                                    sx={{
+                                      fontSize: '1rem',
+                                      fontWeight: isBlocked ? 700 : 500,
+                                      backgroundColor: isBlocked ? '#fee2e2' : 'transparent',
+                                      color: isBlocked ? '#991b1b' : dayProps.disabled ? '#d1d5db' : '#374151',
+                                      border: isBlocked ? '2px solid #dc2626' : 'none',
+                                      '&:hover': {
+                                        backgroundColor: isBlocked ? '#fecaca' : '#f3f4f6',
+                                      },
+                                      '&.Mui-selected': {
+                                        backgroundColor: '#800000',
+                                        color: 'white',
+                                        '&:hover': {
+                                          backgroundColor: '#a83232',
+                                        },
+                                      },
+                                      position: 'relative',
+                                      width: '48px',
+                                      height: '48px',
+                                      margin: '2px',
+                                    }}
+                                  />
+                                  {isBlocked && (
+                                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                      <span className="text-red-600 font-bold text-lg">✕</span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            },
+                          }}
+                          sx={{
+                            width: '100%',
+                            maxWidth: '450px',
+                            height: 'auto',
+                            '& .MuiPickersCalendarHeader-root': {
+                              paddingLeft: '24px',
+                              paddingRight: '24px',
+                              marginTop: '8px',
+                              marginBottom: '8px',
+                            },
+                            '& .MuiPickersCalendarHeader-label': {
+                              fontSize: '1.25rem',
+                              fontWeight: 600,
+                              color: '#800000',
+                            },
+                            '& .MuiDayCalendar-header': {
+                              gap: '4px',
+                            },
+                            '& .MuiDayCalendar-weekDayLabel': {
+                              width: '48px',
+                              height: '48px',
+                              fontSize: '0.875rem',
+                              fontWeight: 600,
+                              color: '#6b7280',
+                            },
+                            '& .MuiPickersDay-root': {
+                              fontSize: '1rem',
+                            },
+                            '& .MuiPickersArrowSwitcher-button': {
+                              color: '#800000',
+                              '&:hover': {
+                                backgroundColor: '#fee2e2',
+                              },
+                            },
+                          }}
+                        />
+                      </LocalizationProvider>
+                    </div>
+                  </div>
+
+                  {/* Blocked Dates Summary */}
+                  {staffDetails.blocked_dates.length > 0 ? (
+                    <div className="bg-white border-2 border-red-200 rounded-xl p-5 shadow-md">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center space-x-2">
+                          <div className="bg-red-100 p-2 rounded-lg">
+                            <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold text-gray-900">Blocked Dates</p>
+                            <p className="text-sm text-gray-500">{staffDetails.blocked_dates.length} date{staffDetails.blocked_dates.length !== 1 ? 's' : ''} blocked</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setStaffDetails({...staffDetails, blocked_dates: []})}
+                          className="px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-lg hover:bg-red-100 hover:border-red-400 transition-all flex items-center space-x-2 shadow-sm"
+                        >
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          <span>Clear All</span>
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                        {staffDetails.blocked_dates.map((date, index) => (
+                          <div key={index} className="group flex items-center justify-between bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 rounded-lg p-3 hover:shadow-md transition-all">
+                            <div className="flex items-center space-x-2">
+                              <div className="bg-red-200 p-1 rounded">
+                                <svg className="h-4 w-4 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </div>
+                              <span className="text-sm text-red-900 font-semibold">{dayjs(date).format('MMM DD, YYYY')}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newDates = staffDetails.blocked_dates.filter((_, i) => i !== index);
+                                setStaffDetails({...staffDetails, blocked_dates: newDates});
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-1 text-red-600 hover:text-red-800 hover:bg-red-200 rounded transition-all"
+                              title="Remove blocked date"
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300">
+                      <div className="bg-white p-3 rounded-full w-16 h-16 mx-auto mb-3 shadow-sm">
+                        <svg className="h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-base font-medium text-gray-700">No blocked dates selected</p>
+                      <p className="text-sm text-gray-500 mt-1">Click dates on the calendar above to block them</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mt-6 rounded-r-lg">
+                  <div className="flex items-start">
+                    <svg className="h-5 w-5 text-blue-500 mt-0.5 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-medium text-blue-800">How to use:</p>
+                      <ul className="text-sm text-blue-700 mt-1 space-y-1 list-disc list-inside">
+                        <li>Click any date to block it (blocked dates show with red background and ✕)</li>
+                        <li>Click a blocked date again to unblock it</li>
+                        <li>Blocked dates prevent patients from booking appointments on those days</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 border-l-4 border-amber-500 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-amber-700">
+                      <strong>Note:</strong> Blocked dates will be reflected in the appointment booking system immediately after saving.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full py-3 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] transition-all duration-200 shadow-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                    </svg>
+                    <span>Save Blocked Dates</span>
+                  </>
+                )}
+              </button>
+            </form>
           </>
         )}
       </div>

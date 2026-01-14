@@ -2,6 +2,12 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
+  transpilePackages: [
+    '@mui/material',
+    '@mui/x-date-pickers',
+    '@mui/system',
+    '@mui/utils',
+  ],
   images: {
     remotePatterns: [
       {
