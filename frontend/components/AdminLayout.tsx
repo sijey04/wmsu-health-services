@@ -23,15 +23,33 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     function syncUser() {
       const userData = localStorage.getItem('user');
       if (userData) {
-        setUser(JSON.parse(userData));
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+        
+        // Check if user is superuser - only superusers can access full admin
+        if (!parsedUser.is_superuser) {
+          // Redirect non-superuser staff to their specific dashboards
+          const staffRole = parsedUser.staff_role || parsedUser.user_type;
+          
+          if (staffRole === 'medical_staff' || staffRole === 'doctor' || staffRole === 'nurse') {
+            router.push('/staff/medical');
+          } else if (staffRole === 'dental_staff' || staffRole === 'dentist') {
+            router.push('/staff/dental');
+          } else if (!parsedUser.is_staff) {
+            // Regular users shouldn't be here
+            router.push('/');
+          }
+          // If staff but no specific role, show warning but allow access
+        }
       } else {
         setUser(null);
+        router.push('/login');
       }
     }
     syncUser();
     window.addEventListener('storage', syncUser);
     return () => window.removeEventListener('storage', syncUser);
-  }, []);
+  }, [router]);
 
   // Helper to get avatar content
   const getAvatar = () => {

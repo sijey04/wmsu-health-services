@@ -53,12 +53,8 @@ function formatTimeRange(open: string, close: string): string {
   return `Open: ${open} - ${close}`;
 }
 
-function getCampusHours(campus: string, day: number): string[] | null {
-  // Only Campus A has dental services
-  if (campus !== 'A') return null;
-  if (day === 0) return null; // Sunday closed
-  return ['08:00', '17:00']; // Default hours
-}
+// Note: Campus hours are now determined by dentist schedule
+// This function is kept for compatibility but should use dentistSchedule data
 
 // Sequential Requirements Checker
 class RequirementsChecker {
@@ -306,23 +302,17 @@ export default function DentalAppointmentPage() {
       
       // Find the dentist schedule for Campus A
       const campusADentist = schedules.find((schedule: any) => 
-        schedule.campus === 'a' && schedule.is_active
+        schedule.campus.toLowerCase() === 'a' && schedule.is_active
       );
       
       if (campusADentist) {
         setDentistSchedule(campusADentist);
+      } else {
+        setError('No active dentist schedule found for Campus A. Please contact the administrator.');
       }
     } catch (error) {
       console.error('Error loading dentist schedule:', error);
-      // Set default schedule if API fails
-      const defaultSchedule: DentistSchedule = {
-        dentist_name: 'Dr. Maria Santos',
-        campus: 'a',
-        available_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-        time_slots: ['08:00-09:00', '09:00-10:00', '10:00-11:00', '13:00-14:00', '14:00-15:00', '15:00-16:00'],
-        is_active: true
-      };
-      setDentistSchedule(defaultSchedule);
+      setError('Failed to load dentist schedule. Please try again later or contact the administrator.');
     }
   };
 

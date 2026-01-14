@@ -17,6 +17,10 @@ interface StaffDetails {
 interface MedicalDocument {
   id: number;
   patient_name: string;
+  patient_full_name?: string;
+  patient_first_name?: string;
+  patient_middle_name?: string;
+  patient_last_name?: string;
   patient_student_id: string;
   patient_department: string;
   medical_certificate: string;
@@ -82,27 +86,34 @@ function MedicalCertificateViewer() {
       alert('No medical certificate file available for download');
     }
   };
-  const handleEmailSend = async () => {
-    if (!medicalDoc) return;
-    
-    try {
-      const response = await djangoApiClient.post(`/medical-documents/${id}/send_email/`);
-      if (response.data) {
-        alert('Medical certificate sent via email successfully!');
-      }
-    } catch (err: any) {
-      console.error('Email send error:', err);
-      const errorMessage = err.response?.data?.detail || 'Failed to send email';
-      alert(`Error: ${errorMessage}`);
-    }
-  };
-
   const handleWebsiteShare = () => {
     if (medicalDoc?.medical_certificate) {
       const shareUrl = `${window.location.origin}/certificate/view/${medicalDoc.id}`;
       navigator.clipboard.writeText(shareUrl);
       alert('Certificate link copied to clipboard!');
     }
+  };
+
+  // Format the full name properly
+  const getPatientFullName = () => {
+    if (!medicalDoc) return '';
+    
+    // Check if patient_full_name is provided
+    if (medicalDoc.patient_full_name) {
+      return medicalDoc.patient_full_name;
+    }
+    
+    // Build full name from components
+    if (medicalDoc.patient_first_name || medicalDoc.patient_middle_name || medicalDoc.patient_last_name) {
+      const parts = [];
+      if (medicalDoc.patient_last_name) parts.push(medicalDoc.patient_last_name.toUpperCase());
+      if (medicalDoc.patient_first_name) parts.push(medicalDoc.patient_first_name);
+      if (medicalDoc.patient_middle_name) parts.push(medicalDoc.patient_middle_name);
+      return parts.join(', ').replace(/, ([^,]*)$/, ' $1'); // Format as "LAST NAME, First Name Middle Name"
+    }
+    
+    // Fallback to patient_name
+    return medicalDoc.patient_name;
   };
 
   if (loading) {
@@ -149,12 +160,6 @@ function MedicalCertificateViewer() {
               >
                 📥 Download
               </button>
-              <button
-                onClick={handleEmailSend}
-                className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
-              >
-                📧 Send via Email
-              </button>
             </div>
           </div>
         </div>        {/* Medical Certificate Display */}
@@ -186,7 +191,7 @@ function MedicalCertificateViewer() {
               <p>To Whom It May Concern:</p>
               
               <p>
-                This is to certify that <span className="font-bold underline">{medicalDoc.patient_name}</span>, 
+                This is to certify that <span className="font-bold underline">{getPatientFullName()}</span>, 
                 a {medicalDoc.patient_department} student, has been officially examined by the University Health Services Center and was deemed physically fit for college activities.
               </p>
 
@@ -195,7 +200,7 @@ function MedicalCertificateViewer() {
               </p>
 
               <p>
-                This certification is issued upon request of <span className="font-bold underline">{medicalDoc.patient_name}</span> for 
+                This certification is issued upon request of <span className="font-bold underline">{getPatientFullName()}</span> for 
                 whatever purpose it may serve him/her best.
               </p>
             </div>            {/* Date and Location */}
@@ -218,30 +223,42 @@ function MedicalCertificateViewer() {
             {/* Signature Section */}
             <div className="mt-16 flex justify-end">
               <div className="text-center">
-                {staffDetails?.signature && (
-                  <div className="mb-4">
-                    <img 
-                      src={staffDetails.signature} 
-                      alt="Signature" 
-                      className="h-16 mx-auto"
-                    />
+                {staffDetails ? (
+                  <>
+                    {staffDetails.signature && (
+                      <div className="mb-4">
+                        <img 
+                          src={staffDetails.signature} 
+                          alt="Signature" 
+                          className="h-16 mx-auto"
+                        />
+                      </div>
+                    )}
+                    <div className="border-b-2 border-black w-64 mb-2"></div>
+                    <div className="text-center">
+                      <p className="font-bold text-blue-600">
+                        {staffDetails.full_name}
+                      </p>
+                      <p className="text-sm">
+                        {staffDetails.position}
+                      </p>
+                      {staffDetails.license_number && (
+                        <p className="text-sm">
+                          LICENSE NO. {staffDetails.license_number}
+                        </p>
+                      )}
+                      {staffDetails.ptr_number && (
+                        <p className="text-sm">
+                          PTR NO. {staffDetails.ptr_number}
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-gray-500 italic">
+                    Staff details not available
                   </div>
                 )}
-                <div className="border-b-2 border-black w-64 mb-2"></div>
-                <div className="text-center">
-                  <p className="font-bold text-blue-600">
-                    {staffDetails?.full_name || 'FELICITAS ASUNCION C. ELAGO, M.D.'}
-                  </p>
-                  <p className="text-sm">
-                    {staffDetails?.position || 'MEDICAL OFFICER III'}
-                  </p>
-                  <p className="text-sm">
-                    LICENSE NO. {staffDetails?.license_number || '0160267'}
-                  </p>
-                  <p className="text-sm">
-                    PTR NO. {staffDetails?.ptr_number || '2795114'}
-                  </p>
-                </div>
               </div>
             </div>
           </div>

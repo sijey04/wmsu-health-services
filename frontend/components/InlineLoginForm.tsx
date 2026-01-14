@@ -42,11 +42,25 @@ export default function InlineLoginForm({ onLogin, showSwitchLink = false, onSwi
           onLogin(data.user.grade_level || '');
         }
         
-        // Redirect based on user role
+        // Redirect based on user role and staff type
         setTimeout(() => {
-          if (data.user.is_staff || data.user.is_superuser) {
+          if (data.user.is_superuser) {
+            // Superuser gets full admin access
             router.push('/admin');
+          } else if (data.user.is_staff) {
+            // Check staff role for specific dashboard access
+            const staffRole = data.user.staff_role || data.user.user_type;
+            
+            if (staffRole === 'medical_staff' || staffRole === 'doctor' || staffRole === 'nurse') {
+              router.push('/staff/medical');
+            } else if (staffRole === 'dental_staff' || staffRole === 'dentist') {
+              router.push('/staff/dental');
+            } else {
+              // Default staff without specific role goes to admin
+              router.push('/admin');
+            }
           } else {
+            // Regular users go to home page
             router.push('/');
           }
         }, 1000);

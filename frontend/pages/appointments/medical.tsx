@@ -13,12 +13,6 @@ function formatTimeRange(open, close) {
   return `Open: ${open} - ${close}`;
 }
 
-function getCampusHours(campus, day) {
-  if (day === 0) return null; // Sunday closed
-  if (day === 6) return campus === 'A' ? ['08:00', '17:00'] : null; // Sat: only A open
-  return ['08:00', '17:00']; // M-F all open
-}
-
 // Helper function to get patient ID from localStorage
 async function getPatientId() {
   const userStr = localStorage.getItem('user');
@@ -144,12 +138,41 @@ export default function MedicalAppointmentPage() {
   const [blockingReason, setBlockingReason] = useState('');
   const [currentSchoolYear, setCurrentSchoolYear] = useState(null);
   const [needsProfile, setNeedsProfile] = useState(false);
+  const [campusSchedule, setCampusSchedule] = useState(null);
 
   // Check for existing appointments and load current school year on component mount
   useEffect(() => {
     checkExistingAppointments();
     loadCurrentSchoolYear();
+    loadCampusSchedule();
   }, []);
+
+  const loadCampusSchedule = async () => {
+    try {
+      const response = await djangoApiClient.get('/admin-controls/campus_schedules/');
+      const schedules = response.data || [];
+      
+      // Find the schedule for the selected campus
+      const selectedSchedule = schedules.find((schedule: any) => 
+        schedule.campus.toLowerCase() === campus.toLowerCase() && schedule.is_active
+      );
+      
+      if (selectedSchedule) {
+        setCampusSchedule(selectedSchedule);
+      }
+    } catch (error) {
+      console.error('Error loading campus schedule:', error);
+      // Set default schedule if API fails
+      const defaultSchedule = {
+        campus: campus,
+        open_time: '08:00',
+        close_time: '17:00',
+        days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        is_active: true
+      };
+      setCampusSchedule(defaultSchedule);
+    }
+  };
 
   const checkExistingAppointments = async () => {
     try {
@@ -201,23 +224,46 @@ export default function MedicalAppointmentPage() {
     }
   };
 
+  // Reload campus schedule when campus changes
+  useEffect(() => {
+    if (campus) {
+      loadCampusSchedule();
+    }
+  }, [campus]);
+
   function getDayOfWeek(dateStr) {
     if (!dateStr) return null;
     return new Date(dateStr).getDay();
   }
 
   function isCampusOpen(campus, dateStr) {
-    const day = getDayOfWeek(dateStr);
-    if (day === null) return true;
-    if (day === 0) return false; // Sunday
-    if (day === 6) return campus === 'A'; // Saturday: only A open
-    return true; // M-F all open
+    if (!campusSchedule) return false;
+    
+    const selectedDate = new Date(dateStr);
+    const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    return campusSchedule.days.includes(dayName);
+  }
+
+  function getCampusHours(campus, day) {
+    if (!campusSchedule || !isCampusOpen(campus, date)) return null;
+    return [campusSchedule.open_time, campusSchedule.close_time];
   }
 
   function isTimeValid(time, dateStr) {
-    if (!time) return false;
+    if (!time || !campusSchedule) return false;
+    
     const [h, m] = time.split(':').map(Number);
-    if (h < 8 || h > 17 || (h === 17 && m > 0)) return false;
+    const [openH, openM] = campusSchedule.open_time.split(':').map(Number);
+    const [closeH, closeM] = campusSchedule.close_time.split(':').map(Number);
+    
+    // Check if time is within campus operating hours
+    const timeMinutes = h * 60 + m;
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    
+    if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) return false;
+    
     // If today, time must be in the future
     const today = new Date();
     const selected = new Date(dateStr + 'T' + time);
@@ -232,21 +278,23 @@ export default function MedicalAppointmentPage() {
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const d = new Date(dateStr);
     if (d < todayMidnight) return true;
-    // Beyond 3 months (changed from 2 months)
-    const max = addDays(new Date(), 90); // 3 months
+    // Beyond 3 months
+    const max = addDays(new Date(), 90);
     if (d > max) return true;
-    const day = d.getDay();
-    if (day === 0) return true;
-    if (day === 6 && campus !== 'A') return true;
+    
+    // Check if campus is open on this day using dynamic schedule
+    if (!isCampusOpen(campus, dateStr)) return true;
+    
     return false;
   }
 
   function isTimeInputDisabled() {
-    if (!campusOpen || !hours || !date || isDateDisabled(date)) return true;
-    // If today, only allow if before 11:00 AM
+    if (!campusSchedule || !campusOpen || !hours || !date || isDateDisabled(date)) return true;
+    // If today, only allow if before closing time
     const today = new Date();
     if (date === today.toISOString().slice(0, 10)) {
-      if (today.getHours() >= 11) return true;
+      const [closeH] = campusSchedule.close_time.split(':').map(Number);
+      if (today.getHours() >= closeH - 1) return true; // Stop booking 1 hour before closing
     }
     return false;
   }

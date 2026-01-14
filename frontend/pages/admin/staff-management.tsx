@@ -75,15 +75,9 @@ function AdminStaffManagement() {
   });
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: '' });
 
-  // Role and department options
-  const roleOptions = [
-    { value: 'admin', label: 'Administrator' },
-    { value: 'doctor', label: 'Doctor' },
-    { value: 'nurse', label: 'Nurse' },
-    { value: 'dentist', label: 'Dentist' },
-    { value: 'staff', label: 'Staff' },
-    { value: 'receptionist', label: 'Receptionist' }
-  ];
+  // Role and department options - dynamically loaded from backend
+  const [roleOptions, setRoleOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [loadingRoles, setLoadingRoles] = useState(true);
 
   // Campus options
   const campusOptions = [
@@ -91,6 +85,35 @@ function AdminStaffManagement() {
     { value: 'b', label: 'Campus B' },
     { value: 'c', label: 'Campus C' }
   ];
+
+  const fetchStaffRoles = async () => {
+    setLoadingRoles(true);
+    try {
+      // Fetch staff roles from medical staff schedules or dedicated endpoint
+      const response = await djangoApiClient.get('/admin-controls/staff-roles/');
+      if (response.data && Array.isArray(response.data)) {
+        setRoleOptions(response.data.map((role: any) => ({
+          value: role.value || role.name.toLowerCase().replace(/\s+/g, '_'),
+          label: role.label || role.name
+        })));
+      }
+    } catch (error: any) {
+      console.warn('Failed to fetch staff roles from backend, using defaults:', error);
+      // Fallback to default roles if API fails
+      setRoleOptions([
+        { value: 'admin', label: 'Administrator' },
+        { value: 'medical_staff', label: 'Medical Staff' },
+        { value: 'doctor', label: 'Doctor' },
+        { value: 'nurse', label: 'Nurse' },
+        { value: 'dentist', label: 'Dentist' },
+        { value: 'dental_staff', label: 'Dental Staff' },
+        { value: 'staff', label: 'General Staff' },
+        { value: 'receptionist', label: 'Receptionist' }
+      ]);
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
 
   const fetchStaff = async () => {
     setLoading(true);
@@ -266,6 +289,7 @@ function AdminStaffManagement() {
   };
 
   useEffect(() => {
+    fetchStaffRoles();
     fetchStaff();
   }, []);
 
@@ -800,8 +824,9 @@ function AdminStaffManagement() {
                 className={`w-full px-3 py-1.5 sm:py-2 text-sm border rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-[#800000] outline-none ${
                   formErrors.role ? 'border-red-500' : 'border-gray-300'
                 }`}
+                disabled={loadingRoles}
               >
-                <option value="">Select a role</option>
+                <option value="">{loadingRoles ? 'Loading roles...' : 'Select a role'}</option>
                 {roleOptions.map(role => (
                   <option key={role.value} value={role.value}>{role.label}</option>
                 ))}

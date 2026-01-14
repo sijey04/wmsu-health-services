@@ -560,8 +560,25 @@ def generate_medical_certificate_pdf(medical_document):
     # Certificate content - exactly matching the viewer
     story.append(Paragraph("To Whom It May Concern:", opening_style))
     
-    patient_name = medical_document.patient.name
-    department = medical_document.patient.department or 'student'
+    # Get patient name from User model
+    patient = medical_document.patient
+    patient_name_parts = []
+    if hasattr(patient, 'last_name') and patient.last_name:
+        patient_name_parts.append(patient.last_name.upper())
+    if hasattr(patient, 'first_name') and patient.first_name:
+        patient_name_parts.append(patient.first_name)
+    if hasattr(patient, 'middle_name') and patient.middle_name:
+        patient_name_parts.append(patient.middle_name)
+    
+    # Join name parts with comma after last name
+    if len(patient_name_parts) > 1:
+        patient_name = f"{patient_name_parts[0]}, {' '.join(patient_name_parts[1:])}"
+    elif len(patient_name_parts) == 1:
+        patient_name = patient_name_parts[0]
+    else:
+        patient_name = patient.username  # Fallback
+    
+    department = patient.department if hasattr(patient, 'department') and patient.department else 'student'
     
     # Format patient name with underline but without <b> tags
     story.append(Paragraph(
@@ -601,11 +618,11 @@ def generate_medical_certificate_pdf(medical_document):
     # Signature section - matching the viewer with signature directly above the line
     story.append(Spacer(1, 32))
     
-    # Get staff details
-    staff_name = "FELICITAS ASUNCION C. ELAGO, M.D."
-    staff_position = "MEDICAL OFFICER III"
-    license_no = "0160267"
-    ptr_no = "2795114"
+    # Get staff details from database only (no hardcoded fallbacks)
+    staff_name = None
+    staff_position = None
+    license_no = None
+    ptr_no = None
     
     # Try to get staff details from the user issuing the certificate
     staff_user = None
@@ -621,8 +638,8 @@ def generate_medical_certificate_pdf(medical_document):
             if staff_details:
                 staff_name = staff_details.full_name
                 staff_position = staff_details.position
-                license_no = staff_details.license_number or license_no
-                ptr_no = staff_details.ptr_number or ptr_no
+                license_no = staff_details.license_number
+                ptr_no = staff_details.ptr_number
         except:
             pass
     
@@ -659,11 +676,11 @@ def generate_medical_certificate_pdf(medical_document):
     
     # Add staff details below the line
     signature_data.extend([
-        ['', staff_name],  # Staff name below the line
+        ['', staff_name if staff_name else 'Staff details not available'],  # Staff name below the line
         ['', ''],  # Small spacing after name
-        ['', staff_position],
-        ['', f'LICENSE NO. {license_no}'],
-        ['', f'PTR NO. {ptr_no}']
+        ['', staff_position if staff_position else ''],
+        ['', f'LICENSE NO. {license_no}' if license_no else ''],
+        ['', f'PTR NO. {ptr_no}' if ptr_no else '']
     ])
     
     # Compact row heights to fit on one page with professional spacing
@@ -709,7 +726,13 @@ def save_medical_certificate_pdf(medical_document, save_to_model=True):
     
     if save_to_model:
         # Save the PDF to the medical_certificate field
-        filename = f"medical_certificate_{medical_document.patient.name.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        patient = medical_document.patient
+        patient_identifier = patient.username
+        if hasattr(patient, 'student_id') and patient.student_id:
+            patient_identifier = patient.student_id
+        elif hasattr(patient, 'last_name') and patient.last_name:
+            patient_identifier = patient.last_name
+        filename = f"medical_certificate_{patient_identifier.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         medical_document.medical_certificate.save(
             filename,
             ContentFile(pdf_buffer.getvalue()),

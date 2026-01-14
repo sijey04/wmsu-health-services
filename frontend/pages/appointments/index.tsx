@@ -120,14 +120,7 @@ const AppointmentsPage = () => {
     fetchMedicalCertificates();
   }, []);
 
-  const handleOptionSelect = (option: string) => {
-    setIsModalOpen(false);
-    if (option.includes('Dental')) {
-      router.push('/appointments/book?type=dental');
-    } else if (option.includes('Medical')) {
-      router.push('/appointments/book?type=medical');
-    }
-  };
+
 
   // Check if appointment can be modified (at least 3 days away)
   const canModifyAppointment = (appointmentDate: string) => {
@@ -609,8 +602,14 @@ const AppointmentsPage = () => {
                   <p className="text-sm text-yellow-700 mb-4">{medicalDocumentStatus.consultation_reason}</p>
                   <button
                     onClick={() => {
-                      // Redirect directly to medical consultation booking
-                      router.push('/appointments/book?type=medical');
+                      // Generate navigation token for proper flow
+                      const navigationToken = btoa(`${Date.now()}-${Math.random().toString(36)}`);
+                      sessionStorage.setItem('appointment_navigation_token', navigationToken);
+                      sessionStorage.setItem('appointment_option', 'Book Medical Consultation');
+                      sessionStorage.setItem('navigation_timestamp', Date.now().toString());
+                      
+                      // Redirect to waiver page with proper flow
+                      router.push(`/patient/waiver?option=${encodeURIComponent('Book Medical Consultation')}&token=${navigationToken}`);
                     }}
                     className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500 transition-colors duration-200"
                   >
@@ -952,7 +951,6 @@ const AppointmentsPage = () => {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           userGradeLevel={user.grade_level || ''}
-          onOptionSelect={handleOptionSelect}
         />
       )}
 

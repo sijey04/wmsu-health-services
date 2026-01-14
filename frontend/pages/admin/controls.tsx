@@ -44,6 +44,17 @@ interface DentistSchedule {
   isNew?: boolean;
 }
 
+interface MedicalStaffSchedule {
+  id: string;
+  staffName: string;
+  position: string;
+  campus: string;
+  availableDays: string[];
+  timeSlots: string[];
+  isActive: boolean;
+  isNew?: boolean;
+}
+
 interface SchoolYear {
   id: string;
   academic_year: string;
@@ -147,6 +158,7 @@ export default function AdminControls() {
   const [documentRequirements, setDocumentRequirements] = useState<DocumentRequirement[]>([]);
   const [campusSchedules, setCampusSchedules] = useState<CampusSchedule[]>([]);
   const [dentistSchedules, setDentistSchedules] = useState<DentistSchedule[]>([]);
+  const [medicalStaffSchedules, setMedicalStaffSchedules] = useState<MedicalStaffSchedule[]>([]);
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [comorbidIllnesses, setComorbidIllnesses] = useState<ComorbidIllness[]>([]);
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
@@ -181,11 +193,12 @@ export default function AdminControls() {
       setLoading(true);
       
       // Load all data from backend
-      const [profileResponse, docResponse, campusResponse, dentistResponse, comorbidResponse, vaccinationResponse, pastMedicalResponse, familyMedicalResponse] = await Promise.all([
+      const [profileResponse, docResponse, campusResponse, dentistResponse, medicalStaffResponse, comorbidResponse, vaccinationResponse, pastMedicalResponse, familyMedicalResponse] = await Promise.all([
         djangoApiClient.get('/admin-controls/profile_requirements/'),
         djangoApiClient.get('/admin-controls/document_requirements/'),
         djangoApiClient.get('/admin-controls/campus_schedules/'),
-        djangoApiClient.get('/admin-controls/dentist_schedules/'),
+        djangoApiClient.get('/admin-controls/dentist_schedules/').catch(() => ({ data: [] })),
+        djangoApiClient.get('/admin-controls/medical_staff_schedules/').catch(() => ({ data: [] })),
         djangoApiClient.get('/user-management/comorbid_illnesses/'),
         djangoApiClient.get('/user-management/vaccinations/'),
         djangoApiClient.get('/user-management/past_medical_histories/'),
@@ -274,6 +287,18 @@ export default function AdminControls() {
         setDentistSchedules(dentistResponse.data.map((schedule: any) => ({
           id: schedule.id.toString(),
           dentistName: schedule.dentist_name,
+          campus: `Campus ${schedule.campus.toUpperCase()}`,
+          availableDays: schedule.available_days || [],
+          timeSlots: schedule.time_slots || [],
+          isActive: schedule.is_active
+        })));
+      }
+
+      if (medicalStaffResponse.data) {
+        setMedicalStaffSchedules(medicalStaffResponse.data.map((schedule: any) => ({
+          id: schedule.id.toString(),
+          staffName: schedule.staff_name,
+          position: schedule.position || 'Medical Staff',
           campus: `Campus ${schedule.campus.toUpperCase()}`,
           availableDays: schedule.available_days || [],
           timeSlots: schedule.time_slots || [],
@@ -654,15 +679,6 @@ export default function AdminControls() {
             open_time: schedule.openTime,
             close_time: schedule.closeTime,
             operating_days: schedule.days,
-            is_active: schedule.isActive
-          }))
-        }),
-        djangoApiClient.post('/admin-controls/dentist_schedules/update_dentist_schedules/', {
-          schedules: dentistSchedules.map(schedule => ({
-            dentist_name: schedule.dentistName,
-            campus: schedule.campus.toLowerCase().replace('campus ', ''),
-            available_days: schedule.availableDays,
-            time_slots: schedule.timeSlots,
             is_active: schedule.isActive
           }))
         })
@@ -1086,6 +1102,7 @@ export default function AdminControls() {
         { id: 'usertypes', name: 'User Type Information', icon: '👥' },
         { id: 'courses', name: 'Courses/Programs', icon: '🎓' },
         { id: 'campus', name: 'Campus Schedules', icon: '🏢' },
+        { id: 'medical', name: 'Medical Staff Schedules', icon: '⚕️' },
         { id: 'dentist', name: 'Dentist Schedules', icon: '🦷' },
         { id: 'schoolyears', name: 'Academic Years', icon: '🗓️' }
       ]
@@ -1420,6 +1437,84 @@ export default function AdminControls() {
           }
         }
         return item;
+      })
+    );
+  };
+
+  // Helper functions for Medical Staff Schedules
+  const addMedicalStaffSchedule = () => {
+    const newSchedule: MedicalStaffSchedule = {
+      id: Date.now().toString(),
+      staffName: '',
+      position: 'Doctor',
+      campus: 'Campus A',
+      availableDays: [],
+      timeSlots: [],
+      isActive: true,
+      isNew: true
+    };
+    setMedicalStaffSchedules(prev => [...prev, newSchedule]);
+  };
+
+  const updateMedicalStaffSchedule = (id: string, field: keyof MedicalStaffSchedule, value: any) => {
+    setMedicalStaffSchedules(prev =>
+      prev.map(schedule =>
+        schedule.id === id ? { ...schedule, [field]: value } : schedule
+      )
+    );
+  };
+
+  const removeMedicalStaffSchedule = async (id: string) => {
+    try {
+      const schedule = medicalStaffSchedules.find(s => s.id === id);
+      if (schedule && !schedule.isNew) {
+        try {
+          await djangoApiClient.delete(`/admin-controls/medical_staff_schedules/${id}/`);
+        } catch (backendError) {
+          console.log('Backend delete not available');
+        }
+      }
+      setMedicalStaffSchedules(prev => prev.filter(s => s.id !== id));
+      showAlert('success', 'Medical staff schedule removed successfully');
+    } catch (error) {
+      console.error('Error removing medical staff schedule:', error);
+      showAlert('error', 'Failed to remove medical staff schedule');
+    }
+  };
+
+  const toggleMedicalStaffDay = (id: string, day: string) => {
+    setMedicalStaffSchedules(prev =>
+      prev.map(schedule => {
+        if (schedule.id === id) {
+          const days = schedule.availableDays.includes(day)
+            ? schedule.availableDays.filter(d => d !== day)
+            : [...schedule.availableDays, day];
+          return { ...schedule, availableDays: days };
+        }
+        return schedule;
+      })
+    );
+  };
+
+  const addMedicalStaffTimeSlot = (id: string, slot: string) => {
+    if (!slot.trim()) return;
+    setMedicalStaffSchedules(prev =>
+      prev.map(schedule => {
+        if (schedule.id === id && !schedule.timeSlots.includes(slot)) {
+          return { ...schedule, timeSlots: [...schedule.timeSlots, slot] };
+        }
+        return schedule;
+      })
+    );
+  };
+
+  const removeMedicalStaffTimeSlot = (id: string, slot: string) => {
+    setMedicalStaffSchedules(prev =>
+      prev.map(schedule => {
+        if (schedule.id === id) {
+          return { ...schedule, timeSlots: schedule.timeSlots.filter(s => s !== slot) };
+        }
+        return schedule;
       })
     );
   };
@@ -1793,63 +1888,6 @@ export default function AdminControls() {
 
                         {/* Available Options */}
                         <div className="space-y-4">
-                          {/* Courses */}
-                          {userType.name === 'College' || userType.name === 'Incoming Freshman' ? (
-                            <div>
-                              <h4 className="text-sm font-medium text-gray-900 mb-2">Available Courses</h4>
-                              <div className="space-y-2">
-                                {userType.available_courses?.map((course, index) => (
-                                  <div key={index} className="flex items-center space-x-2">
-                                    <input
-                                      type="text"
-                                      value={course}
-                                      onChange={(e) => {
-                                        const newCourses = [...(userType.available_courses || [])];
-                                        newCourses[index] = e.target.value;
-                                        updateUserTypeInformation(userType.id, 'available_courses', newCourses);
-                                      }}
-                                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
-                                    />
-                                    <button
-                                      onClick={() => removeUserTypeOption(userType.id, 'available_courses', course)}
-                                      className="text-red-600 hover:text-red-900"
-                                    >
-                                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                ))}
-                                <div className="flex items-center space-x-2">
-                                  <input
-                                    type="text"
-                                    placeholder="Add new course"
-                                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1"
-                                    onKeyPress={(e) => {
-                                      if (e.key === 'Enter') {
-                                        const target = e.target as HTMLInputElement;
-                                        addUserTypeOption(userType.id, 'available_courses', target.value);
-                                        target.value = '';
-                                      }
-                                    }}
-                                  />
-                                  <button
-                                    onClick={(e) => {
-                                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
-                                      addUserTypeOption(userType.id, 'available_courses', input.value);
-                                      input.value = '';
-                                    }}
-                                    className="text-green-600 hover:text-green-900"
-                                  >
-                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-
                           {/* Departments */}
                           {userType.name === 'Employee' ? (
                             <div>
@@ -2248,122 +2286,180 @@ export default function AdminControls() {
               </div>
             )}
 
-            {/* Dentist Schedules Tab */}
-            {activeTab === 'dentist' && (
+            {/* Medical Staff Schedules Tab - Read-Only View */}
+            {activeTab === 'medical' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">Dentist Schedules</h3>
-                    <p className="text-sm text-gray-500">Configure dentist availability for appointments</p>
+                    <h3 className="text-lg font-medium text-gray-900">Medical Staff Schedules Overview</h3>
+                    <p className="text-sm text-gray-500">View all medical staff schedules. Staff members manage their own schedules in Account Settings.</p>
+                  </div>
+                  <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                    ℹ️ Staff edit their schedules in Account Settings
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  {dentistSchedules.map((schedule) => (
-                    <div key={schedule.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                          <h4 className="font-medium text-gray-900">{schedule.dentistName || 'Unnamed Dentist'}</h4>
-                          <span className="text-sm text-gray-500">{schedule.campus}</span>
-                        </div>
-                        
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm text-gray-500">Active:</span>
-                          <input
-                            type="checkbox"
-                            checked={schedule.isActive}
-                            onChange={(e) => {
-                              const updated = { ...schedule, isActive: e.target.checked };
-                              setDentistSchedules(prev => prev.map(s => 
-                                s.id === schedule.id ? updated : s
-                              ));
-                            }}
-                            className="h-4 w-4 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Available Days</label>
-                          <div className="space-y-1">
-                            {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                              <label key={day} className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={schedule.availableDays.includes(day)}
-                                  onChange={(e) => {
-                                    const newDays = e.target.checked 
-                                      ? [...schedule.availableDays, day]
-                                      : schedule.availableDays.filter(d => d !== day);
-                                    const updated = { ...schedule, availableDays: newDays };
-                                    setDentistSchedules(prev => prev.map(s => 
-                                      s.id === schedule.id ? updated : s
-                                    ));
-                                  }}
-                                  className="h-3 w-3 text-[#8B1538] focus:ring-[#8B1538] border-gray-300 rounded"
-                                />
-                                <span className="ml-2 text-sm text-gray-700">{day}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">Time Slots</label>
-                          <div className="space-y-2 max-h-32 overflow-y-auto">
-                            {schedule.timeSlots.map((slot, index) => (
-                              <div key={index} className="flex items-center space-x-2">
-                                <input
-                                  type="text"
-                                  value={slot}
-                                  onChange={(e) => {
-                                    const newSlots = [...schedule.timeSlots];
-                                    newSlots[index] = e.target.value;
-                                    const updated = { ...schedule, timeSlots: newSlots };
-                                    setDentistSchedules(prev => prev.map(s => 
-                                      s.id === schedule.id ? updated : s
-                                    ));
-                                  }}
-                                  placeholder="09:00-10:00"
-                                  className="text-sm border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] flex-1"
-                                />
-                                <button
-                                  onClick={() => {
-                                    const newSlots = schedule.timeSlots.filter((_, i) => i !== index);
-                                    const updated = { ...schedule, timeSlots: newSlots };
-                                    setDentistSchedules(prev => prev.map(s => 
-                                      s.id === schedule.id ? updated : s
-                                    ));
-                                  }}
-                                  className="text-red-600 hover:text-red-800"
-                                >
-                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                  </svg>
-                                </button>
-                              </div>
-                            ))}
-                            <button
-                              onClick={() => {
-                                const newSlots = [...schedule.timeSlots, ''];
-                                const updated = { ...schedule, timeSlots: newSlots };
-                                setDentistSchedules(prev => prev.map(s => 
-                                  s.id === schedule.id ? updated : s
-                                ));
-                              }}
-                              className="text-sm text-[#8B1538] hover:text-[#7A1230] flex items-center"
-                            >
-                              <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                              </svg>
-                              Add Time Slot
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                  {medicalStaffSchedules.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      <p className="mt-2 text-gray-600">No medical staff schedules configured yet</p>
+                      <p className="text-sm text-gray-500 mt-1">Staff members can set up their schedules in Account Settings</p>
                     </div>
-                  ))}
+                  ) : (
+                    medicalStaffSchedules.map((schedule) => (
+                      <div key={schedule.id} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h4 className="font-semibold text-gray-900 text-lg">{schedule.staffName || 'Unnamed Staff'}</h4>
+                              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                                schedule.isActive 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {schedule.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-sm">
+                              <span className="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded">
+                                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                                {schedule.position}
+                              </span>
+                              <span className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 rounded">
+                                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                {schedule.campus}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Available Days</label>
+                            {schedule.availableDays.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {schedule.availableDays.map(day => (
+                                  <span key={day} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded border border-green-200">
+                                    {day}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No days set</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Time Slots</label>
+                            {schedule.timeSlots.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {schedule.timeSlots.map((slot, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded border border-indigo-200 font-mono">
+                                    {slot}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No time slots set</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Dentist Schedules Tab - Read-Only View */}
+            {activeTab === 'dentist' && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900">Dentist Schedules Overview</h3>
+                    <p className="text-sm text-gray-500">View all dentist schedules. Dental staff manage their own schedules in Account Settings.</p>
+                  </div>
+                  <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
+                    ℹ️ Staff edit their schedules in Account Settings
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {dentistSchedules.length === 0 ? (
+                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                      <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                      </svg>
+                      <p className="mt-2 text-gray-600">No dentist schedules configured yet</p>
+                      <p className="text-sm text-gray-500 mt-1">Dental staff can set up their schedules in Account Settings</p>
+                    </div>
+                  ) : (
+                    dentistSchedules.map((schedule) => (
+                      <div key={schedule.id} className="border border-gray-200 rounded-lg p-4 bg-white hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h4 className="font-semibold text-gray-900 text-lg">{schedule.dentistName || 'Unnamed Dentist'}</h4>
+                              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                                schedule.isActive 
+                                  ? 'bg-green-100 text-green-800' 
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {schedule.isActive ? 'Active' : 'Inactive'}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-sm">
+                              <span className="inline-flex items-center px-2 py-1 bg-purple-50 text-purple-700 rounded">
+                                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                                {schedule.campus}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Available Days</label>
+                            {schedule.availableDays.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {schedule.availableDays.map(day => (
+                                  <span key={day} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded border border-green-200">
+                                    {day}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No days set</p>
+                            )}
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Time Slots</label>
+                            {schedule.timeSlots.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {schedule.timeSlots.map((slot, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded border border-indigo-200 font-mono">
+                                    {slot}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No time slots set</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

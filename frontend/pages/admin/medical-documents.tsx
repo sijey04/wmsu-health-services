@@ -228,16 +228,11 @@ function AdminMedicalDocuments() {
     }
   }, [selectedAcademicYear, initialLoaded]);
 
-  // Verify documents action
+  // Verify documents action - DEPRECATED: Now directly issues certificate instead
+  // Kept for backwards compatibility but redirects to handleIssueCertificate
   const handleVerify = async (id: number) => {
-    try {
-      await medicalDocumentsAPI.verify(id);
-      showFeedback('Documents verified successfully!');
-      fetchDocs(); // Refresh the data
-    } catch (err: any) {
-      console.error('Failed to verify documents:', err);
-      showFeedback('Failed to verify documents: ' + (err.response?.data?.error || err.message));
-    }
+    // Redirect to direct certificate issuance
+    return handleIssueCertificate(id);
   };
 
   // Reject documents action
@@ -258,13 +253,18 @@ function AdminMedicalDocuments() {
       showFeedback('Failed to reject documents: ' + (err.response?.data?.error || err.message));
     }
   };
-  // Issue Certificate action - Simplified to directly issue certificate
+  // Issue Certificate action - Streamlined to directly issue certificate from any valid status
   const handleIssueCertificate = async (id: number) => {
     try {
-      // Issue certificate directly
+      // Issue certificate directly (works from pending, for_consultation, or verified status)
       await medicalDocumentsAPI.issueCertificate(id);
       
-      showFeedback('Certificate issued successfully! The patient can now view it in their appointments.');
+      // Close the view modal if open
+      if (viewModalOpen) {
+        setViewModalOpen(false);
+      }
+      
+      showFeedback('Certificate issued successfully! The patient can now view and download it.');
       fetchDocs(); // Refresh the data
     } catch (err: any) {
       console.error('Failed to issue certificate:', err);
@@ -741,11 +741,6 @@ function AdminMedicalDocuments() {
               >
                 <span className="hidden sm:inline">Medical Certificate Requests</span>
                 <span className="sm:hidden">Cert Requests</span>
-                {pendingDocs.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
-                    {pendingDocs.length}
-                  </span>
-                )}
               </button>
               <button
                 className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${activeTab === 'uploadedDocuments' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
@@ -753,11 +748,6 @@ function AdminMedicalDocuments() {
               >
                 <span className="hidden sm:inline">Uploaded Documents</span>
                 <span className="sm:hidden">Uploaded</span>
-                {uploadedDocs.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-gray-600 rounded-full">
-                    {uploadedDocs.length}
-                  </span>
-                )}
               </button>
               <button
                 className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${activeTab === 'issuedMedicalCertificates' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
@@ -765,11 +755,6 @@ function AdminMedicalDocuments() {
               >
                 <span className="hidden sm:inline">Issued Medical Certificates</span>
                 <span className="sm:hidden">Issued</span>
-                {issuedDocs.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-green-600 rounded-full">
-                    {issuedDocs.length}
-                  </span>
-                )}
               </button>
               <button
                 className={`py-2 px-3 sm:py-3 sm:px-6 text-sm sm:text-lg font-medium transition-all duration-200 focus:outline-none whitespace-nowrap ${activeTab === 'advisedForConsultations' ? 'border-b-2 border-[#800000] text-[#800000] bg-gray-50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
@@ -777,11 +762,6 @@ function AdminMedicalDocuments() {
               >
                 <span className="hidden sm:inline">Advised for Consultations</span>
                 <span className="sm:hidden">Advised</span>
-                {advisedDocs.length > 0 && (
-                  <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                    {advisedDocs.length}
-                  </span>
-                )}
               </button>
             </div>
             
@@ -2094,6 +2074,11 @@ function AdminMedicalDocuments() {
                     { key: 'hepa_b', label: 'Hepa B', backendField: 'hepa_b' },
                   ];
                   
+                  // Debug logging
+                  console.log('Document Requirements:', files);
+                  console.log('Selected Document Data:', selectedDocument);
+                  console.log('Available document keys:', Object.keys(selectedDocument));
+                  
                   const availableFiles = files.filter(f => selectedDocument[f.key]);
                   
                   if (availableFiles.length === 0) {
@@ -2147,11 +2132,11 @@ function AdminMedicalDocuments() {
                           
                           {/* Document Content */}
                           <div className="p-8">
-                            {selectedDocument[currentDoc.key] && selectedDocument[currentDoc.key].match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                            {selectedDocument[currentDoc.key] && selectedDocument[currentDoc.key].match(/\.(jpg|jpeg|png|gif|avif)$/i) ? (
                               <div 
                                 className="relative cursor-pointer group"
                                 onClick={() => {
-                                  const imageFiles = files.filter(file => selectedDocument[file.key] && selectedDocument[file.key].match(/\.(jpg|jpeg|png|gif)$/i));
+                                  const imageFiles = files.filter(file => selectedDocument[file.key] && selectedDocument[file.key].match(/\.(jpg|jpeg|png|gif|avif)$/i));
                                   const imageIndex = imageFiles.findIndex(file => file.key === currentDoc.key);
                                   openImageSlideshow(selectedDocument, imageIndex);
                                 }}
@@ -2565,16 +2550,13 @@ function AdminMedicalDocuments() {
                   {selectedDocument.status === 'pending' && (
                     <div className="flex flex-col space-y-3">
                       <button
-                        onClick={() => {
-                          setViewModalOpen(false);
-                          handleVerify(selectedDocument.id);
-                        }}
-                        className="w-full flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium"
+                        onClick={() => handleIssueCertificate(selectedDocument.id)}
+                        className="w-full flex items-center justify-center px-6 py-3 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] transition-colors duration-200 font-medium shadow-md"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Verify Documents
+                        Issue Certificate
                       </button>
                       <button
                         onClick={() => {
@@ -2606,18 +2588,21 @@ function AdminMedicalDocuments() {
                         </div>
                       )}
                       
-                      {/* Actions for consultation documents */}
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800">
+                          <strong>After consultation:</strong> Issue certificate directly to complete the process.
+                        </p>
+                      </div>
+                      
+                      {/* Simplified actions for consultation documents */}
                       <button
-                        onClick={() => {
-                          setViewModalOpen(false);
-                          handleVerify(selectedDocument.id);
-                        }}
-                        className="w-full flex items-center justify-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors duration-200 font-medium"
+                        onClick={() => handleIssueCertificate(selectedDocument.id)}
+                        className="w-full flex items-center justify-center px-6 py-3 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] transition-colors duration-200 font-medium shadow-md"
                       >
                         <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                         </svg>
-                        Verify Documents
+                        Issue Certificate
                       </button>
                       <button
                         onClick={() => {
@@ -2630,18 +2615,6 @@ function AdminMedicalDocuments() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Reject Documents
-                      </button>
-                      <button
-                        onClick={() => {
-                          setViewModalOpen(false);
-                          handleIssueCertificate(selectedDocument.id);
-                        }}
-                        className="w-full flex items-center justify-center px-6 py-3 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] transition-colors duration-200 font-medium"
-                      >
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Issue Certificate
                       </button>
                       <button
                         onClick={() => {
@@ -2660,14 +2633,11 @@ function AdminMedicalDocuments() {
 
                   {selectedDocument.status === 'verified' && (
                     <button
-                      onClick={() => {
-                        setViewModalOpen(false);
-                        handleIssueCertificate(selectedDocument.id);
-                      }}
-                      className="w-full flex items-center justify-center px-6 py-3 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] transition-colors duration-200 font-medium"
+                      onClick={() => handleIssueCertificate(selectedDocument.id)}
+                      className="w-full flex items-center justify-center px-6 py-3 bg-[#800000] text-white rounded-lg hover:bg-[#a83232] transition-colors duration-200 font-medium shadow-md"
                     >
                       <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                       Issue Certificate
                     </button>

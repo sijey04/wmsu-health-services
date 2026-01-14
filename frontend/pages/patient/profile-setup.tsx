@@ -1804,7 +1804,10 @@ export default function PatientProfileSetupPage() {
                 query: { ...router.query, option: 'Book Dental Consultation' }
               });
             } else if (option === 'Book Medical Consultation') {
-              router.push('/appointments/medical');
+              router.push({
+                pathname: '/appointments/medical',
+                query: router.query
+              });
             } else {
               // Redirect back to the first step instead of dashboard
               setCurrentStep(1);
@@ -4871,7 +4874,10 @@ export default function PatientProfileSetupPage() {
             query: { ...router.query, option: 'Book Dental Consultation' }
           });
         } else if (option === 'Book Medical Consultation') {
-          router.push('/appointments/medical');
+          router.push({
+            pathname: '/appointments/medical',
+            query: router.query
+          });
         } else {
           // Redirect back to the first step instead of dashboard
           setCurrentStep(1);
