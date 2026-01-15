@@ -2227,7 +2227,7 @@ export default function AdminControls() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Campus Operating Hours</h3>
-                    <p className="text-sm text-gray-500">Configure opening and closing times for each campus</p>
+                    <p className="text-sm text-gray-500">Configure opening and closing times and available days for each campus</p>
                   </div>
                 </div>
 
@@ -2252,7 +2252,7 @@ export default function AdminControls() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Opening Time</label>
                           <input
@@ -2282,6 +2282,36 @@ export default function AdminControls() {
                             className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#8B1538] focus:border-[#8B1538] sm:text-sm"
                           />
                         </div>
+                      </div>
+
+                      {/* Available Days */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-3">Available Days</label>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
+                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                            <label 
+                              key={day} 
+                              className="flex items-center justify-center space-x-2 p-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 cursor-pointer transition-all hover:border-[#800000]"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={schedule.days?.includes(day) || false}
+                                onChange={(e) => {
+                                  const updatedDays = e.target.checked
+                                    ? [...(schedule.days || []), day]
+                                    : (schedule.days || []).filter(d => d !== day);
+                                  const updated = { ...schedule, days: updatedDays };
+                                  setCampusSchedules(prev => prev.map(s => 
+                                    s.id === schedule.id ? updated : s
+                                  ));
+                                }}
+                                className="w-4 h-4 text-[#800000] border-gray-300 rounded focus:ring-[#800000]"
+                              />
+                              <span className="text-sm font-medium text-gray-700">{day.substring(0, 3)}</span>
+                            </label>
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">Select the days this campus is open for consultations</p>
                       </div>
                     </div>
                   ))}
