@@ -705,6 +705,12 @@ class StaffDetails(models.Model):
     assigned_campuses = models.CharField(max_length=10, default='a', help_text='Comma-separated campus codes (a,b,c)')
     phone_number = models.CharField(max_length=20, blank=True, null=True)
     
+    # Schedule and availability fields
+    available_days = models.JSONField(default=list, blank=True, help_text='List of available days (e.g., ["Monday", "Tuesday"])')
+    time_slots = models.JSONField(default=list, blank=True, help_text='List of time slots (e.g., ["09:00-10:00", "13:00-14:00"])')
+    blocked_dates = models.JSONField(default=list, blank=True, help_text='List of blocked dates in YYYY-MM-DD format')
+    daily_appointment_limit = models.IntegerField(default=10, help_text='Maximum number of appointments per day')
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

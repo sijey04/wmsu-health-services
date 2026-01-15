@@ -702,6 +702,10 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
     signature = serializers.ImageField(use_url=True, required=False, allow_null=True)
+    available_days = serializers.JSONField(required=False, default=list)
+    time_slots = serializers.JSONField(required=False, default=list)
+    blocked_dates = serializers.JSONField(required=False, default=list)
+    daily_appointment_limit = serializers.IntegerField(required=False, default=10)
     
     class Meta:
         model = StaffDetails
