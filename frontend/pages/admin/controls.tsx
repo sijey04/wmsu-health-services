@@ -51,6 +51,7 @@ interface MedicalStaffSchedule {
   campus: string;
   availableDays: string[];
   timeSlots: string[];
+  daily_appointment_limit: number;
   isActive: boolean;
   isNew?: boolean;
 }
@@ -302,6 +303,7 @@ export default function AdminControls() {
           campus: `Campus ${schedule.campus.toUpperCase()}`,
           availableDays: schedule.available_days || [],
           timeSlots: schedule.time_slots || [],
+          daily_appointment_limit: schedule.daily_appointment_limit || 10,
           isActive: schedule.is_active
         })));
       }
@@ -1450,6 +1452,7 @@ export default function AdminControls() {
       campus: 'Campus A',
       availableDays: [],
       timeSlots: [],
+      daily_appointment_limit: 10,
       isActive: true,
       isNew: true
     };
@@ -2340,7 +2343,7 @@ export default function AdminControls() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Available Days</label>
                             {schedule.availableDays.length > 0 ? (
@@ -2369,6 +2372,19 @@ export default function AdminControls() {
                             ) : (
                               <p className="text-sm text-gray-500 italic">No time slots set</p>
                             )}
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Daily Appointment Limit</label>
+                            <div className="flex items-center space-x-2">
+                              <span className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-sm font-semibold rounded border border-amber-200">
+                                <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                </svg>
+                                {schedule.daily_appointment_limit || 10} appointments/day
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Maximum appointments per day</p>
                           </div>
                         </div>
                       </div>
