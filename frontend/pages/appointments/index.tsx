@@ -537,7 +537,7 @@ const AppointmentsPage = () => {
                       medicalDocumentStatus.status === 'rejected' ? 'text-red-800' :
                       'text-gray-800'
                     }`}>
-                      {medicalDocumentStatus.status === 'issued' && '🎉 Congratulations!'}
+                      {medicalDocumentStatus.status === 'issued' && 'Congratulations!'}
                       {medicalDocumentStatus.status === 'for_consultation' && '⚠️ Consultation Required'}
                       {medicalDocumentStatus.status === 'verified' && '✅ Documents Verified'}
                       {medicalDocumentStatus.status === 'pending' && '⏳ Under Review'}

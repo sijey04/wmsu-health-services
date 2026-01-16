@@ -209,6 +209,7 @@ class Patient(models.Model):
     street = models.CharField(max_length=200, blank=True, null=True)
     blood_type = models.CharField(max_length=5, choices=BLOOD_TYPE_CHOICES, blank=True, null=True)
     religion = models.CharField(max_length=50, choices=RELIGION_CHOICES, blank=True, null=True)
+    religion_specify = models.CharField(max_length=100, blank=True, null=True, help_text='Specify religion if Other is selected')
     nationality = models.CharField(max_length=50, choices=NATIONALITY_CHOICES, blank=True, null=True)
     nationality_specify = models.CharField(max_length=100, blank=True, null=True, help_text='Specify nationality if Foreigner is selected')
     civil_status = models.CharField(max_length=20, choices=CIVIL_STATUS_CHOICES, blank=True, null=True)

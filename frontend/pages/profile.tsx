@@ -22,6 +22,7 @@ interface PatientProfile {
   name: string;
   first_name?: string;
   middle_name?: string;
+  last_name?: string;
   suffix?: string;
   photo?: string;
   gender: string;
@@ -133,6 +134,29 @@ export default function Profile() {
     checkAuth();
   }, [router]);
 
+  // Refresh data when page becomes visible (e.g., returning from profile-setup)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        // Reload user data from localStorage in case it was updated
+        const userData = localStorage.getItem('user');
+        if (userData) {
+          try {
+            const parsedUser = JSON.parse(userData);
+            setUser(parsedUser);
+          } catch (e) {
+            console.error('Error parsing user data:', e);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user]);
+
   // Fetch patient profile
   useEffect(() => {
     const fetchPatientProfile = async () => {
@@ -150,6 +174,24 @@ export default function Profile() {
         if (response.ok) {
           const data = await response.json();
           setPatientProfile(data);
+          
+          // Update localStorage user data with profile information if available
+          // Note: data.name is the surname/last name in the database
+          if (data.first_name || data.name) {
+            try {
+              const userStr = localStorage.getItem('user');
+              if (userStr) {
+                const userData = JSON.parse(userStr);
+                userData.first_name = data.first_name || userData.first_name;
+                userData.middle_name = data.middle_name || userData.middle_name;
+                userData.last_name = data.name || userData.last_name;
+                localStorage.setItem('user', JSON.stringify(userData));
+                setUser(userData);
+              }
+            } catch (error) {
+              console.error('Error updating localStorage user data:', error);
+            }
+          }
         } else if (response.status === 404) {
           // No profile found - user needs to create one
           setPatientProfile(null);
@@ -191,6 +233,7 @@ export default function Profile() {
     if (user && isIncomingFreshman()) {
       fetchMedicalDocuments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Fetch appointments for consultation results
@@ -395,7 +438,13 @@ export default function Profile() {
                 </div>
                 <div className="text-center sm:text-left">
                   <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
-                    {patientProfile?.name || `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email}
+                    {patientProfile 
+                      ? (patientProfile.first_name 
+                          ? `${patientProfile.first_name}${patientProfile.middle_name ? ' ' + patientProfile.middle_name : ''} ${patientProfile.name || ''}`.trim()
+                          : patientProfile.name || 'Name not set'
+                        )
+                      : `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || user?.email
+                    }
                   </h2>
                   <p className="text-sm sm:text-base text-gray-600">
                     {patientProfile?.student_id?.startsWith('TEMP-') 

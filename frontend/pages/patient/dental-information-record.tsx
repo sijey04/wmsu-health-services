@@ -25,7 +25,6 @@ export default function DentalInformationRecordPage() {
 
   const [redirecting, setRedirecting] = useState(false);
   const [invalidAccess, setInvalidAccess] = useState(false);
-  const [invalidAccess, setInvalidAccess] = useState(false);
 
   // Validate navigation token to prevent direct URL access
   useEffect(() => {
@@ -60,7 +59,7 @@ export default function DentalInformationRecordPage() {
     if (typeof window !== 'undefined') {
       validateNavigation();
     }
-  }, []);
+  }, [setInvalidAccess]);
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -1154,7 +1153,7 @@ export default function DentalInformationRecordPage() {
           <div className="text-center mb-6">
             <div className="flex items-center justify-center mb-4">
               <div className="flex items-center bg-white rounded-full px-4 py-2 shadow-lg">
-                <span className="inline-block w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xl mr-3">{currentStep}</span>
+                <span className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold text-xl mr-3">{currentStep}</span>
                 <span className="text-lg lg:text-2xl font-bold text-blue-600">{steps[currentStep-1].title}</span>
               </div>
             </div>

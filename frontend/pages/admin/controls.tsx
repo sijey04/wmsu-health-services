@@ -40,6 +40,8 @@ interface DentistSchedule {
   campus: string;
   availableDays: string[];
   timeSlots: string[];
+  daily_appointment_limit: number;
+  blocked_dates: string[];
   isActive: boolean;
   isNew?: boolean;
 }
@@ -52,6 +54,7 @@ interface MedicalStaffSchedule {
   availableDays: string[];
   timeSlots: string[];
   daily_appointment_limit: number;
+  blocked_dates: string[];
   isActive: boolean;
   isNew?: boolean;
 }
@@ -194,17 +197,69 @@ export default function AdminControls() {
       setLoading(true);
       
       // Load all data from backend
-      const [profileResponse, docResponse, campusResponse, dentistResponse, medicalStaffResponse, comorbidResponse, vaccinationResponse, pastMedicalResponse, familyMedicalResponse] = await Promise.all([
+      const [profileResponse, docResponse, campusResponse, comorbidResponse, vaccinationResponse, pastMedicalResponse, familyMedicalResponse] = await Promise.all([
         djangoApiClient.get('/admin-controls/profile_requirements/'),
         djangoApiClient.get('/admin-controls/document_requirements/'),
         djangoApiClient.get('/admin-controls/campus_schedules/'),
-        djangoApiClient.get('/admin-controls/dentist_schedules/').catch(() => ({ data: [] })),
-        djangoApiClient.get('/admin-controls/medical_staff_schedules/').catch(() => ({ data: [] })),
         djangoApiClient.get('/user-management/comorbid_illnesses/'),
         djangoApiClient.get('/user-management/vaccinations/'),
         djangoApiClient.get('/user-management/past_medical_histories/'),
         djangoApiClient.get('/user-management/family_medical_histories/')
       ]);
+
+      // Load medical staff and dentist schedules from staff-details endpoint
+      try {
+        const staffResponse = await djangoApiClient.get('/staff-details/');
+        if (staffResponse.data) {
+          const allStaff = staffResponse.data;
+          
+          // Separate medical staff and dentists based on position
+          const medicalStaff = allStaff.filter((staff: any) => 
+            ['Doctor', 'Nurse', 'Medical Staff', 'Administrator'].includes(staff.position)
+          );
+          
+          const dentists = allStaff.filter((staff: any) => 
+            ['Dentist', 'Dental Staff'].includes(staff.position)
+          );
+          
+          // Map medical staff to schedule format
+          setMedicalStaffSchedules(medicalStaff.map((staff: any) => ({
+            id: staff.id.toString(),
+            staffName: staff.full_name,
+            position: staff.position || 'Medical Staff',
+            campus: staff.assigned_campuses ? 
+              (Array.isArray(staff.assigned_campuses) ? 
+                staff.assigned_campuses.map((c: string) => `Campus ${c.toUpperCase()}`).join(', ') :
+                `Campus ${staff.assigned_campuses.toUpperCase()}`) : 
+              'Campus A',
+            availableDays: staff.available_days || [],
+            timeSlots: staff.time_slots || [],
+            daily_appointment_limit: staff.daily_appointment_limit || 10,
+            blocked_dates: staff.blocked_dates || [],
+            isActive: true
+          })));
+          
+          // Map dentists to schedule format
+          setDentistSchedules(dentists.map((staff: any) => ({
+            id: staff.id.toString(),
+            dentistName: staff.full_name,
+            campus: staff.assigned_campuses ? 
+              (Array.isArray(staff.assigned_campuses) ? 
+                staff.assigned_campuses.map((c: string) => `Campus ${c.toUpperCase()}`).join(', ') :
+                `Campus ${staff.assigned_campuses.toUpperCase()}`) : 
+              'Campus A',
+            availableDays: staff.available_days || [],
+            timeSlots: staff.time_slots || [],
+            daily_appointment_limit: staff.daily_appointment_limit || 10,
+            blocked_dates: staff.blocked_dates || [],
+            isActive: true
+          })));
+        }
+      } catch (staffError) {
+        console.warn('Staff details not available:', staffError);
+        setMedicalStaffSchedules([]);
+        setDentistSchedules([]);
+      }
 
       // Try to fetch school year data separately to handle 404 gracefully
       let schoolYearData = [];
@@ -280,30 +335,6 @@ export default function AdminControls() {
           openTime: schedule.open_time,
           closeTime: schedule.close_time,
           days: schedule.operating_days || [],
-          isActive: schedule.is_active
-        })));
-      }
-
-      if (dentistResponse.data) {
-        setDentistSchedules(dentistResponse.data.map((schedule: any) => ({
-          id: schedule.id.toString(),
-          dentistName: schedule.dentist_name,
-          campus: `Campus ${schedule.campus.toUpperCase()}`,
-          availableDays: schedule.available_days || [],
-          timeSlots: schedule.time_slots || [],
-          isActive: schedule.is_active
-        })));
-      }
-
-      if (medicalStaffResponse.data) {
-        setMedicalStaffSchedules(medicalStaffResponse.data.map((schedule: any) => ({
-          id: schedule.id.toString(),
-          staffName: schedule.staff_name,
-          position: schedule.position || 'Medical Staff',
-          campus: `Campus ${schedule.campus.toUpperCase()}`,
-          availableDays: schedule.available_days || [],
-          timeSlots: schedule.time_slots || [],
-          daily_appointment_limit: schedule.daily_appointment_limit || 10,
           isActive: schedule.is_active
         })));
       }
@@ -1453,6 +1484,7 @@ export default function AdminControls() {
       availableDays: [],
       timeSlots: [],
       daily_appointment_limit: 10,
+      blocked_dates: [],
       isActive: true,
       isNew: true
     };
@@ -2325,10 +2357,28 @@ export default function AdminControls() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Medical Staff Schedules Overview</h3>
-                    <p className="text-sm text-gray-500">View all medical staff schedules. Staff members manage their own schedules in Account Settings.</p>
+                    <p className="text-sm text-gray-500 mt-1">View schedules for all medical staff (Doctors, Nurses, Medical Staff). Staff members manage their appointment limits and blocked dates in Account Settings.</p>
                   </div>
                   <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
-                    ℹ️ Staff edit their schedules in Account Settings
+                    ℹ️ Staff configure schedules in Account Settings → Working Schedule
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 rounded-r-lg">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-blue-800 font-medium">How Medical Staff Schedules Work:</p>
+                      <ul className="mt-2 text-sm text-blue-700 space-y-1 list-disc list-inside">
+                        <li><strong>Working Hours:</strong> Administrators set campus operating days/hours in <strong>Campus Schedules</strong></li>
+                        <li><strong>Staff Availability:</strong> Individual staff set their daily appointment limits and blocked dates in <strong>Account Settings</strong></li>
+                        <li><strong>Appointments:</strong> System respects both campus hours AND staff availability when scheduling</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
 
@@ -2338,8 +2388,16 @@ export default function AdminControls() {
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
-                      <p className="mt-2 text-gray-600">No medical staff schedules configured yet</p>
-                      <p className="text-sm text-gray-500 mt-1">Staff members can set up their schedules in Account Settings</p>
+                      <p className="mt-2 text-gray-600 font-medium">No medical staff schedules found</p>
+                      <p className="text-sm text-gray-500 mt-1">Medical staff members need to complete their profiles in Account Settings</p>
+                      <div className="mt-4 text-xs text-gray-500 bg-white border border-gray-200 rounded p-3 inline-block">
+                        <p className="font-semibold mb-1">To appear here, staff must:</p>
+                        <ol className="list-decimal list-inside text-left space-y-1">
+                          <li>Go to Account Settings → Staff Details</li>
+                          <li>Set their position (Doctor, Nurse, etc.)</li>
+                          <li>Configure their Working Schedule tab</li>
+                        </ol>
+                      </div>
                     </div>
                   ) : (
                     medicalStaffSchedules.map((schedule) => (
@@ -2373,37 +2431,7 @@ export default function AdminControls() {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Available Days</label>
-                            {schedule.availableDays.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {schedule.availableDays.map(day => (
-                                  <span key={day} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded border border-green-200">
-                                    {day}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No days set</p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Time Slots</label>
-                            {schedule.timeSlots.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {schedule.timeSlots.map((slot, idx) => (
-                                  <span key={idx} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded border border-indigo-200 font-mono">
-                                    {slot}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No time slots set</p>
-                            )}
-                          </div>
-
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Daily Appointment Limit</label>
                             <div className="flex items-center space-x-2">
@@ -2416,6 +2444,29 @@ export default function AdminControls() {
                             </div>
                             <p className="text-xs text-gray-500 mt-1">Maximum appointments per day</p>
                           </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Blocked Dates</label>
+                            {schedule.blocked_dates && schedule.blocked_dates.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                                {schedule.blocked_dates.map((date, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-red-50 text-red-700 text-xs rounded border border-red-200 whitespace-nowrap">
+                                    {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-500 italic">No blocked dates</p>
+                            )}
+                            <p className="text-xs text-gray-500 mt-1">Dates when staff is unavailable</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 p-3 rounded">
+                          <p className="text-xs text-blue-700">
+                            <strong>Note:</strong> Working days and hours are configured by administrators in <strong>Campus Schedules</strong>. 
+                            Staff can only manage their appointment limits and blocked dates in their Account Settings.
+                          </p>
                         </div>
                       </div>
                     ))
@@ -2430,10 +2481,28 @@ export default function AdminControls() {
                 <div className="flex justify-between items-center">
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">Dentist Schedules Overview</h3>
-                    <p className="text-sm text-gray-500">View all dentist schedules. Dental staff manage their own schedules in Account Settings.</p>
+                    <p className="text-sm text-gray-500 mt-1">View schedules for all dental staff (Dentists, Dental Staff). Dental staff manage their appointment limits and blocked dates in Account Settings.</p>
                   </div>
                   <div className="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg border border-blue-200">
-                    ℹ️ Staff edit their schedules in Account Settings
+                    ℹ️ Dental staff configure schedules in Account Settings → Working Schedule
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-teal-50 to-cyan-50 border-l-4 border-teal-500 p-4 rounded-r-lg">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-teal-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-teal-800 font-medium">How Dental Staff Schedules Work:</p>
+                      <ul className="mt-2 text-sm text-teal-700 space-y-1 list-disc list-inside">
+                        <li><strong>Working Hours:</strong> Administrators set campus operating days/hours in <strong>Campus Schedules</strong></li>
+                        <li><strong>Dentist Availability:</strong> Individual dentists set their daily appointment limits and blocked dates in <strong>Account Settings</strong></li>
+                        <li><strong>Appointments:</strong> System respects both campus hours AND dentist availability when scheduling</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
 
@@ -2443,8 +2512,16 @@ export default function AdminControls() {
                       <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
-                      <p className="mt-2 text-gray-600">No dentist schedules configured yet</p>
-                      <p className="text-sm text-gray-500 mt-1">Dental staff can set up their schedules in Account Settings</p>
+                      <p className="mt-2 text-gray-600 font-medium">No dental staff schedules found</p>
+                      <p className="text-sm text-gray-500 mt-1">Dental staff members need to complete their profiles in Account Settings</p>
+                      <div className="mt-4 text-xs text-gray-500 bg-white border border-gray-200 rounded p-3 inline-block">
+                        <p className="font-semibold mb-1">To appear here, dental staff must:</p>
+                        <ol className="list-decimal list-inside text-left space-y-1">
+                          <li>Go to Account Settings → Staff Details</li>
+                          <li>Set their position (Dentist, Dental Staff, etc.)</li>
+                          <li>Configure their Working Schedule tab</li>
+                        </ol>
+                      </div>
                     </div>
                   ) : (
                     dentistSchedules.map((schedule) => (
@@ -2474,34 +2551,40 @@ export default function AdminControls() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
                           <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Available Days</label>
-                            {schedule.availableDays.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {schedule.availableDays.map(day => (
-                                  <span key={day} className="px-2 py-1 bg-green-50 text-green-700 text-xs rounded border border-green-200">
-                                    {day}
-                                  </span>
-                                ))}
-                              </div>
-                            ) : (
-                              <p className="text-sm text-gray-500 italic">No days set</p>
-                            )}
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Daily Appointment Limit</label>
+                            <div className="flex items-center space-x-2">
+                              <span className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-sm font-semibold rounded border border-amber-200">
+                                <svg className="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                </svg>
+                                {schedule.daily_appointment_limit || 10} appointments/day
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">Maximum appointments per day</p>
                           </div>
 
                           <div>
-                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Time Slots</label>
-                            {schedule.timeSlots.length > 0 ? (
-                              <div className="flex flex-wrap gap-1.5">
-                                {schedule.timeSlots.map((slot, idx) => (
-                                  <span key={idx} className="px-2 py-1 bg-indigo-50 text-indigo-700 text-xs rounded border border-indigo-200 font-mono">
-                                    {slot}
+                            <label className="block text-xs font-semibold text-gray-600 uppercase mb-2">Blocked Dates</label>
+                            {schedule.blocked_dates && schedule.blocked_dates.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto">
+                                {schedule.blocked_dates.map((date, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-red-50 text-red-700 text-xs rounded border border-red-200 whitespace-nowrap">
+                                    {new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                                   </span>
                                 ))}
                               </div>
                             ) : (
-                              <p className="text-sm text-gray-500 italic">No time slots set</p>
+                              <p className="text-sm text-gray-500 italic">No blocked dates</p>
                             )}
+                            <p className="text-xs text-gray-500 mt-1">Dates when dentist is unavailable</p>
                           </div>
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 p-3 rounded">
+                          <p className="text-xs text-blue-700">
+                            <strong>Note:</strong> Working days and hours are configured by administrators in <strong>Campus Schedules</strong>. 
+                            Dental staff can only manage their appointment limits and blocked dates in their Account Settings.
+                          </p>
                         </div>
                       </div>
                     ))

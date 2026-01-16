@@ -143,7 +143,7 @@ class PatientSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'student_id', 'name', 'first_name', 'middle_name', 'suffix',
             'photo', 'gender', 'date_of_birth', 'age', 'department', 'contact_number',
-            'email', 'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 
+            'email', 'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 'religion_specify',
             'nationality', 'nationality_specify', 'civil_status', 'emergency_contact_surname', 
             'emergency_contact_first_name', 'emergency_contact_middle_name',
             'emergency_contact_number', 'emergency_contact_relationship',
@@ -339,6 +339,20 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
                     'hospital_admission_year': 'Please provide the year when hospital admission or surgery occurred.'
                 })
         
+        # Nationality specification validation
+        if attrs.get('nationality') == 'Other':
+            if not attrs.get('nationality_specify') or not attrs.get('nationality_specify').strip():
+                raise serializers.ValidationError({
+                    'nationality': 'Please specify the nationality when "Other" is selected.'
+                })
+        
+        # Religion specification validation
+        if attrs.get('religion') == 'Other':
+            if not attrs.get('religion_specify') or not attrs.get('religion_specify').strip():
+                raise serializers.ValidationError({
+                    'religion': 'Please specify the religion when "Other" is selected.'
+                })
+        
         return attrs
 
     def validate_comorbid_illnesses(self, value):
@@ -400,20 +414,14 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
 
     def validate_religion(self, value):
         """Validate religion field and handle 'Other' specification"""
-        if isinstance(value, dict):
-            if value.get('name') == 'Other' and not value.get('specify'):
-                raise serializers.ValidationError("Please specify the religion when 'Other' is selected.")
-        elif value == 'Other':
-            raise serializers.ValidationError("Please specify the religion when 'Other' is selected.")
+        # Allow 'Other' value - it will be validated in the main validate() method
+        # along with religion_specify field
         return value
 
     def validate_nationality(self, value):
         """Validate nationality field and handle 'Other' specification"""
-        if isinstance(value, dict):
-            if value.get('name') == 'Other' and not value.get('specify'):
-                raise serializers.ValidationError("Please specify the nationality when 'Other' is selected.")
-        elif value == 'Other':
-            raise serializers.ValidationError("Please specify the nationality when 'Other' is selected.")
+        # Allow 'Other' value - it will be validated in the main validate() method
+        # along with nationality_specify field
         return value
 
     def validate_civil_status(self, value):

@@ -69,20 +69,23 @@ def clear_database():
         # Delete patients
         patient_deleted = Patient.objects.all().delete()[0]
         
-        # Delete users (keep superusers for admin access)
-        regular_users = CustomUser.objects.filter(is_superuser=False)
-        user_deleted = regular_users.delete()[0]
+        # Delete users (keep specific users)
+        kept_emails = ['faminianochristianjude@gmail.com', 'admin@wmsu.edu.ph']
+        users_to_delete = CustomUser.objects.exclude(email__in=kept_emails)
+        user_deleted = users_to_delete.delete()[0]
         
         print(f"✅ Deleted {dental_deleted} dental forms")
         print(f"✅ Deleted {medical_doc_deleted} medical documents")
         print(f"✅ Deleted {appointment_deleted} appointments")
         print(f"✅ Deleted {medical_record_deleted} medical records")
         print(f"✅ Deleted {patient_deleted} patients")
-        print(f"✅ Deleted {user_deleted} users (kept superusers)")
+        print(f"✅ Deleted {user_deleted} users (kept {', '.join(kept_emails)})")
         
-        # Show remaining superusers
-        remaining_superusers = CustomUser.objects.filter(is_superuser=True).count()
-        print(f"📋 Remaining superusers: {remaining_superusers}")
+        # Show remaining users
+        remaining_users = CustomUser.objects.filter(email__in=kept_emails)
+        print(f"📋 Remaining users:")
+        for user in remaining_users:
+            print(f"   - {user.email} (ID: {user.id})")
         
         print("\n🎉 Database cleared successfully!")
         print("🔄 You can now test fresh signups.")

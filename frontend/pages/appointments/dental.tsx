@@ -23,11 +23,14 @@ import { appointmentsAPI, djangoApiClient, dentalWaiversAPI, waiversAPI } from '
 
 // Type definitions
 interface DentistSchedule {
-  dentist_name: string;
+  id: number;
+  user: number;
+  first_name: string;
+  last_name: string;
+  position: string;
   campus: string;
-  available_days: string[];
-  time_slots: string[];
-  is_active: boolean;
+  blocked_dates: string[];
+  daily_appointment_limit: number;
 }
 
 interface Requirements {
@@ -220,7 +223,9 @@ export default function DentalAppointmentPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [dentistSchedule, setDentistSchedule] = useState<DentistSchedule | null>(null);
+  const [dentistStaff, setDentistStaff] = useState<DentistSchedule[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<DentistSchedule | null>(null);
+  const [availableStaff, setAvailableStaff] = useState<DentistSchedule[]>([]);
   const [currentSchoolYear, setCurrentSchoolYear] = useState<any>(null);
   const [currentSemester, setCurrentSemester] = useState<string>('');
   const [patientId, setPatientId] = useState<number | null>(null);
@@ -262,10 +267,17 @@ export default function DentalAppointmentPage() {
 
   // Load initial data
   useEffect(() => {
-    loadDentistSchedule();
+    loadDentistStaff();
     loadCurrentSchoolYear();
     loadPatientProfile();
   }, []);
+
+  // Check available staff when date changes
+  useEffect(() => {
+    if (date && dentistStaff.length > 0) {
+      checkAvailableStaff();
+    }
+  }, [date, dentistStaff]);
 
   const checkRequirements = async () => {
     // Removed - this is the final step, no requirements checking needed
@@ -295,56 +307,84 @@ export default function DentalAppointmentPage() {
     }
   };
 
-  const loadDentistSchedule = async (): Promise<void> => {
+  const loadDentistStaff = async (): Promise<void> => {
     try {
-      const response = await djangoApiClient.get('/admin-controls/dentist_schedules/');
-      const schedules = response.data || [];
+      const response = await djangoApiClient.get('/staff-details/');
+      const allStaff = response.data || [];
       
-      // Find the dentist schedule for Campus A
-      const campusADentist = schedules.find((schedule: any) => 
-        schedule.campus.toLowerCase() === 'a' && schedule.is_active
+      // Filter for dentist positions at Campus A
+      const dentists = allStaff.filter((staff: any) => 
+        ['Dentist', 'Dental Staff'].includes(staff.position) && 
+        staff.campus?.toLowerCase() === 'a'
       );
       
-      if (campusADentist) {
-        setDentistSchedule(campusADentist);
-      } else {
-        setError('No active dentist schedule found for Campus A. Please contact the administrator.');
+      setDentistStaff(dentists);
+      
+      if (dentists.length === 0) {
+        setError('No dentists available for Campus A. Please contact the administrator.');
       }
     } catch (error) {
-      console.error('Error loading dentist schedule:', error);
-      setError('Failed to load dentist schedule. Please try again later or contact the administrator.');
+      console.error('Error loading dentist staff:', error);
+      setError('Failed to load dentist information. Please try again later.');
     }
   };
 
-  // Check if dentist is available on selected date
-  function isDentistAvailable(dateStr: string): boolean {
-    if (!dentistSchedule || !dateStr) return false;
-    
-    const selectedDate = new Date(dateStr);
-    const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
-    
-    return dentistSchedule.available_days.includes(dayName);
-  }
+  const checkAvailableStaff = async (): Promise<void> => {
+    if (!date || dentistStaff.length === 0) {
+      setAvailableStaff([]);
+      return;
+    }
 
-  // Get available time slots for selected date
-  function getAvailableTimeSlots(dateStr: string): string[] {
-    if (!isDentistAvailable(dateStr) || !dentistSchedule) return [];
-    
-    const today = new Date();
-    const selectedDate = new Date(dateStr);
-    const isToday = dateStr === today.toISOString().slice(0, 10);
-    
-    return dentistSchedule.time_slots.filter(slot => {
-      if (!isToday) return true;
+    try {
+      // Get all dental appointments for the selected date
+      const appointmentsResponse = await djangoApiClient.get('/appointments/', {
+        params: {
+          appointment_date: date,
+          type: 'dental'
+        }
+      });
+
+      const dayAppointments = appointmentsResponse.data || [];
+
+      // Filter available staff based on blocked dates and appointment limits
+      const available = dentistStaff.filter((staff) => {
+        // Check if date is blocked
+        const blockedDates = staff.blocked_dates || [];
+        if (blockedDates.includes(date)) {
+          return false;
+        }
+
+        // Check appointment limit
+        const staffAppointments = dayAppointments.filter((appt: any) => 
+          appt.assigned_staff === staff.id && 
+          ['pending', 'confirmed'].includes(appt.status)
+        );
+
+        const limit = staff.daily_appointment_limit || 10;
+        return staffAppointments.length < limit;
+      });
+
+      setAvailableStaff(available);
       
-      // For same day appointments, filter out past time slots
-      const [startTime] = slot.split('-');
-      const [hours, minutes] = startTime.split(':').map(Number);
-      const slotTime = new Date(today);
-      slotTime.setHours(hours, minutes, 0, 0);
-      
-      return slotTime > today;
-    });
+      // Auto-select first available staff
+      if (available.length > 0 && !selectedStaff) {
+        setSelectedStaff(available[0]);
+      } else if (available.length === 0) {
+        setSelectedStaff(null);
+        setError('No dentists available on this date. Please select another date.');
+      } else if (selectedStaff && !available.find(s => s.id === selectedStaff.id)) {
+        // If previously selected staff is no longer available, select first available
+        setSelectedStaff(available[0]);
+      }
+    } catch (error) {
+      console.error('Error checking available staff:', error);
+    }
+  };
+
+  // Check if any dentist is available on selected date
+  function isDentistAvailable(dateStr: string): boolean {
+    if (!dateStr || availableStaff.length === 0) return false;
+    return true;
   }
 
   function getDayOfWeek(dateStr: string): number | null {
@@ -356,21 +396,12 @@ export default function DentalAppointmentPage() {
     // Only Campus A has dental services
     if (campus !== 'A') return false;
     
-    // Check if dentist is available on this day
-    return isDentistAvailable(dateStr);
+    // Check if any dentist is available on this day
+    return availableStaff.length > 0;
   }
 
   function isTimeValid(time: string, dateStr: string): boolean {
-    if (!time || !dentistSchedule) return false;
-    
-    // Check if the selected time is within available time slots
-    const availableSlots = getAvailableTimeSlots(dateStr);
-    const isTimeInSlot = availableSlots.some(slot => {
-      const [startTime, endTime] = slot.split('-');
-      return time >= startTime && time < endTime;
-    });
-    
-    if (!isTimeInSlot) return false;
+    if (!time) return false;
     
     // If today, time must be in the future
     const today = new Date();
@@ -390,19 +421,11 @@ export default function DentalAppointmentPage() {
     const max = addDays(new Date(), 61); // 2 months + 1 day
     if (d > max) return true;
     
-    // Check if dentist is available on this day
-    if (!isDentistAvailable(dateStr)) return true;
-    
     return false;
   }
 
   function isTimeInputDisabled(): boolean {
-    if (!isCampusOpen(campus, date) || !date || isDateDisabled(date)) return true;
-    
-    // Check if there are available time slots
-    const slots = getAvailableTimeSlots(date);
-    if (slots.length === 0) return true;
-    
+    if (!date || isDateDisabled(date) || availableStaff.length === 0) return true;
     return false;
   }
 
@@ -410,13 +433,22 @@ export default function DentalAppointmentPage() {
     e.preventDefault();
     setError('');
     
-    // Validate appointment data
-    if (!isCampusOpen(campus, date)) {
-      setError('Dental services are not available on the selected day.');
+    // Validate staff availability
+    if (availableStaff.length === 0) {
+      setError('No dentists are available on the selected date. Please choose another date.');
       return;
     }
+
+    // Auto-select first available dentist if none selected
+    const assignedDentist = selectedStaff || availableStaff[0];
+    if (!assignedDentist) {
+      setError('No dentists available. Please try another date.');
+      return;
+    }
+    
+    // Validate appointment data
     if (!isTimeValid(time, date)) {
-      setError('Please select a valid time slot from the dentist\'s available schedule.');
+      setError('Please select a valid time.');
       return;
     }
 
@@ -436,6 +468,7 @@ export default function DentalAppointmentPage() {
         status: 'pending',
         campus: 'a', // Always Campus A for dental
         concern,
+        assigned_staff: assignedDentist.id, // Assign the first available dentist
       };
 
       // Add school year if available
@@ -464,10 +497,6 @@ export default function DentalAppointmentPage() {
   // Dummy handlers for Layout
   const handleLoginClick = () => {};
   const handleSignupClick = () => {};
-
-  const day = getDayOfWeek(date);
-  const campusOpen = isCampusOpen(campus, date);
-  const currentTimeSlots = getAvailableTimeSlots(date);
 
   // For date input min/max
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -517,14 +546,21 @@ export default function DentalAppointmentPage() {
                   </div>
                 )}
                 
-                {dentistSchedule && (
+                {dentistStaff.length > 0 && (
                   <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                     <div className="text-sm text-blue-800">
-                      <strong>Dentist:</strong> {dentistSchedule.dentist_name}
+                      <strong>Available Dentists:</strong> {dentistStaff.length}
                     </div>
-                    <div className="text-sm text-blue-600">
-                      Available: {dentistSchedule.available_days.join(', ')}
-                    </div>
+                    {date && availableStaff.length > 0 && (
+                      <div className="text-sm text-green-600">
+                        {availableStaff.length} dentist{availableStaff.length !== 1 ? 's' : ''} available on selected date
+                      </div>
+                    )}
+                    {date && availableStaff.length === 0 && dentistStaff.length > 0 && (
+                      <div className="text-sm text-red-600">
+                        No dentists available on selected date (blocked or limit reached)
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -561,9 +597,9 @@ export default function DentalAppointmentPage() {
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
                         required
                       />
-                      {date && !isCampusOpen(campus, date) && (
+                      {date && availableStaff.length === 0 && dentistStaff.length > 0 && (
                         <p className="text-red-500 text-sm mt-1">
-                          Dental services are not available on this day. Please select a weekday.
+                          No dentists available on this date. All dentists are blocked or have reached their appointment limit.
                         </p>
                       )}
                     </div>
@@ -572,34 +608,17 @@ export default function DentalAppointmentPage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Time *
                       </label>
-                      {currentTimeSlots.length > 0 ? (
-                        <select
-                          value={time}
-                          onChange={(e) => setTime(e.target.value)}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
-                          disabled={isTimeInputDisabled()}
-                          required
-                        >
-                          <option value="">Select a time slot</option>
-                          {currentTimeSlots.map(slot => (
-                            <option key={slot} value={slot.split('-')[0]}>
-                              {slot}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <input
-                          type="time"
-                          value={time}
-                          onChange={(e) => setTime(e.target.value)}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
-                          disabled={isTimeInputDisabled()}
-                          required
-                        />
-                      )}
+                      <input
+                        type="time"
+                        value={time}
+                        onChange={(e) => setTime(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                        disabled={isTimeInputDisabled()}
+                        required
+                      />
                       {isTimeInputDisabled() && (
                         <p className="text-gray-500 text-sm mt-1">
-                          Please select a valid date first to see available time slots.
+                          Please select a valid date first.
                         </p>
                       )}
                     </div>

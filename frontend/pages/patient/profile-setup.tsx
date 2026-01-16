@@ -527,14 +527,16 @@ export default function PatientProfileSetupPage() {
   const sanitizeInput = (value: string, type: 'text' | 'email' | 'phone' | 'number' | 'name' = 'text'): string => {
     if (!value) return value;
     
-    let sanitized = value.toString().trim();
+    let sanitized = value.toString();
     
     switch (type) {
       case 'name':
-        // Remove numbers and special characters except hyphens, apostrophes, periods
-        sanitized = sanitized.replace(/[^a-zA-Z\s\-'\.]/g, '');
-        // Capitalize first letter of each word
-        sanitized = sanitized.replace(/\b\w/g, l => l.toUpperCase());
+        // Remove numbers and special characters except spaces, hyphens, apostrophes, periods
+        sanitized = sanitized.replace(/[^a-zA-Z\s\-'\.ñÑ]/g, '');
+        // Remove multiple consecutive spaces
+        sanitized = sanitized.replace(/\s+/g, ' ');
+        // Remove leading spaces only (not trailing, to allow typing)
+        sanitized = sanitized.replace(/^\s+/, '');
         break;
       case 'email':
         // Convert to lowercase and remove invalid characters
@@ -752,9 +754,16 @@ export default function PatientProfileSetupPage() {
       }
 
       // Nationality specification validation
-      if (profile?.nationality === 'Foreigner') {
+      if (profile?.nationality === 'Other') {
         if (!profile?.nationality_specify || profile.nationality_specify.trim() === '') {
           errors.nationality_specify = 'Please specify your nationality.';
+        }
+      }
+
+      // Religion specification validation
+      if (profile?.religion === 'Other') {
+        if (!profile?.religion_specify || profile.religion_specify.trim() === '') {
+          errors.religion_specify = 'Please specify your religion.';
         }
       }
 
@@ -975,6 +984,8 @@ export default function PatientProfileSetupPage() {
       if (errors.strand) stepSpecificErrors.strand = errors.strand;
       // Nationality specification
       if (errors.nationality_specify) stepSpecificErrors.nationality_specify = errors.nationality_specify;
+      // Religion specification
+      if (errors.religion_specify) stepSpecificErrors.religion_specify = errors.religion_specify;
     } else if (step === 2) {
       if (errors.food_allergy_specify) stepSpecificErrors.food_allergy_specify = errors.food_allergy_specify;
       if (errors.other_comorbid_specify) stepSpecificErrors.other_comorbid_specify = errors.other_comorbid_specify;
@@ -1338,6 +1349,7 @@ export default function PatientProfileSetupPage() {
     if (currentSchoolYear && currentSemester) {
       fetchProfile();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSchoolYear, currentSemester]);
 
   const handleProfileChange = (field: string, value: any) => {
@@ -1396,8 +1408,8 @@ export default function PatientProfileSetupPage() {
       return;
     }
     
-    // Handle nationality change - clear nationality_specify if not Foreigner
-    if (field === 'nationality' && value !== 'Foreigner') {
+    // Handle nationality change - clear nationality_specify if not Other
+    if (field === 'nationality' && value !== 'Other') {
       setProfile((prev: any) => {
         const newProfile = { ...prev, nationality: value, nationality_specify: '' };
         
@@ -1406,6 +1418,31 @@ export default function PatientProfileSetupPage() {
           setFieldErrors(prevErrors => {
             const newErrors = { ...prevErrors };
             delete newErrors.nationality_specify;
+            return newErrors;
+          });
+        }
+        
+        // Check for changes
+        if (originalProfile) {
+          const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
+          setHasUnsavedChanges(hasChanges);
+        }
+        
+        return newProfile;
+      });
+      return;
+    }
+    
+    // Handle religion change - clear religion_specify if not Other
+    if (field === 'religion' && value !== 'Other') {
+      setProfile((prev: any) => {
+        const newProfile = { ...prev, religion: value, religion_specify: '' };
+        
+        // Clear religion_specify error if it exists
+        if (fieldErrors.religion_specify) {
+          setFieldErrors(prevErrors => {
+            const newErrors = { ...prevErrors };
+            delete newErrors.religion_specify;
             return newErrors;
           });
         }
@@ -1460,6 +1497,14 @@ export default function PatientProfileSetupPage() {
     
     setProfile((prev: any) => {
       const newProfile = { ...prev, [field]: sanitizedValue };
+      
+      // Debug logging for nationality_specify and religion_specify
+      if (field === 'nationality_specify' || field === 'religion_specify') {
+        console.log(`=== ${field} UPDATED ===`);
+        console.log('New value:', sanitizedValue);
+        console.log('Previous value:', prev?.[field]);
+        console.log('Full profile after update:', newProfile);
+      }
       
       // Real-time validation feedback - clear error for this field if it's now valid
       const validationError = validateField(field, sanitizedValue);
@@ -1540,11 +1585,26 @@ export default function PatientProfileSetupPage() {
       
       // Collect unique custom nationalities
       const customNationalities: string[] = Array.isArray(profile?.custom_nationalities) ? [...profile.custom_nationalities] : [];
-      if (profile?.nationality === 'Foreigner' && profile?.nationality_specify && profile.nationality_specify.trim()) {
+      if (profile?.nationality === 'Other' && profile?.nationality_specify && profile.nationality_specify.trim()) {
         const trimmedNationality = profile.nationality_specify.trim();
         if (!customNationalities.some(nat => nat.toLowerCase() === trimmedNationality.toLowerCase())) {
           customNationalities.push(trimmedNationality);
         }
+        console.log('Adding custom nationality:', trimmedNationality);
+      } else if (profile?.nationality === 'Other') {
+        console.warn('Nationality is "Other" but nationality_specify is empty:', profile?.nationality_specify);
+      }
+      
+      // Collect unique custom religions
+      const customReligions: string[] = Array.isArray(profile?.custom_religions) ? [...profile.custom_religions] : [];
+      if (profile?.religion === 'Other' && profile?.religion_specify && profile.religion_specify.trim()) {
+        const trimmedReligion = profile.religion_specify.trim();
+        if (!customReligions.some(rel => rel.toLowerCase() === trimmedReligion.toLowerCase())) {
+          customReligions.push(trimmedReligion);
+        }
+        console.log('Adding custom religion:', trimmedReligion);
+      } else if (profile?.religion === 'Other') {
+        console.warn('Religion is "Other" but religion_specify is empty:', profile?.religion_specify);
       }
       
       // Collect custom comorbid illness specifications tied to specific illnesses
@@ -1601,6 +1661,7 @@ export default function PatientProfileSetupPage() {
         comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null,
         custom_drug_names: customDrugNames.length > 0 ? customDrugNames : null,
         custom_nationalities: customNationalities.length > 0 ? customNationalities : null,
+        custom_religions: customReligions.length > 0 ? customReligions : null,
         custom_comorbid_illnesses: customComorbidIllnesses.length > 0 ? customComorbidIllnesses : null,
         custom_comorbid_specifications: Object.keys(customComorbidSpecifications).length > 0 ? customComorbidSpecifications : null,
         custom_menstrual_symptoms: customMenstrualSymptoms.length > 0 ? customMenstrualSymptoms : null
@@ -1609,8 +1670,11 @@ export default function PatientProfileSetupPage() {
       // Debug log to see what's being saved
       if (process.env.NODE_ENV === 'development') {
         console.log('=== SAVING PROFILE WITH CUSTOM DATA ===');
+        console.log('Nationality:', enhancedProfile.nationality, 'Specify:', enhancedProfile.nationality_specify);
+        console.log('Religion:', enhancedProfile.religion, 'Specify:', enhancedProfile.religion_specify);
         console.log('Custom drug names:', customDrugNames);
         console.log('Custom nationalities:', customNationalities);
+        console.log('Custom religions:', customReligions);
         console.log('Custom comorbid illnesses (Other):', customComorbidIllnesses);
         console.log('Custom comorbid specifications:', customComorbidSpecifications);
         console.log('Custom menstrual symptoms:', customMenstrualSymptoms);
@@ -1621,6 +1685,7 @@ export default function PatientProfileSetupPage() {
         ...profile,
         custom_drug_names: customDrugNames.length > 0 ? customDrugNames : profile?.custom_drug_names || [],
         custom_nationalities: customNationalities.length > 0 ? customNationalities : profile?.custom_nationalities || [],
+        custom_religions: customReligions.length > 0 ? customReligions : profile?.custom_religions || [],
         custom_comorbid_illnesses: customComorbidIllnesses.length > 0 ? customComorbidIllnesses : profile?.custom_comorbid_illnesses || [],
         custom_comorbid_specifications: Object.keys(customComorbidSpecifications).length > 0 ? customComorbidSpecifications : profile?.custom_comorbid_specifications || {},
         custom_menstrual_symptoms: customMenstrualSymptoms.length > 0 ? customMenstrualSymptoms : profile?.custom_menstrual_symptoms || []
@@ -1628,17 +1693,45 @@ export default function PatientProfileSetupPage() {
       
       // Prepare the form data
       const formData = new FormData();
+      
+      // Log nationality and religion fields before building FormData
+      console.log('=== BEFORE FORMDATA BUILD ===');
+      console.log('enhancedProfile.nationality:', enhancedProfile.nationality);
+      console.log('enhancedProfile.nationality_specify:', enhancedProfile.nationality_specify);
+      console.log('enhancedProfile.religion:', enhancedProfile.religion);
+      console.log('enhancedProfile.religion_specify:', enhancedProfile.religion_specify);
+      
       for (const key in enhancedProfile) {
         if (enhancedProfile[key] !== undefined && enhancedProfile[key] !== null) {
+          // Skip specification fields if they are empty strings (shouldn't happen due to validation, but double-check)
+          if ((key === 'nationality_specify' || key === 'religion_specify') && 
+              typeof enhancedProfile[key] === 'string' && 
+              enhancedProfile[key].trim() === '') {
+            console.log(`Skipping empty ${key} field`);
+            continue;
+          }
+          
           if (key === 'photo' && enhancedProfile[key] instanceof File) {
             formData.append('photo', enhancedProfile[key]);
           } else if (typeof enhancedProfile[key] === 'object' && !(enhancedProfile[key] instanceof File)) {
             formData.append(key, JSON.stringify(enhancedProfile[key]));
           } else if (key !== 'photo') {
             formData.append(key, enhancedProfile[key]);
+            // Log nationality and religion fields when added to FormData
+            if (key === 'nationality' || key === 'nationality_specify' || key === 'religion' || key === 'religion_specify') {
+              console.log(`FormData.append('${key}', '${enhancedProfile[key]}')`);
+            }
           }
         }
       }
+      
+      // Log what's actually in FormData
+      console.log('=== FORMDATA CONTENTS ===');
+      Array.from(formData.entries()).forEach(([key, value]) => {
+        if (key === 'nationality' || key === 'nationality_specify' || key === 'religion' || key === 'religion_specify') {
+          console.log(key + ': ' + value);
+        }
+      });
       
       // Handle photo: use new photo if uploaded, otherwise preserve existing photo
       if (photoFile) {
@@ -1763,15 +1856,41 @@ export default function PatientProfileSetupPage() {
       // Refresh the profile data
       await fetchProfile();
       
+      // Update user data in localStorage to reflect profile changes
+      try {
+        const userStr = localStorage.getItem('user');
+        if (userStr) {
+          const userData = JSON.parse(userStr);
+          // Update user data with profile information
+          // Note: profile.name is the surname/last name in the database
+          userData.first_name = profile.first_name || userData.first_name;
+          userData.middle_name = profile.middle_name || userData.middle_name;
+          userData.last_name = profile.name || userData.last_name;
+          localStorage.setItem('user', JSON.stringify(userData));
+        }
+      } catch (error) {
+        console.error('Error updating localStorage user data:', error);
+      }
+      
       setSuccess(true);
       setFeedbackOpen(true);
     } catch (err: any) {
+      console.error('=== BACKEND ERROR DETAILS ===');
+      console.error('Full error object:', err);
+      console.error('Error response:', err.response);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+      
       let msg = 'Failed to save profile.';
       if (err.response && err.response.data) {
         if (typeof err.response.data === 'string') {
           msg = err.response.data;
         } else if (typeof err.response.data === 'object') {
-          msg = Object.values(err.response.data).flat().join(' ');
+          // Log each field error
+          console.error('Field errors:', err.response.data);
+          msg = Object.entries(err.response.data)
+            .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+            .join('\n');
         }
       }
       setError(msg);
@@ -2784,31 +2903,75 @@ export default function PatientProfileSetupPage() {
                       onChange={e => handleProfileChange('religion', e.target.value)}
                     >
                       <option value="">Select religion</option>
-                      <option value="Roman Catholic">Roman Catholic</option>
-                      <option value="Seventh-day Adventist">Seventh-day Adventist</option>
-                      <option value="Islam">Islam</option>
-                      <option value="Protestant">Protestant</option>
-                      <option value="Iglesia ni Cristo">Iglesia ni Cristo</option>
-                      <option value="Other">Other</option>
+                      <optgroup label="Christian - Catholic">
+                        <option value="Roman Catholic">Roman Catholic</option>
+                        <option value="Independent Catholic">Independent Catholic</option>
+                        <option value="Aglipayan (Philippine Independent Church)">Aglipayan (Philippine Independent Church)</option>
+                      </optgroup>
+                      <optgroup label="Christian - Protestant">
+                        <option value="Baptist">Baptist</option>
+                        <option value="Methodist">Methodist</option>
+                        <option value="Presbyterian">Presbyterian</option>
+                        <option value="Lutheran">Lutheran</option>
+                        <option value="Anglican/Episcopalian">Anglican/Episcopalian</option>
+                        <option value="Evangelical">Evangelical</option>
+                        <option value="Pentecostal">Pentecostal</option>
+                        <option value="Born Again Christian">Born Again Christian</option>
+                        <option value="United Church of Christ">United Church of Christ</option>
+                        <option value="Church of Christ">Church of Christ</option>
+                      </optgroup>
+                      <optgroup label="Christian - Other Denominations">
+                        <option value="Iglesia ni Cristo">Iglesia ni Cristo</option>
+                        <option value="Iglesia Filipina Independiente">Iglesia Filipina Independiente</option>
+                        <option value="Members Church of God International (MCGI)">Members Church of God International (MCGI)</option>
+                        <option value="Seventh-day Adventist">Seventh-day Adventist</option>
+                        <option value="Jesus is Lord Church">Jesus is Lord Church</option>
+                        <option value="Jesus Miracle Crusade">Jesus Miracle Crusade</option>
+                        <option value="Kingdom of Jesus Christ">Kingdom of Jesus Christ</option>
+                        <option value="Philippine Benevolent Missionaries Association">Philippine Benevolent Missionaries Association</option>
+                        <option value="Jehovah's Witnesses">Jehovah&apos;s Witnesses</option>
+                        <option value="Church of Jesus Christ of Latter-day Saints (Mormon)">Church of Jesus Christ of Latter-day Saints (Mormon)</option>
+                      </optgroup>
+                      <optgroup label="Islam">
+                        <option value="Islam - Sunni">Islam - Sunni</option>
+                        <option value="Islam - Shia">Islam - Shia</option>
+                        <option value="Islam">Islam (Other)</option>
+                      </optgroup>
+                      <optgroup label="Other Religions">
+                        <option value="Buddhism">Buddhism</option>
+                        <option value="Hinduism">Hinduism</option>
+                        <option value="Sikhism">Sikhism</option>
+                        <option value="Judaism">Judaism</option>
+                        <option value="Bahá'í Faith">Bahá&apos;í Faith</option>
+                        <option value="Taoism">Taoism</option>
+                        <option value="Confucianism">Confucianism</option>
+                        <option value="Indigenous/Tribal Religion">Indigenous/Tribal Religion</option>
+                      </optgroup>
+                      <optgroup label="Non-Religious">
+                        <option value="Atheist">Atheist</option>
+                        <option value="Agnostic">Agnostic</option>
+                        <option value="No Religion">No Religion</option>
+                      </optgroup>
+                      <option value="Prefer not to say">Prefer not to say</option>
                     </select>
                     {fieldErrors.religion && <div className="text-red-500 text-xs mt-1">{fieldErrors.religion}</div>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Nationality *</label>
                     <select
-                      className="w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors border-gray-300"
+                      className={`w-full border rounded-md shadow-sm py-3 px-4 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 transition-colors ${fieldErrors.nationality ? 'border-red-500' : 'border-gray-300'}`}
                       value={profile?.nationality || ''}
                       onChange={e => handleProfileChange('nationality', e.target.value)}
                     >
                       <option value="">Select nationality</option>
                       <option value="Filipino">Filipino</option>
-                      <option value="Foreigner">Foreigner</option>
-                      <option value="Other">Other</option>
+                      <option value="Other">Other (Specify below)</option>
                     </select>
+                    {fieldErrors.nationality && <div className="text-red-500 text-xs mt-1">{fieldErrors.nationality}</div>}
                   </div>
                   
-                  {/* Show nationality specification field when Foreigner is selected */}
-                  {profile?.nationality === 'Foreigner' && (
+                  {/* Show nationality specification field when Other is selected */}
+                  {profile?.nationality === 'Other' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Specify Nationality *
@@ -4762,6 +4925,10 @@ export default function PatientProfileSetupPage() {
       console.log('Is edit mode:', isEditMode);
       console.log('Has unsaved changes:', hasUnsavedChanges);
       console.log('About to validate step:', currentStep);
+      console.log('Profile nationality:', profile?.nationality);
+      console.log('Profile nationality_specify:', profile?.nationality_specify);
+      console.log('Profile religion:', profile?.religion);
+      console.log('Profile religion_specify:', profile?.religion_specify);
     }
     
     // ALWAYS validate current step before proceeding (regardless of edit mode)

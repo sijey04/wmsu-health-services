@@ -139,26 +139,64 @@ export default function MedicalAppointmentPage() {
   const [currentSchoolYear, setCurrentSchoolYear] = useState(null);
   const [needsProfile, setNeedsProfile] = useState(false);
   const [campusSchedule, setCampusSchedule] = useState(null);
+  const [medicalStaff, setMedicalStaff] = useState([]);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [availableStaff, setAvailableStaff] = useState([]);
 
   // Check for existing appointments and load current school year on component mount
   useEffect(() => {
     checkExistingAppointments();
     loadCurrentSchoolYear();
-    loadCampusSchedule();
   }, []);
+
+  // Load campus schedule and medical staff when campus changes
+  useEffect(() => {
+    if (campus) {
+      loadCampusSchedule();
+      loadMedicalStaff();
+    }
+  }, [campus]);
+
+  // Check available staff when date changes
+  useEffect(() => {
+    if (date && medicalStaff.length > 0) {
+      checkAvailableStaff();
+    }
+  }, [date, medicalStaff]);
 
   const loadCampusSchedule = async () => {
     try {
       const response = await djangoApiClient.get('/admin-controls/campus_schedules/');
       const schedules = response.data || [];
       
-      // Find the schedule for the selected campus
-      const selectedSchedule = schedules.find((schedule: any) => 
-        schedule.campus.toLowerCase() === campus.toLowerCase() && schedule.is_active
-      );
+      console.log('Campus schedules loaded:', schedules);
+      console.log('Looking for campus:', campus);
+      
+      // Find the schedule for the selected campus - handle multiple formats
+      const selectedSchedule = schedules.find((schedule: any) => {
+        const scheduleCampus = schedule.campus?.toString().toUpperCase().trim();
+        const selectedCampus = campus.toUpperCase().trim();
+        
+        // Match: "A" with "A", "Campus A" with "A", "a" with "A", etc.
+        return scheduleCampus === selectedCampus || 
+               scheduleCampus === `CAMPUS ${selectedCampus}` ||
+               scheduleCampus?.endsWith(selectedCampus);
+      });
       
       if (selectedSchedule) {
+        console.log('Found campus schedule:', selectedSchedule);
         setCampusSchedule(selectedSchedule);
+      } else {
+        console.warn('No campus schedule found, using default');
+        // Set default schedule if not found
+        const defaultSchedule = {
+          campus: campus,
+          open_time: '08:00',
+          close_time: '17:00',
+          days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          is_active: true
+        };
+        setCampusSchedule(defaultSchedule);
       }
     } catch (error) {
       console.error('Error loading campus schedule:', error);
@@ -212,6 +250,81 @@ export default function MedicalAppointmentPage() {
     return { blocked: false, reason: '' };
   };
 
+  const loadMedicalStaff = async () => {
+    try {
+      const response = await djangoApiClient.get('/staff-details/');
+      const allStaff = response.data || [];
+      
+      // Filter for medical staff (not dentists) assigned to selected campus
+      const medicalStaffFiltered = allStaff.filter((staff) => {
+        const positions = ['Doctor', 'Nurse', 'Medical Staff', 'Administrator'];
+        const hasCorrectPosition = positions.includes(staff.position);
+        
+        // Check if assigned to selected campus
+        const assignedCampuses = Array.isArray(staff.assigned_campuses) 
+          ? staff.assigned_campuses 
+          : (staff.assigned_campuses || '').split(',').filter((c) => c.trim());
+        
+        const isAssignedToCampus = assignedCampuses.includes(campus.toLowerCase());
+        
+        return hasCorrectPosition && isAssignedToCampus;
+      });
+      
+      setMedicalStaff(medicalStaffFiltered);
+    } catch (error) {
+      console.error('Error loading medical staff:', error);
+      setMedicalStaff([]);
+    }
+  };
+
+  const checkAvailableStaff = async () => {
+    if (!date) {
+      setAvailableStaff([]);
+      return;
+    }
+
+    try {
+      // Get all appointments for the selected date
+      const appointmentsResponse = await djangoApiClient.get('/appointments/', {
+        params: {
+          appointment_date: date,
+          type: 'medical'
+        }
+      });
+      const dayAppointments = appointmentsResponse.data || [];
+
+      // Filter staff who are available on this date
+      const available = medicalStaff.filter((staff) => {
+        // Check if date is blocked
+        const blockedDates = staff.blocked_dates || [];
+        if (blockedDates.includes(date)) {
+          return false;
+        }
+
+        // Count appointments for this staff on this date
+        const staffAppointments = dayAppointments.filter((appt) => 
+          appt.assigned_staff === staff.id && 
+          ['pending', 'confirmed'].includes(appt.status)
+        );
+
+        const appointmentLimit = staff.daily_appointment_limit || 10;
+        return staffAppointments.length < appointmentLimit;
+      });
+
+      setAvailableStaff(available);
+      
+      // Auto-select first available staff
+      if (available.length > 0 && !selectedStaff) {
+        setSelectedStaff(available[0]);
+      } else if (available.length === 0) {
+        setSelectedStaff(null);
+      }
+    } catch (error) {
+      console.error('Error checking staff availability:', error);
+      setAvailableStaff([]);
+    }
+  };
+
   const loadCurrentSchoolYear = async () => {
     try {
       const response = await djangoApiClient.get('/academic-school-years/current/');
@@ -224,29 +337,41 @@ export default function MedicalAppointmentPage() {
     }
   };
 
-  // Reload campus schedule when campus changes
-  useEffect(() => {
-    if (campus) {
-      loadCampusSchedule();
-    }
-  }, [campus]);
-
   function getDayOfWeek(dateStr) {
     if (!dateStr) return null;
     return new Date(dateStr).getDay();
   }
 
   function isCampusOpen(campus, dateStr) {
-    if (!campusSchedule) return false;
+    if (!campusSchedule) {
+      console.log('No campus schedule loaded');
+      return false;
+    }
     
     const selectedDate = new Date(dateStr);
     const dayName = selectedDate.toLocaleDateString('en-US', { weekday: 'long' });
+    
+    console.log('Checking if campus open:', {
+      date: dateStr,
+      dayName: dayName,
+      campusScheduleDays: campusSchedule.days,
+      isIncluded: campusSchedule.days.includes(dayName)
+    });
     
     return campusSchedule.days.includes(dayName);
   }
 
   function getCampusHours(campus, day) {
-    if (!campusSchedule || !isCampusOpen(campus, date)) return null;
+    if (!campusSchedule) return null;
+    
+    // If no date selected yet, show campus operating hours
+    if (!date) {
+      return [campusSchedule.open_time, campusSchedule.close_time];
+    }
+    
+    // If date is selected, check if campus is open on that day
+    if (!isCampusOpen(campus, date)) return null;
+    
     return [campusSchedule.open_time, campusSchedule.close_time];
   }
 
@@ -289,7 +414,11 @@ export default function MedicalAppointmentPage() {
   }
 
   function isTimeInputDisabled() {
-    if (!campusSchedule || !campusOpen || !hours || !date || isDateDisabled(date)) return true;
+    if (!campusSchedule || !date || isDateDisabled(date)) return true;
+    
+    // Check if campus is open on selected date
+    if (!isCampusOpen(campus, date)) return true;
+    
     // If today, only allow if before closing time
     const today = new Date();
     if (date === today.toISOString().slice(0, 10)) {
@@ -307,9 +436,17 @@ export default function MedicalAppointmentPage() {
       setError(blockingReason);
       return;
     }
-    
-    if (!isCampusOpen(campus, date)) {
-      setError('Selected campus is closed on this day.');
+
+    // Check if staff is available
+    if (availableStaff.length === 0) {
+      setError('No medical staff available on this date. Please try another date.');
+      return;
+    }
+
+    // Auto-select first available staff if none selected
+    const assignedStaff = selectedStaff || availableStaff[0];
+    if (!assignedStaff) {
+      setError('No medical staff available. Please try another date.');
       return;
     }
     if (!isTimeValid(time, date)) {
@@ -348,6 +485,7 @@ export default function MedicalAppointmentPage() {
         type: 'medical',
         status: 'pending',
         concern: '',
+        assigned_staff: assignedStaff.id,
       };
 
       // Add school year if available
@@ -429,6 +567,24 @@ export default function MedicalAppointmentPage() {
                   </div>
                 </div>
               )}
+
+              {medicalStaff.length > 0 && (!date || isCampusOpen(campus, date)) && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-800">
+                    <strong>Available Medical Staff:</strong> {medicalStaff.length}
+                  </div>
+                  {date && availableStaff.length > 0 && (
+                    <div className="text-sm text-green-600">
+                      {availableStaff.length} staff member{availableStaff.length !== 1 ? 's' : ''} available on selected date
+                    </div>
+                  )}
+                  {date && availableStaff.length === 0 && medicalStaff.length > 0 && (
+                    <div className="text-sm text-red-600">
+                      No staff available on selected date (blocked or limit reached)
+                    </div>
+                  )}
+                </div>
+              )}
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -449,13 +605,15 @@ export default function MedicalAppointmentPage() {
                   <div className="mt-1 text-center text-xs text-gray-500">
                     {hours ? formatTimeRange(hours[0], hours[1]) : 'Closed'}
                   </div>
+                  {date && !isCampusOpen(campus, date) && (
+                    <div className="text-red-600 text-xs font-semibold mt-1 text-center">
+                      Campus is closed on this day. Please select a weekday.
+                    </div>
+                  )}
                   {date === new Date().toISOString().slice(0, 10) && new Date().getHours() >= 11 && (
                     <div className="text-red-600 text-xs font-semibold mt-1 text-center">Same-day appointments end at 11:00 AM.</div>
                   )}
                 </div>
-                {!campusOpen && date && (
-                  <div className="text-red-600 text-sm font-semibold text-center py-2 bg-red-50 rounded-lg">This campus is closed on the selected day.</div>
-                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit</label>
                   <textarea value={reason} onChange={e => setReason(e.target.value)} required rows={3} className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]" disabled={!campusOpen || !hours || isDateDisabled(date)} />
