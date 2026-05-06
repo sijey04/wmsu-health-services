@@ -270,7 +270,7 @@ function MedicalCertificateViewer() {
               <iframe
                 src={medicalDoc.medical_certificate.startsWith('http') 
                   ? medicalDoc.medical_certificate 
-                  : `http://localhost:8000${medicalDoc.medical_certificate}`}
+                  : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${medicalDoc.medical_certificate}`}
                 className="w-full h-96"
                 title="Medical Certificate PDF"
               />

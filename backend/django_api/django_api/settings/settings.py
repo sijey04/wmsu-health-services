@@ -186,12 +186,22 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = False  # Better to explicitly list allowed origins
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:3001",  # Next.js might run on 3001 if 3000 is taken
+    "http://localhost:3001",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
+    "https://wmsuhealthservices.netlify.app",
+    "https://gleaming-consideration-production-647d.up.railway.app",
+]
+
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://wmsuhealthservices.netlify.app",
+    "https://gleaming-consideration-production-647d.up.railway.app",
 ]
 CORS_ALLOW_CREDENTIALS = True
 
