@@ -435,7 +435,7 @@ class Command(BaseCommand):
         status = "created" if created else "existing"
         self.stdout.write(self.style.SUCCESS(f"* {'Employee' if is_employee else 'Patient'} profile {status}: {patient.student_id}"))
         return patient
-坐
+
     def _ensure_appointments_and_records(self, patient, staff_user, school_year):
         today = timezone.now().date()
         medical_date = today - timedelta(days=3)
