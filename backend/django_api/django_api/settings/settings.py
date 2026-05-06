@@ -3,6 +3,7 @@ Django settings for django_api project.
 """
 
 import os
+import dj_database_url
 from pathlib import Path
 from dotenv import load_dotenv
 import pymysql
@@ -73,10 +74,10 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'django_api.wsgi.application'
 
-# Database - TiDB or MySQL configuration
+# Database - Support for TiDB, Railway MySQL, and DATABASE_URL
 TIDB_HOST = os.getenv('TIDB_HOST')
-# Railway MySQL variables
 RAILWAY_MYSQL_HOST = os.getenv('MYSQLHOST')
+DATABASE_URL = os.getenv('DATABASE_URL')
 
 if TIDB_HOST:
     DATABASES = {
@@ -106,6 +107,14 @@ elif RAILWAY_MYSQL_HOST:
                 'charset': 'utf8mb4',
             },
         }
+    }
+elif DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            engine='django_api.db_backends.mysql_compat'
+        )
     }
 else:
     DATABASES = {
