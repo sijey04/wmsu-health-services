@@ -106,6 +106,7 @@ class Command(BaseCommand):
             self._ensure_announcements(admin_user)
             self._ensure_notifications(admin_user)
             self._ensure_extra_sample_data(staff_user, school_year)
+            self._ensure_historical_data(staff_user, school_year)
 
         self._print_credentials()
         self.stdout.write(self.style.SUCCESS("Seeding completed."))
@@ -315,9 +316,13 @@ class Command(BaseCommand):
 
     def _ensure_inventory(self):
         items = [
-            {"item_name": "Surgical mask", "item_type": "equipment", "quantity": 120},
-            {"item_name": "Alcohol 70%", "item_type": "supply", "quantity": 40},
-            {"item_name": "Thermometer", "item_type": "equipment", "quantity": 10},
+            {"item_name": "Surgical mask", "item_type": "equipment", "quantity": 120, "description": "3-ply surgical masks"},
+            {"item_name": "Alcohol 70%", "item_type": "supply", "quantity": 40, "description": "Isopropyl alcohol"},
+            {"item_name": "Thermometer", "item_type": "equipment", "quantity": 10, "description": "Digital infrared thermometer"},
+            {"item_name": "Paracetamol 500mg", "item_type": "medicine", "quantity": 500, "description": "Pain reliever/fever reducer"},
+            {"item_name": "Amoxicillin 500mg", "item_type": "medicine", "quantity": 200, "description": "Antibiotic"},
+            {"item_name": "Gauze pads", "item_type": "supply", "quantity": 300, "description": "Sterile gauze pads 4x4"},
+            {"item_name": "Medical gloves (L)", "item_type": "supply", "quantity": 150, "description": "Latex-free gloves"},
         ]
 
         for item in items:
@@ -640,6 +645,41 @@ class Command(BaseCommand):
             )
 
         self.stdout.write(self.style.SUCCESS("* Extra sample students and appointments ready"))
+
+    def _ensure_historical_data(self, staff_user, school_year):
+        import random
+        from datetime import timedelta
+
+        today = timezone.now().date()
+        # Seed 20 historical appointments over the last 60 days
+        patients = list(Patient.objects.all())
+        if not patients:
+            return
+
+        purposes = ["Consultation", "Follow-up", "Medical Certificate", "Physical Exam", "Fever", "Cough"]
+        statuses = ["completed", "completed", "completed", "cancelled"] # Mostly completed for analytics
+
+        for i in range(20):
+            days_ago = random.randint(1, 60)
+            appt_date = today - timedelta(days=days_ago)
+            patient = random.choice(patients)
+            
+            Appointment.objects.get_or_create(
+                patient=patient,
+                appointment_date=appt_date,
+                appointment_time=time(random.randint(8, 16), 0),
+                defaults={
+                    "doctor": staff_user,
+                    "purpose": random.choice(purposes),
+                    "status": random.choice(statuses),
+                    "type": "medical",
+                    "campus": random.choice(["a", "b"]),
+                    "school_year": school_year,
+                    "notes": "Historical seeded data",
+                }
+            )
+        
+        self.stdout.write(self.style.SUCCESS("* Historical appointment data ready for analytics"))
 
     def _print_credentials(self):
         self.stdout.write("\nSeed user credentials:")
