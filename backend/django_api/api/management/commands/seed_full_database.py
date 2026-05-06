@@ -65,6 +65,16 @@ SEED_USERS = [
         "first_name": "Sample",
         "last_name": "Student",
     },
+    {
+        "label": "Employee",
+        "email": "employee@wmsu.test",
+        "password": "WmsuEmployee123!",
+        "user_type": "employee",
+        "is_staff": False,
+        "is_superuser": False,
+        "first_name": "Sample",
+        "last_name": "Employee",
+    },
 ]
 
 
@@ -95,8 +105,9 @@ class Command(BaseCommand):
             self._ensure_dental_supplies()
             self._ensure_inventory()
 
-            admin_user, staff_user, student_user = self._ensure_seed_users(reset_users)
+            admin_user, staff_user, student_user, employee_user = self._ensure_seed_users(reset_users)
             patient = self._ensure_patient_profile(student_user, school_year)
+            employee_patient = self._ensure_patient_profile(employee_user, school_year, is_employee=True)
 
             self._ensure_staff_details(staff_user)
             self._ensure_appointments_and_records(patient, staff_user, school_year)
@@ -365,7 +376,7 @@ class Command(BaseCommand):
             status = "created" if created else "existing"
             self.stdout.write(self.style.SUCCESS(f"* {entry['label']} user {status}: {entry['email']}"))
 
-        return users[0], users[1], users[2]
+        return users[0], users[1], users[2], users[3]
 
     def _ensure_staff_details(self, staff_user):
         StaffDetails.objects.get_or_create(
@@ -382,37 +393,37 @@ class Command(BaseCommand):
         )
         self.stdout.write(self.style.SUCCESS("* Staff details ready"))
 
-    def _ensure_patient_profile(self, student_user, school_year):
+    def _ensure_patient_profile(self, student_user, school_year, is_employee=False):
         semester = school_year.get_current_semester() or "1st_semester"
         patient, created = Patient.objects.get_or_create(
             user=student_user,
             school_year=school_year,
             semester=semester,
             defaults={
-                "student_id": f"STU-{student_user.id:04d}",
+                "student_id": f"EMP-{student_user.id:04d}" if is_employee else f"STU-{student_user.id:04d}",
                 "name": f"{student_user.last_name}, {student_user.first_name}",
                 "first_name": student_user.first_name,
                 "surname": student_user.last_name,
-                "gender": "Female",
-                "date_of_birth": date(2004, 5, 15),
-                "age": 21,
+                "gender": "Male" if is_employee else "Female",
+                "date_of_birth": date(1985, 3, 10) if is_employee else date(2004, 5, 15),
+                "age": 41 if is_employee else 21,
                 "email": student_user.email,
-                "contact_number": "09123456789",
-                "address": "WMSU Campus, Zamboanga City",
+                "contact_number": "09111111111" if is_employee else "09123456789",
+                "address": "WMSU Staff Housing, Zamboanga City",
                 "city_municipality": "Zamboanga City",
                 "barangay": "Baliwasan",
                 "street": "Normal Road",
-                "blood_type": "O+",
+                "blood_type": "A+",
                 "religion": "Roman Catholic",
                 "nationality": "Filipino",
-                "civil_status": "single",
-                "user_type": "College",
-                "course": "BS Computer Science",
-                "year_level": "3rd Year",
+                "civil_status": "married" if is_employee else "single",
+                "user_type": "Faculty" if is_employee else "College",
+                "course": "N/A" if is_employee else "BS Computer Science",
+                "year_level": "N/A" if is_employee else "3rd Year",
                 "record_completion_status": "completed",
                 "emergency_contact_name": "Emergency Contact",
                 "emergency_contact_number": "09987654321",
-                "emergency_contact_relationship": "Parent",
+                "emergency_contact_relationship": "Spouse" if is_employee else "Parent",
                 "comorbid_illnesses": ["None"],
                 "maintenance_medications": ["None"],
                 "vaccination_history": {"COVID-19": "Fully Vaccinated"},
@@ -422,9 +433,9 @@ class Command(BaseCommand):
         )
 
         status = "created" if created else "existing"
-        self.stdout.write(self.style.SUCCESS(f"* Patient profile {status}: {patient.student_id}"))
+        self.stdout.write(self.style.SUCCESS(f"* {'Employee' if is_employee else 'Patient'} profile {status}: {patient.student_id}"))
         return patient
-
+坐
     def _ensure_appointments_and_records(self, patient, staff_user, school_year):
         today = timezone.now().date()
         medical_date = today - timedelta(days=3)
