@@ -1,4 +1,4 @@
-﻿from rest_framework import viewsets, permissions, status, serializers
+from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -15,7 +15,8 @@ from .models import (
     SystemConfiguration, ProfileRequirement, DocumentRequirement, 
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
-    DentalInformationRecord, ContentManagement, Announcement, UserAnnouncementView, Course
+    DentalInformationRecord, ContentManagement, Announcement, UserAnnouncementView, Course,
+    Notification
 )
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
@@ -28,7 +29,8 @@ from .serializers import (
     AcademicSchoolYearSerializer, UserManagementSerializer, UserBlockSerializer,
     ComorbidIllnessSerializer, VaccinationSerializer, PastMedicalHistoryItemSerializer,
     FamilyMedicalHistoryItemSerializer, DentalInformationRecordSerializer, ContentManagementSerializer,
-    AnnouncementSerializer, UserAnnouncementViewSerializer, CourseSerializer
+    AnnouncementSerializer, UserAnnouncementViewSerializer, CourseSerializer,
+    NotificationSerializer
 )
 from rest_framework.views import APIView
 from django.db.models import Q, Count
@@ -410,24 +412,18 @@ class PatientViewSet(viewsets.ModelViewSet):
                 Q(department__icontains=search)
             )
         
-        # Return only the latest profile per email (deduplicate by email)
+        # Return only the latest profile per student_id (deduplicate by student_id) for the list action
         # For admin view, show only the most recent profile per person
-        # Use email as the unique identifier since it's more reliable than user_id
-        from django.db.models import Max, Case, When, Value, CharField, F
-        from django.db.models.functions import Coalesce
-        
-        # Get the email to use for each patient (prefer patient.email, fallback to user.email)
-        queryset = queryset.annotate(
-            dedupe_email=Coalesce('email', 'user__email', Value(''))
-        )
-        
-        # Find the latest profile ID for each unique email
-        latest_per_email = queryset.values('dedupe_email').annotate(
-            latest_id=Max('id')
-        ).values_list('latest_id', flat=True)
-        
-        # Filter to only include the latest profiles
-        queryset = queryset.filter(id__in=latest_per_email)
+        if self.action == 'list':
+            from django.db.models import Max
+            
+            # Find the latest profile ID for each unique student_id
+            latest_per_student = queryset.values('student_id').annotate(
+                latest_id=Max('id')
+            ).values_list('latest_id', flat=True)
+            
+            # Filter to only include the latest profiles
+            queryset = queryset.filter(id__in=latest_per_student)
         
         return queryset
 
@@ -718,6 +714,30 @@ class PatientViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
 
     @action(detail=False, methods=['get'])
+    def by_student_id(self, request):
+        """Get all patient profiles by student ID (returns all versions/updates)"""
+        student_id = request.query_params.get('student_id')
+        if not student_id:
+            return Response({'detail': 'student_id parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get ALL patient profiles with this student_id
+        # Order by most recent first
+        profiles = Patient.objects.filter(student_id=student_id).select_related('school_year').order_by('-updated_at', '-created_at')
+        
+        if not profiles.exists():
+            return Response({'detail': 'No patient profile found for this student ID.'}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Check permissions - only staff/admin can view other people's profiles
+        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin']):
+            # For patients, only return profiles linked to their user account
+            profiles = profiles.filter(user=request.user)
+            if not profiles.exists():
+                raise PermissionDenied("You can only view your own patient profile.")
+        
+        serializer = self.get_serializer(profiles, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'])
     def my_profiles(self, request):
         """Get all patient profiles for the current user across all school years"""
         user = request.user
@@ -749,37 +769,35 @@ class PatientViewSet(viewsets.ModelViewSet):
         target_school_year_id = school_year_id or (current_school_year.id if current_school_year else None)
         target_semester = semester or '1st_semester'  # Default to first semester
         
-        # Check if user has an existing profile for target school year and semester
+        # Get the absolute most recent profile from any semester/year for autofill
+        # This ensures we always have the "latest copy" of the patient's data
+        latest_profile = user.patient_profiles.select_related('school_year').order_by(
+            '-school_year__end_date', 
+            '-created_at', 
+            '-id'
+        ).first()
+        
+        previous_profile = latest_profile
+        autofilled_from_year = str(previous_profile.school_year) if previous_profile and previous_profile.school_year else 'Unknown Year'
+        autofilled_from_semester = None
+        
+        if previous_profile:
+            semester_display = {
+                '1st_semester': 'First Semester',
+                '2nd_semester': 'Second Semester', 
+                'summer': 'Summer Semester'
+            }.get(previous_profile.semester, previous_profile.semester)
+            autofilled_from_semester = semester_display
+            
+        # Check if user has an existing profile for exactly the target school year and semester
         existing_profile = None
         if target_school_year_id and target_semester:
             existing_profile = user.patient_profiles.filter(
                 school_year_id=target_school_year_id,
                 semester=target_semester
-            ).first()
+            ).order_by('-created_at', '-id').first()
         
-        # Get the most recent profile from previous semester/year for autofill
-        previous_profile = None
-        autofilled_from_year = None
-        autofilled_from_semester = None
-        
-        if not existing_profile:
-            # Look for profiles in previous semesters, prioritizing recent ones
-            all_profiles = user.patient_profiles.exclude(
-                school_year_id=target_school_year_id,
-                semester=target_semester
-            ).order_by('-school_year__end_date', '-created_at')
-            
-            previous_profile = all_profiles.first()
-            if previous_profile:
-                autofilled_from_year = str(previous_profile.school_year) if previous_profile.school_year else 'Unknown Year'
-                semester_display = {
-                    '1st_semester': 'First Semester',
-                    '2nd_semester': 'Second Semester', 
-                    'summer': 'Summer Semester'
-                }.get(previous_profile.semester, previous_profile.semester)
-                autofilled_from_semester = semester_display
-        
-        # Use existing profile if available, otherwise use previous profile for autofill
+        # Use existing profile if it's the latest, otherwise use latest_profile for autofill
         source_profile = existing_profile or previous_profile
         
         # Prepare autofill data starting with user info
@@ -797,6 +815,7 @@ class PatientViewSet(viewsets.ModelViewSet):
             'has_previous_data': previous_profile is not None,
             'autofilled_from_year': autofilled_from_year,
             'autofilled_from_semester': autofilled_from_semester,
+            'is_latest_copy': source_profile == latest_profile if source_profile and latest_profile else False
         }
         
         # If we have a source profile (current or previous), include basic autofill data
@@ -812,6 +831,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'age': source_profile.age or '',
                 'sex': source_profile.gender or '',  # Maps to sex field in dental form
                 'date_of_birth': source_profile.date_of_birth.isoformat() if source_profile.date_of_birth else '',
+                'photo': source_profile.photo.url if source_profile.photo else '',
                 
                 # Additional personal information (kept for compatibility)
                 'first_name': source_profile.first_name or user.first_name or '',
@@ -898,27 +918,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(campus=user.staff_details.campus_assigned)
                 # If no staff details, show all (for backward compatibility)
                 
-            elif user.get_current_patient_profile():
-                # Patients can only see their own appointments
-                current_patient_profile = user.get_current_patient_profile()
-                queryset = Appointment.objects.filter(patient=current_patient_profile).select_related('patient', 'doctor')
             else:
-                # No profile, try to get or create one
-                try:
-                    current_school_year = AcademicSchoolYear.objects.get(is_current=True)
-                    patient_profile, created = user.patient_profiles.get_or_create(
-                        school_year=current_school_year,
-                        defaults={
-                            'name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
-                            'first_name': user.first_name or '',
-                            'email': user.email,
-                            'student_id': f"TEMP-{user.id}",
-                        }
-                    )
-                    queryset = Appointment.objects.filter(patient=patient_profile).select_related('patient', 'doctor')
-                except AcademicSchoolYear.DoesNotExist:
-                    # No active school year, return empty queryset
-                    queryset = Appointment.objects.none()
+                # Patients can see all their appointments across all school years/profiles
+                queryset = Appointment.objects.filter(patient__user=user).select_related('patient', 'doctor')
+                
+                # If no profile exists yet, create one for the current year to enable future bookings
+                if not user.patient_profiles.exists():
+                    try:
+                        current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+                        user.get_or_create_patient_profile(school_year=current_school_year)
+                    except AcademicSchoolYear.DoesNotExist:
+                        pass
 
             # --- Filtering from query parameters ---
 
@@ -942,6 +952,14 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             if (user.is_staff or user.user_type in ['staff', 'admin']) and patient_id:
                 try:
                     queryset = queryset.filter(patient_id=int(patient_id))
+                except (ValueError, TypeError):
+                    pass
+                
+            # Filter by user ID (to see appointments across all patient profiles/years)
+            user_id = self.request.query_params.get('user_id')
+            if (user.is_staff or user.user_type in ['staff', 'admin']) and user_id:
+                try:
+                    queryset = queryset.filter(patient__user_id=int(user_id))
                 except (ValueError, TypeError):
                     pass
                 
@@ -1037,6 +1055,31 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
                 raise serializers.ValidationError(f"Could not create patient profile: {str(e)}")
+    
+    def perform_update(self, serializer):
+        # Get old status
+        instance = self.get_object()
+        old_status = instance.status
+        
+        # Save the updated appointment
+        appointment = serializer.save()
+        new_status = appointment.status
+        
+        # Notify if status changed to completed
+        if old_status != 'completed' and new_status == 'completed':
+            if appointment.patient and appointment.patient.user:
+                message = "Your appointment results are now available."
+                if appointment.type == 'medical':
+                    message = "Your medical appointment results are now available."
+                elif appointment.type == 'dental':
+                    message = "Your dental appointment results are now available."
+                
+                create_notification(
+                    user=appointment.patient.user,
+                    message=message,
+                    type='success',
+                    link='/appointments'
+                )
     
     @action(detail=True, methods=['post'])
     def reschedule(self, request, pk=None):
@@ -1392,6 +1435,15 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             doc.certificate_emailed_by = request.user
             doc.save()
             
+            # Notify the patient
+            if hasattr(doc, 'patient') and doc.patient.user:
+                create_notification(
+                    user=doc.patient.user,
+                    message="Your medical certificate has been issued.",
+                    type='success',
+                    link='/patient/upload-documents'
+                )
+            
             return Response({
                 'detail': f'Medical certificate sent successfully to {recipient_email}'
             }, status=status.HTTP_200_OK)
@@ -1412,13 +1464,12 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You don't have permission to view this certificate.")
         
         try:
-            # Find the medical document for this patient and academic year
+            # Find the medical document for this patient
             from .models import MedicalDocument
             medical_doc = MedicalDocument.objects.filter(
                 patient=appointment.patient,
-                status='issued',
-                academic_year=appointment.school_year
-            ).first()
+                status='issued'
+            ).order_by('-certificate_issued_at', '-id').first()
             
             if not medical_doc or not medical_doc.medical_certificate:
                 return Response({
@@ -1460,13 +1511,12 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You don't have permission to download this certificate.")
         
         try:
-            # Find the medical document for this patient and academic year
+            # Find the medical document for this patient
             from .models import MedicalDocument
             medical_doc = MedicalDocument.objects.filter(
                 patient=appointment.patient,
-                status='issued',
-                academic_year=appointment.school_year
-            ).first()
+                status='issued'
+            ).order_by('-certificate_issued_at', '-id').first()
             
             if not medical_doc or not medical_doc.medical_certificate:
                 return Response({
@@ -1835,7 +1885,7 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def get_patient_data(self, request):
-        """Get patient data for dental form initialization"""
+        """Get patient data for dental form initialization with auto-fill from previous records"""
         appointment_id = request.query_params.get('appointment_id')
         
         if not appointment_id:
@@ -1844,42 +1894,38 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
         try:
             appointment = Appointment.objects.get(id=appointment_id)
             patient = appointment.patient
+            user = patient.user
             
-            # Get current user info for staff fields
-            user = request.user
+            # Get current user info for staff fields (examiner)
+            staff_user = request.user
             current_date = timezone.now().date()
             
             # Get staff details from StaffDetails table
-            examiner_name = user.username  # Fallback
+            examiner_name = staff_user.username  # Fallback
             examiner_position = ''
             examiner_license = ''
             examiner_ptr = ''
             examiner_phone = ''
             
             try:
-                staff_details = StaffDetails.objects.get(user=user)
+                staff_details = StaffDetails.objects.get(user=staff_user)
                 examiner_name = staff_details.full_name
                 examiner_position = staff_details.position
                 examiner_license = staff_details.license_number or ''
                 examiner_ptr = staff_details.ptr_number or ''
                 examiner_phone = staff_details.phone_number or ''
             except StaffDetails.DoesNotExist:
-                # If no staff details found, use user's basic info as fallback
-                examiner_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+                examiner_name = f"{staff_user.first_name} {staff_user.last_name}".strip() if staff_user.first_name or staff_user.last_name else staff_user.username
             
-            # Extract surname from name field (assuming format "Surname, First Name")
+            # Extract surname
             surname = ''
             if patient.name:
                 if ',' in patient.name:
                     surname = patient.name.split(',')[0].strip()
                 else:
-                    # If no comma, use the name as surname
                     surname = patient.name
             
-            # Calculate age from date of birth if available, otherwise use stored age
-            calculated_age = patient.get_age()
-            patient_age = calculated_age if calculated_age is not None else patient.age
-            
+            # Base data
             data = {
                 'patient_id': patient.id,
                 'file_no': patient.student_id or '',
@@ -1938,6 +1984,15 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
                         appointment.status = 'completed'
                         appointment.save()
                         appointment_completed = True
+                        
+                        # Notify the patient
+                        if appointment.patient and appointment.patient.user:
+                            create_notification(
+                                user=appointment.patient.user,
+                                message="Your dental appointment results are now available.",
+                                type='success',
+                                link='/appointments'
+                            )
                         
                         # Create next appointment if date is provided
                         next_date = request.data.get('next_appointment_date')
@@ -2809,6 +2864,92 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
             patients_verified = CustomUser.objects.filter(user_type='student', is_email_verified=True).count()
             patients_unverified = CustomUser.objects.filter(user_type='student', is_email_verified=False).count()
             
+            # Consultations by staff (doctor/clinician)
+            staff_consultations = Appointment.objects.filter(
+                status='completed',
+                doctor__isnull=False
+            ).values(
+                'doctor__id', 
+                'doctor__first_name', 
+                'doctor__last_name'
+            ).annotate(
+                count=Count('id')
+            ).order_by('-count')
+            
+            clinician_performance = [
+                {
+                    'id': item['doctor__id'],
+                    'name': f"{item['doctor__first_name']} {item['doctor__last_name']}".strip() or "Unknown Staff",
+                    'consultations': item['count']
+                }
+                for item in staff_consultations
+            ]
+
+            # Monthly trends (last 6 months)
+            six_months_ago = timezone.now() - timedelta(days=180)
+            monthly_data = Appointment.objects.filter(
+                appointment_date__gte=six_months_ago.date()
+            ).values('appointment_date__month', 'type').annotate(count=Count('id')).order_by('appointment_date__month')
+            
+            months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+            trends_dict = {}
+            for item in monthly_data:
+                month_idx = item['appointment_date__month'] - 1
+                month_name = months[month_idx]
+                if month_name not in trends_dict:
+                    trends_dict[month_name] = {'month': month_name, 'medical': 0, 'dental': 0, 'documents': 0}
+                
+                if item['type'] == 'medical':
+                    trends_dict[month_name]['medical'] += item['count']
+                elif item['type'] == 'dental':
+                    trends_dict[month_name]['dental'] += item['count']
+
+            # Add document trends
+            doc_trends = MedicalDocument.objects.filter(
+                created_at__gte=six_months_ago
+            ).values('created_at__month').annotate(count=Count('id'))
+            
+            for item in doc_trends:
+                month_idx = item['created_at__month'] - 1
+                month_name = months[month_idx]
+                if month_name not in trends_dict:
+                    trends_dict[month_name] = {'month': month_name, 'medical': 0, 'dental': 0, 'documents': 0}
+                trends_dict[month_name]['documents'] += item['count']
+
+            monthly_trends = list(trends_dict.values())
+
+            # Medicine and Supply Usage Aggregation
+            medicine_usage = {}
+            # From Dental forms
+            dental_forms = DentalFormData.objects.filter(used_medicines__isnull=False)
+            for form in dental_forms:
+                used = form.used_medicines
+                if isinstance(used, list):
+                    for item in used:
+                        name = item.get('name')
+                        if name:
+                            if name not in medicine_usage:
+                                medicine_usage[name] = {
+                                    'name': name,
+                                    'quantity': 0,
+                                    'unit': item.get('unit', 'pcs'),
+                                    'type': 'dental'
+                                }
+                            try:
+                                qty = int(item.get('quantity', 0))
+                                medicine_usage[name]['quantity'] += qty
+                            except (ValueError, TypeError):
+                                pass
+
+            # From Medical forms (if structured, otherwise count entries)
+            medical_forms_with_meds = MedicalFormData.objects.exclude(medications__isnull=True).exclude(medications='')
+            medical_med_count = medical_forms_with_meds.count()
+            
+            medicine_usage_list = sorted(list(medicine_usage.values()), key=lambda x: x['quantity'], reverse=True)
+
+            # User type breakdown (already being used in frontend, but let's ensure it's here if needed)
+            user_type_stats = CustomUser.objects.filter(user_type='student').values('patient_profiles__user_type').annotate(count=Count('id'))
+
             statistics = {
                 'semester': {
                     'id': current_semester.id if current_semester else None,
@@ -2835,7 +2976,11 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
                     'total': patients_total,
                     'verified': patients_verified,
                     'unverified': patients_unverified
-                }
+                },
+                'clinicians': clinician_performance,
+                'monthly_trends': monthly_trends,
+                'medicine_usage': medicine_usage_list,
+                'medical_med_total_entries': medical_med_count
             }
             
             return Response(statistics, status=status.HTTP_200_OK)
@@ -3518,6 +3663,15 @@ WMSU Health Services
         doc.rejection_reason = reason
         doc.save()
         
+        # Notify the patient
+        if hasattr(doc, 'patient') and doc.patient.user:
+            create_notification(
+                user=doc.patient.user,
+                message=f"Your medical documents were rejected. Reason: {reason}",
+                type='error',
+                link='/patient/upload-documents'
+            )
+        
         serializer = self.get_serializer(doc)
         response_data = serializer.data
         response_data['is_complete'] = getattr(doc, 'is_complete', False)
@@ -3533,16 +3687,22 @@ WMSU Health Services
             
         doc = self.get_object()
         
-        # More robust status checking - allow issuing if verified or already issued
-        if doc.status not in ['verified', 'issued']:
+        # More robust status checking - allow issuing if verified, pending, for_consultation or already issued
+        if doc.status not in ['verified', 'pending', 'for_consultation', 'issued']:
             return Response({
-                'detail': f'Documents must be verified before certificate can be issued. Current status: {doc.status}. Please verify the documents first.'
+                'detail': f'Documents in status {doc.status} cannot be issued a certificate. Current status: {doc.status}.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Update review information if not already reviewed
+        if not doc.reviewed_by:
+            doc.reviewed_by = request.user
+            doc.reviewed_at = timezone.now()
+            
         # Only update status if not already issued
         if doc.status != 'issued':
             doc.status = 'issued'
             doc.certificate_issued_at = timezone.now()
+            doc.rejection_reason = None # Clear any previous rejection reason
             
             # Generate and save the medical certificate PDF automatically
             try:
@@ -3555,6 +3715,15 @@ WMSU Health Services
                 print(f"Warning: Failed to generate PDF for medical certificate: {e}")
             
             doc.save()
+            
+            # Notify the patient
+            if hasattr(doc, 'patient') and doc.patient.user:
+                create_notification(
+                    user=doc.patient.user,
+                    message="Your medical certificate has been issued.",
+                    type='success',
+                    link='/patient/upload-documents'
+                )
         
         serializer = self.get_serializer(doc)
         response_data = serializer.data
@@ -3581,6 +3750,15 @@ WMSU Health Services
         doc.advised_for_consultation_by = request.user
         doc.advised_for_consultation_at = timezone.now()
         doc.save()
+        
+        # Notify the patient
+        if hasattr(doc, 'patient') and doc.patient.user:
+            create_notification(
+                user=doc.patient.user,
+                message=f"You have been advised for consultation. Reason: {reason}",
+                type='warning',
+                link='/patient/upload-documents'
+            )
         
         serializer = self.get_serializer(doc)
         response_data = serializer.data
@@ -3688,27 +3866,17 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
                     queryset = queryset.filter(campus=user.staff_details.campus_assigned)
                 # If no staff details, show all (for backward compatibility)
                 
-            elif user.get_current_patient_profile():
-                # Patients can only see their own appointments
-                current_patient_profile = user.get_current_patient_profile()
-                queryset = Appointment.objects.filter(patient=current_patient_profile).select_related('patient', 'doctor')
             else:
-                # No profile, try to get or create one
-                try:
-                    current_school_year = AcademicSchoolYear.objects.get(is_current=True)
-                    patient_profile, created = user.patient_profiles.get_or_create(
-                        school_year=current_school_year,
-                        defaults={
-                            'name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
-                            'first_name': user.first_name or '',
-                            'email': user.email,
-                            'student_id': f"TEMP-{user.id}",
-                        }
-                    )
-                    queryset = Appointment.objects.filter(patient=patient_profile).select_related('patient', 'doctor')
-                except AcademicSchoolYear.DoesNotExist:
-                    # No active school year, return empty queryset
-                    queryset = Appointment.objects.none()
+                # Patients can see all their appointments across all school years/profiles
+                queryset = Appointment.objects.filter(patient__user=user).select_related('patient', 'doctor')
+                
+                # If no profile exists yet, create one for the current year to enable future bookings
+                if not user.patient_profiles.exists():
+                    try:
+                        current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+                        user.get_or_create_patient_profile(school_year=current_school_year)
+                    except AcademicSchoolYear.DoesNotExist:
+                        pass
 
             # --- Filtering from query parameters ---
 
@@ -3827,6 +3995,31 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
                 raise serializers.ValidationError(f"Could not create patient profile: {str(e)}")
+    
+    def perform_update(self, serializer):
+        # Get old status
+        instance = self.get_object()
+        old_status = instance.status
+        
+        # Save the updated appointment
+        appointment = serializer.save()
+        new_status = appointment.status
+        
+        # Notify if status changed to completed
+        if old_status != 'completed' and new_status == 'completed':
+            if appointment.patient and appointment.patient.user:
+                message = "Your appointment results are now available."
+                if appointment.type == 'medical':
+                    message = "Your medical appointment results are now available."
+                elif appointment.type == 'dental':
+                    message = "Your dental appointment results are now available."
+                
+                create_notification(
+                    user=appointment.patient.user,
+                    message=message,
+                    type='success',
+                    link='/appointments'
+                )
     
     @action(detail=True, methods=['post'])
     def reschedule(self, request, pk=None):
@@ -4308,7 +4501,8 @@ class PatientViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(school_year_id=school_year_id)
         if user_id:
             queryset = queryset.filter(user_id=user_id)
-        if search:
+        # Search by patient name (for admin)
+        if (user.is_staff or user.user_type in ['staff', 'admin']) and search:
             queryset = queryset.filter(
                 Q(name__icontains=search) |
                 Q(email__icontains=search) |
@@ -4317,6 +4511,10 @@ class PatientViewSet(viewsets.ModelViewSet):
                 Q(department__icontains=search)
             )
         
+        # If we are fetching a specific record (detail view), don't deduplicate
+        if self.kwargs.get('pk') or self.action in ['retrieve', 'update', 'partial_update', 'destroy']:
+            return queryset
+
         # Return only the latest profile per email (deduplicate by email)
         # For admin view, show only the most recent profile per person
         # Use email as the unique identifier since it's more reliable than user_id
@@ -4813,27 +5011,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(campus=user.staff_details.campus_assigned)
                 # If no staff details, show all (for backward compatibility)
                 
-            elif user.get_current_patient_profile():
-                # Patients can only see their own appointments
-                current_patient_profile = user.get_current_patient_profile()
-                queryset = Appointment.objects.filter(patient=current_patient_profile).select_related('patient', 'doctor')
             else:
-                # No profile, try to get or create one
-                try:
-                    current_school_year = AcademicSchoolYear.objects.get(is_current=True)
-                    patient_profile, created = user.patient_profiles.get_or_create(
-                        school_year=current_school_year,
-                        defaults={
-                            'name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
-                            'first_name': user.first_name or '',
-                            'email': user.email,
-                            'student_id': f"TEMP-{user.id}",
-                        }
-                    )
-                    queryset = Appointment.objects.filter(patient=patient_profile).select_related('patient', 'doctor')
-                except AcademicSchoolYear.DoesNotExist:
-                    # No active school year, return empty queryset
-                    queryset = Appointment.objects.none()
+                # Patients can see all their appointments across all school years/profiles
+                queryset = Appointment.objects.filter(patient__user=user).select_related('patient', 'doctor')
+                
+                # If no profile exists yet, create one for the current year to enable future bookings
+                if not user.patient_profiles.exists():
+                    try:
+                        current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+                        user.get_or_create_patient_profile(school_year=current_school_year)
+                    except AcademicSchoolYear.DoesNotExist:
+                        pass
 
             # --- Filtering from query parameters ---
 
@@ -4852,6 +5040,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 else:
                     queryset = queryset.filter(status=status_param)
 
+                
             # Filter by patient ID (if staff is looking at one patient)
             patient_id = self.request.query_params.get('patient_id')
             if (user.is_staff or user.user_type in ['staff', 'admin']) and patient_id:
@@ -4859,8 +5048,15 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                     queryset = queryset.filter(patient_id=int(patient_id))
                 except (ValueError, TypeError):
                     pass
-                
-            # Filter by doctor ID
+            
+            # Filter by user ID (alternative to patient ID)
+            user_id = self.request.query_params.get('user_id')
+            if (user.is_staff or user.user_type in ['staff', 'admin']) and user_id:
+                try:
+                    queryset = queryset.filter(patient__user_id=int(user_id))
+                except (ValueError, TypeError):
+                    pass
+
             doctor_id = self.request.query_params.get('doctor_id')
             if doctor_id:
                 try:
@@ -4952,6 +5148,31 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
                 raise serializers.ValidationError(f"Could not create patient profile: {str(e)}")
+    
+    def perform_update(self, serializer):
+        # Get old status
+        instance = self.get_object()
+        old_status = instance.status
+        
+        # Save the updated appointment
+        appointment = serializer.save()
+        new_status = appointment.status
+        
+        # Notify if status changed to completed
+        if old_status != 'completed' and new_status == 'completed':
+            if appointment.patient and appointment.patient.user:
+                message = "Your appointment results are now available."
+                if appointment.type == 'medical':
+                    message = "Your medical appointment results are now available."
+                elif appointment.type == 'dental':
+                    message = "Your dental appointment results are now available."
+                
+                create_notification(
+                    user=appointment.patient.user,
+                    message=message,
+                    type='success',
+                    link='/appointments'
+                )
     
     @action(detail=True, methods=['post'])
     def reschedule(self, request, pk=None):
@@ -5306,6 +5527,15 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             doc.certificate_emailed_at = timezone.now()
             doc.certificate_emailed_by = request.user
             doc.save()
+            
+            # Notify the patient
+            if hasattr(doc, 'patient') and doc.patient.user:
+                create_notification(
+                    user=doc.patient.user,
+                    message="Your medical certificate has been issued.",
+                    type='success',
+                    link='/patient/upload-documents'
+                )
             
             return Response({
                 'detail': f'Medical certificate sent successfully to {recipient_email}'
@@ -5816,6 +6046,15 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
                         appointment.status = 'completed'
                         appointment.save()
                         appointment_completed = True
+                        
+                        # Notify the patient
+                        if appointment.patient and appointment.patient.user:
+                            create_notification(
+                                user=appointment.patient.user,
+                                message="Your dental appointment results are now available.",
+                                type='success',
+                                link='/appointments'
+                            )
                         
                         # Create next appointment if date is provided
                         next_date = request.data.get('next_appointment_date')
@@ -6581,10 +6820,12 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
         try:
             from .models import (
                 Appointment, MedicalDocument, Patient,
-                CustomUser, AcademicSchoolYear
+                CustomUser, AcademicSchoolYear, DentalFormData,
+                MedicalFormData
             )
             from django.db.models import Count, Q
             from datetime import datetime, timedelta
+            import json
             
             # Get current academic year
             current_semester = None
@@ -6640,6 +6881,112 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
             patients_total = CustomUser.objects.filter(user_type='student').count()
             patients_verified = CustomUser.objects.filter(user_type='student', is_email_verified=True).count()
             patients_unverified = CustomUser.objects.filter(user_type='student', is_email_verified=False).count()
+
+            # Clinician performance by service
+            clinician_stats = Appointment.objects.filter(
+                status='completed',
+                doctor__isnull=False
+            ).values(
+                'doctor_id',
+                'doctor__first_name',
+                'doctor__last_name'
+            ).annotate(
+                medical_count=Count('id', filter=Q(type='medical')),
+                dental_count=Count('id', filter=Q(type='dental')),
+                consultations=Count('id')
+            ).order_by('-consultations')
+
+            document_stats = MedicalDocument.objects.filter(
+                status='issued',
+                reviewed_by__isnull=False
+            ).values(
+                'reviewed_by_id',
+                'reviewed_by__first_name',
+                'reviewed_by__last_name'
+            ).annotate(
+                document_count=Count('id')
+            )
+
+            clinician_map = {}
+            for row in clinician_stats:
+                clinician_id = row['doctor_id']
+                name = f"{row['doctor__first_name']} {row['doctor__last_name']}".strip() or "Unknown Staff"
+                clinician_map[clinician_id] = {
+                    'id': clinician_id,
+                    'name': name,
+                    'medical_count': row['medical_count'],
+                    'dental_count': row['dental_count'],
+                    'document_count': 0,
+                    'consultations': row['consultations']
+                }
+
+            for row in document_stats:
+                clinician_id = row['reviewed_by_id']
+                name = f"{row['reviewed_by__first_name']} {row['reviewed_by__last_name']}".strip() or "Unknown Staff"
+                if clinician_id not in clinician_map:
+                    clinician_map[clinician_id] = {
+                        'id': clinician_id,
+                        'name': name,
+                        'medical_count': 0,
+                        'dental_count': 0,
+                        'document_count': 0,
+                        'consultations': 0
+                    }
+                clinician_map[clinician_id]['document_count'] = row['document_count']
+                clinician_map[clinician_id]['consultations'] = (
+                    clinician_map[clinician_id]['medical_count'] +
+                    clinician_map[clinician_id]['dental_count'] +
+                    clinician_map[clinician_id]['document_count']
+                )
+
+            clinician_performance = sorted(
+                clinician_map.values(),
+                key=lambda c: c['consultations'],
+                reverse=True
+            )
+
+            # Medicine and supply usage (dental) and medical prescription count
+            medicine_usage = {}
+            dental_forms = DentalFormData.objects.filter(used_medicines__isnull=False).exclude(used_medicines='[]').exclude(used_medicines='')
+            for form in dental_forms:
+                used = form.used_medicines
+                if isinstance(used, str):
+                    try:
+                        used = json.loads(used)
+                    except (json.JSONDecodeError, TypeError):
+                        used = []
+
+                if isinstance(used, list):
+                    for item in used:
+                        if not isinstance(item, dict):
+                            continue
+                        name = item.get('name')
+                        if not name:
+                            continue
+                        if name not in medicine_usage:
+                            medicine_usage[name] = {
+                                'name': name,
+                                'quantity': 0,
+                                'unit': item.get('unit', 'pcs'),
+                                'type': 'dental'
+                            }
+                        try:
+                            qty = int(item.get('quantity', item.get('quantity_used', 0)) or 0)
+                            medicine_usage[name]['quantity'] += qty
+                        except (ValueError, TypeError):
+                            pass
+
+            medical_forms_with_meds = MedicalFormData.objects.exclude(medications__isnull=True).exclude(medications='')
+            medical_med_count = medical_forms_with_meds.count()
+
+            medicine_usage_list = sorted(list(medicine_usage.values()), key=lambda x: x['quantity'], reverse=True)
+            if medical_med_count > 0 and not any(item.get('type') == 'medical' for item in medicine_usage_list):
+                medicine_usage_list.append({
+                    'name': 'Medical prescriptions (entries)',
+                    'quantity': medical_med_count,
+                    'unit': 'entries',
+                    'type': 'medical'
+                })
             
             # Enhanced User Type Breakdown with Detailed Demographics
             user_type_breakdown = {}
@@ -7028,6 +7375,9 @@ class SystemConfigurationViewSet(viewsets.ModelViewSet):
                     'verified': patients_verified,
                     'unverified': patients_unverified
                 },
+                'clinicians': clinician_performance,
+                'medicine_usage': medicine_usage_list,
+                'medical_med_total_entries': medical_med_count,
                 'user_type_breakdown': user_type_breakdown,
                 'detailed_demographics': detailed_demographics,
                 'monthly_trends': monthly_trends,
@@ -8186,6 +8536,15 @@ WMSU Health Services
         doc.rejection_reason = None
         doc.save()
         
+        # Notify the patient
+        if hasattr(doc, 'patient') and doc.patient.user:
+            create_notification(
+                user=doc.patient.user,
+                message="Your medical documents have been verified.",
+                type='success',
+                link='/patient/upload-documents'
+            )
+        
         serializer = self.get_serializer(doc)
         response_data = serializer.data
         response_data['is_complete'] = getattr(doc, 'is_complete', False)
@@ -8212,6 +8571,15 @@ WMSU Health Services
         doc.rejection_reason = reason
         doc.save()
         
+        # Notify the patient
+        if hasattr(doc, 'patient') and doc.patient.user:
+            create_notification(
+                user=doc.patient.user,
+                message=f"Your medical documents were rejected. Reason: {reason}",
+                type='error',
+                link='/patient/upload-documents'
+            )
+        
         serializer = self.get_serializer(doc)
         response_data = serializer.data
         response_data['is_complete'] = getattr(doc, 'is_complete', False)
@@ -8227,16 +8595,22 @@ WMSU Health Services
             
         doc = self.get_object()
         
-        # More robust status checking - allow issuing if verified or already issued
-        if doc.status not in ['verified', 'issued']:
+        # More robust status checking - allow issuing if verified, pending, for_consultation or already issued
+        if doc.status not in ['verified', 'pending', 'for_consultation', 'issued']:
             return Response({
-                'detail': f'Documents must be verified before certificate can be issued. Current status: {doc.status}. Please verify the documents first.'
+                'detail': f'Documents in status {doc.status} cannot be issued a certificate. Current status: {doc.status}.'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Update review information if not already reviewed
+        if not doc.reviewed_by:
+            doc.reviewed_by = request.user
+            doc.reviewed_at = timezone.now()
+            
         # Only update status if not already issued
         if doc.status != 'issued':
             doc.status = 'issued'
             doc.certificate_issued_at = timezone.now()
+            doc.rejection_reason = None # Clear any previous rejection reason
             
             # Generate and save the medical certificate PDF automatically
             try:
@@ -8249,6 +8623,15 @@ WMSU Health Services
                 print(f"Warning: Failed to generate PDF for medical certificate: {e}")
             
             doc.save()
+            
+            # Notify the patient
+            if hasattr(doc, 'patient') and doc.patient.user:
+                create_notification(
+                    user=doc.patient.user,
+                    message="Your medical certificate has been issued.",
+                    type='success',
+                    link='/patient/upload-documents'
+                )
         
         serializer = self.get_serializer(doc)
         response_data = serializer.data
@@ -8275,6 +8658,15 @@ WMSU Health Services
         doc.advised_for_consultation_by = request.user
         doc.advised_for_consultation_at = timezone.now()
         doc.save()
+        
+        # Notify the patient
+        if hasattr(doc, 'patient') and doc.patient.user:
+            create_notification(
+                user=doc.patient.user,
+                message=f"You have been advised for consultation. Reason: {reason}",
+                type='warning',
+                link='/patient/upload-documents'
+            )
         
         serializer = self.get_serializer(doc)
         response_data = serializer.data
@@ -8382,27 +8774,17 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
                     queryset = queryset.filter(campus=user.staff_details.campus_assigned)
                 # If no staff details, show all (for backward compatibility)
                 
-            elif user.get_current_patient_profile():
-                # Patients can only see their own appointments
-                current_patient_profile = user.get_current_patient_profile()
-                queryset = Appointment.objects.filter(patient=current_patient_profile).select_related('patient', 'doctor')
             else:
-                # No profile, try to get or create one
-                try:
-                    current_school_year = AcademicSchoolYear.objects.get(is_current=True)
-                    patient_profile, created = user.patient_profiles.get_or_create(
-                        school_year=current_school_year,
-                        defaults={
-                            'name': f"{user.last_name}, {user.first_name}" if user.first_name and user.last_name else user.username,
-                            'first_name': user.first_name or '',
-                            'email': user.email,
-                            'student_id': f"TEMP-{user.id}",
-                        }
-                    )
-                    queryset = Appointment.objects.filter(patient=patient_profile).select_related('patient', 'doctor')
-                except AcademicSchoolYear.DoesNotExist:
-                    # No active school year, return empty queryset
-                    queryset = Appointment.objects.none()
+                # Patients can see all their appointments across all school years/profiles
+                queryset = Appointment.objects.filter(patient__user=user).select_related('patient', 'doctor')
+                
+                # If no profile exists yet, create one for the current year to enable future bookings
+                if not user.patient_profiles.exists():
+                    try:
+                        current_school_year = AcademicSchoolYear.objects.get(is_current=True)
+                        user.get_or_create_patient_profile(school_year=current_school_year)
+                    except AcademicSchoolYear.DoesNotExist:
+                        pass
 
             # --- Filtering from query parameters ---
 
@@ -8521,6 +8903,31 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
                 raise serializers.ValidationError(f"Could not create patient profile: {str(e)}")
+    
+    def perform_update(self, serializer):
+        # Get old status
+        instance = self.get_object()
+        old_status = instance.status
+        
+        # Save the updated appointment
+        appointment = serializer.save()
+        new_status = appointment.status
+        
+        # Notify if status changed to completed
+        if old_status != 'completed' and new_status == 'completed':
+            if appointment.patient and appointment.patient.user:
+                message = "Your appointment results are now available."
+                if appointment.type == 'medical':
+                    message = "Your medical appointment results are now available."
+                elif appointment.type == 'dental':
+                    message = "Your dental appointment results are now available."
+                
+                create_notification(
+                    user=appointment.patient.user,
+                    message=message,
+                    type='success',
+                    link='/appointments'
+                )
     
     @action(detail=True, methods=['post'])
     def reschedule(self, request, pk=None):
@@ -8692,3 +9099,39 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
                 'message': 'Announcement was already viewed',
                 'viewed_at': view_record.viewed_at
             }, status=status.HTTP_200_OK)
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    """ViewSet for Notification model"""
+    serializer_class = NotificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return Notification.objects.filter(user=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def mark_as_read(self, request, pk=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save()
+        return Response({'status': 'notification marked as read'})
+
+    @action(detail=False, methods=['post'])
+    def mark_all_as_read(self, request):
+        Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return Response({'status': 'all notifications marked as read'})
+
+
+def create_notification(user, message, type='info', link=None):
+    """Helper to create a notification for a user"""
+    try:
+        from .models import Notification
+        Notification.objects.create(
+            user=user,
+            message=message,
+            type=type,
+            link=link
+        )
+    except Exception as e:
+        # Don't let notification failure break the main flow
+        print(f"Error creating notification: {e}")

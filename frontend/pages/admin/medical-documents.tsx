@@ -228,11 +228,16 @@ function AdminMedicalDocuments() {
     }
   }, [selectedAcademicYear, initialLoaded]);
 
-  // Verify documents action - DEPRECATED: Now directly issues certificate instead
-  // Kept for backwards compatibility but redirects to handleIssueCertificate
+  // Verify documents action
   const handleVerify = async (id: number) => {
-    // Redirect to direct certificate issuance
-    return handleIssueCertificate(id);
+    try {
+      await medicalDocumentsAPI.verify(id);
+      showFeedback('Documents verified successfully! You can now issue the medical certificate.');
+      fetchDocs(); // Refresh the data
+    } catch (err: any) {
+      console.error('Failed to verify documents:', err);
+      showFeedback('Failed to verify documents: ' + (err.response?.data?.error || err.message));
+    }
   };
 
   // Reject documents action
@@ -926,8 +931,7 @@ function AdminMedicalDocuments() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPendingDocs.length === 0 ? (
+                    <tbody className="bg-white divide-y divide-gray-200">{filteredPendingDocs.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
@@ -1246,8 +1250,7 @@ function AdminMedicalDocuments() {
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredUploadedDocs.length === 0 ? (
+                    <tbody className="bg-white divide-y divide-gray-200">{filteredUploadedDocs.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
@@ -1572,8 +1575,7 @@ function AdminMedicalDocuments() {
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">View Certificate</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredIssuedDocs.length === 0 ? (
+                    <tbody className="bg-white divide-y divide-gray-200">{filteredIssuedDocs.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-6 py-12 text-center">
                             <div className="flex flex-col items-center justify-center">
@@ -1807,8 +1809,7 @@ function AdminMedicalDocuments() {
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                       </tr>
-                    </thead>                    <tbody className="bg-white divide-y divide-gray-200">
-                      {advisedForConsultations.length === 0 ? (
+                    </thead><tbody className="bg-white divide-y divide-gray-200">{paginatedAdvisedDocs.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
                             <div className="flex flex-col items-center">

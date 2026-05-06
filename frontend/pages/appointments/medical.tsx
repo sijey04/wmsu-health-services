@@ -91,8 +91,9 @@ async function getPatientId() {
 export default function MedicalAppointmentPage() {
   const router = useRouter();
   const [invalidAccess, setInvalidAccess] = useState(false);
-  const [campus, setCampus] = useState('A');
+  const [campus, setCampus] = useState('');
   const [date, setDate] = useState('');
+  const [availableCampuses, setAvailableCampuses] = useState<string[]>([]);
 
   // Validate navigation token to prevent direct URL access
   useEffect(() => {
@@ -147,6 +148,7 @@ export default function MedicalAppointmentPage() {
   useEffect(() => {
     checkExistingAppointments();
     loadCurrentSchoolYear();
+    loadInitialMedicalStaff();
   }, []);
 
   // Load campus schedule and medical staff when campus changes
@@ -255,25 +257,140 @@ export default function MedicalAppointmentPage() {
       const response = await djangoApiClient.get('/staff-details/');
       const allStaff = response.data || [];
       
+      console.log('Loading medical staff for campus:', campus);
+      console.log('All staff data:', allStaff);
+      
       // Filter for medical staff (not dentists) assigned to selected campus
       const medicalStaffFiltered = allStaff.filter((staff) => {
         const positions = ['Doctor', 'Nurse', 'Medical Staff', 'Administrator'];
         const hasCorrectPosition = positions.includes(staff.position);
         
-        // Check if assigned to selected campus
-        const assignedCampuses = Array.isArray(staff.assigned_campuses) 
-          ? staff.assigned_campuses 
-          : (staff.assigned_campuses || '').split(',').filter((c) => c.trim());
+        if (!hasCorrectPosition) return false;
         
-        const isAssignedToCampus = assignedCampuses.includes(campus.toLowerCase());
+        // Extract campus letter from various formats
+        const extractCampusLetter = (value: string): string => {
+          if (!value) return '';
+          const str = value.toString().toLowerCase().trim();
+          // Extract single letter from formats like "a", "campus a", "Campus A", etc.
+          const match = str.match(/[abc]/);
+          return match ? match[0] : '';
+        };
         
-        return hasCorrectPosition && isAssignedToCampus;
+        // Check if assigned to selected campus - handle both fields
+        let staffCampuses: string[] = [];
+        
+        // Check assigned_campuses field (array or string)
+        if (staff.assigned_campuses) {
+          if (Array.isArray(staff.assigned_campuses)) {
+            staffCampuses = staff.assigned_campuses.map(extractCampusLetter).filter(c => c);
+          } else {
+            staffCampuses = staff.assigned_campuses.toString().split(',').map(extractCampusLetter).filter(c => c);
+          }
+        }
+        
+        // Also check single campus field
+        if (staff.campus) {
+          const campusLetter = extractCampusLetter(staff.campus);
+          if (campusLetter && !staffCampuses.includes(campusLetter)) {
+            staffCampuses.push(campusLetter);
+          }
+        }
+        
+        const selectedCampusLetter = campus.toLowerCase().trim();
+        const isAssignedToCampus = staffCampuses.includes(selectedCampusLetter);
+        
+        console.log('Staff:', staff.first_name, staff.last_name, 'Campuses:', staffCampuses, 'Match:', isAssignedToCampus);
+        
+        return isAssignedToCampus;
       });
       
+      console.log('Filtered medical staff:', medicalStaffFiltered);
       setMedicalStaff(medicalStaffFiltered);
     } catch (error) {
       console.error('Error loading medical staff:', error);
       setMedicalStaff([]);
+    }
+  };
+
+  const loadInitialMedicalStaff = async () => {
+    console.log('=== loadInitialMedicalStaff CALLED ===');
+    try {
+      const response = await djangoApiClient.get('/staff-details/');
+      const allStaff = response.data || [];
+      
+      console.log('=== Initial staff load - All staff:', allStaff);
+      
+      // Filter for medical staff (not dentists)
+      const positions = ['Doctor', 'Nurse', 'Medical Staff', 'Administrator'];
+      const medicalStaffFiltered = allStaff.filter((staff) => 
+        positions.includes(staff.position)
+      );
+      
+      console.log('=== Medical staff filtered:', medicalStaffFiltered);
+      
+      // Helper function to extract campus letter from various formats
+      const extractCampusLetter = (value: string): string => {
+        if (!value) return '';
+        const str = value.toString().toLowerCase().trim();
+        // Extract single letter from formats like "a", "campus a", "Campus A", etc.
+        const match = str.match(/[abc]/);
+        return match ? match[0] : '';
+      };
+      
+      // Extract unique campuses from medical staff
+      const campusesSet = new Set<string>();
+      medicalStaffFiltered.forEach((staff) => {
+        console.log('=== Staff member:', staff.first_name, staff.last_name, {
+          position: staff.position,
+          campus: staff.campus,
+          assigned_campuses: staff.assigned_campuses
+        });
+        
+        // Check assigned_campuses field (array or string)
+        if (staff.assigned_campuses) {
+          const campusValues = Array.isArray(staff.assigned_campuses) 
+            ? staff.assigned_campuses 
+            : staff.assigned_campuses.toString().split(',');
+          
+          campusValues.forEach((c: string) => {
+            const letter = extractCampusLetter(c);
+            if (letter) {
+              campusesSet.add(letter);
+            }
+          });
+        }
+        
+        // Also check single campus field
+        if (staff.campus) {
+          const letter = extractCampusLetter(staff.campus);
+          if (letter) {
+            campusesSet.add(letter);
+          }
+        }
+      });
+      
+      // Convert to uppercase and sort
+      const campusesList = Array.from(campusesSet).map(c => c.toUpperCase()).sort();
+      
+      console.log('=== Available campuses extracted:', campusesList);
+      console.log('=== Setting availableCampuses state to:', campusesList);
+      setAvailableCampuses(campusesList);
+      
+      // Set default campus to first available
+      if (campusesList.length > 0 && !campus) {
+        console.log('=== Setting default campus to:', campusesList[0]);
+        setCampus(campusesList[0]);
+      } else {
+        console.log('=== NOT setting default campus. campusesList.length:', campusesList.length, 'current campus:', campus);
+      }
+    } catch (error) {
+      console.error('=== Error loading initial medical staff:', error);
+      // Fallback to default campuses if API fails
+      console.log('=== Using fallback campuses [A, B, C]');
+      setAvailableCampuses(['A', 'B', 'C']);
+      if (!campus) {
+        setCampus('A');
+      }
     }
   };
 
@@ -589,11 +706,27 @@ export default function MedicalAppointmentPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Campus</label>
-                  <select value={campus} onChange={e => setCampus(e.target.value)} className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]">
-                    <option value="A">Campus A</option>
-                    <option value="B">Campus B</option>
-                    <option value="C">Campus C</option>
+                  <select 
+                    value={campus} 
+                    onChange={e => setCampus(e.target.value)} 
+                    className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
+                    disabled={availableCampuses.length === 0}
+                  >
+                    {availableCampuses.length === 0 ? (
+                      <option value="">No campuses available</option>
+                    ) : (
+                      availableCampuses.map((campusLetter) => (
+                        <option key={campusLetter} value={campusLetter}>
+                          Campus {campusLetter}
+                        </option>
+                      ))
+                    )}
                   </select>
+                  {availableCampuses.length === 0 && (
+                    <p className="text-sm text-red-600 mt-1">
+                      No medical staff available at any campus
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>

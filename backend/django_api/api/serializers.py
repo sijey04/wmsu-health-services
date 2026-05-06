@@ -8,7 +8,8 @@ from .models import (
     CampusSchedule, DentistSchedule, AcademicSchoolYear,
     ComorbidIllness, Vaccination, PastMedicalHistoryItem, FamilyMedicalHistoryItem,
     DentalInformationRecord, DentalMedicineSupply, UserTypeInformation, ContentManagement,
-    Announcement, UserAnnouncementView, Course
+    Announcement, UserAnnouncementView, Course,
+    Notification
 )
 
 
@@ -112,6 +113,7 @@ class PatientSerializer(serializers.ModelSerializer):
     user_first_name = serializers.CharField(source='user.first_name', read_only=True)
     user_middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
+    grade_level = serializers.CharField(source='user.grade_level', read_only=True)
     school_year = serializers.SerializerMethodField()
     
     def get_school_year(self, obj):
@@ -158,7 +160,7 @@ class PatientSerializer(serializers.ModelSerializer):
             'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular', 
             'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms', 'menstrual_symptoms_other',
             # User type fields
-            'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand'
+            'user_type', 'employee_id', 'position_type', 'course', 'year_level', 'strand', 'grade_level'
         ]
 
 
@@ -183,6 +185,7 @@ class AppointmentSerializer(serializers.ModelSerializer):
     medical_certificate_url = serializers.SerializerMethodField()
     semester_display = serializers.CharField(source='get_semester_display', read_only=True)
     school_year_display = serializers.CharField(source='school_year.academic_year', read_only=True)
+    patient_user_id = serializers.IntegerField(source='patient.user.id', read_only=True)
     
     class Meta:
         model = Appointment
@@ -1162,3 +1165,11 @@ class UserAnnouncementViewSerializer(serializers.ModelSerializer):
         model = UserAnnouncementView
         fields = ['id', 'user', 'announcement', 'announcement_title', 'viewed_at']
         read_only_fields = ['id', 'announcement_title', 'viewed_at']
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    """Serializer for Notification model"""
+    class Meta:
+        model = Notification
+        fields = ['id', 'user', 'message', 'type', 'is_read', 'link', 'created_at']
+        read_only_fields = ['id', 'created_at']

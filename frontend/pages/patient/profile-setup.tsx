@@ -24,6 +24,7 @@ export default function PatientProfileSetupPage() {
   const [success, setSuccess] = useState(false);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoConverting, setPhotoConverting] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
   const [fieldErrors, setFieldErrors] = useState<any>({});
@@ -137,6 +138,65 @@ export default function PatientProfileSetupPage() {
     return configField ? configField.description : null;
   };
 
+  // Convert image to AVIF format to save storage
+  const convertImageToAVIF = async (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+
+      img.onload = async () => {
+        try {
+          // Create canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+
+          // Draw image
+          ctx.drawImage(img, 0, 0);
+
+          // Convert to AVIF blob (with quality 0.85 for good balance)
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                reject(new Error('Failed to convert image'));
+                return;
+              }
+
+              // Create new file with .avif extension
+              const originalName = file.name.replace(/\.[^/.]+$/, '');
+              const avifFile = new File([blob], `${originalName}.avif`, {
+                type: 'image/avif',
+                lastModified: Date.now(),
+              });
+
+              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${avifFile.name} (${(avifFile.size / 1024).toFixed(2)}KB)`);
+              resolve(avifFile);
+            },
+            'image/avif',
+            0.85
+          );
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Get available options for user type specific fields
   const getUserTypeOptions = (optionType: 'courses' | 'departments' | 'year_levels' | 'strands' | 'position_types') => {
     if (!currentUserTypeConfig) return [];
@@ -231,12 +291,7 @@ export default function PatientProfileSetupPage() {
       const res = await patientProfileAPI.get(params);
       let profileData = res.data;
       
-      // Add cache-busting timestamp to photo URL to prevent browser caching issues
-      if (profileData.photo && typeof profileData.photo === 'string' && profileData.photo.length > 0) {
-        // Append timestamp to force browser to fetch new image
-        const separator = profileData.photo.includes('?') ? '&' : '?';
-        profileData.photo = `${profileData.photo}${separator}t=${Date.now()}`;
-      }
+      // Photo processing will happen after merging to handle both existing and autofilled photos
       
       // Get user info from localStorage
       const userStr = localStorage.getItem('user');
@@ -350,19 +405,69 @@ export default function PatientProfileSetupPage() {
       if (profileData.id) {
         setIsEditMode(false); // Start in view mode for existing profiles
         setIsNewProfile(false); // This is an existing profile
+        
+        // If the profile seems "minimal" (e.g., no health history), try to autofill missing fields
+        const isMinimal = !profileData.comorbid_illnesses || profileData.comorbid_illnesses.length === 0;
+        if (isMinimal) {
+          console.log('Profile found but seems minimal. Attempting to autofill from latest copy...');
+          try {
+            const autofillParams: any = {};
+            if (currentSchoolYear?.id) autofillParams.school_year = currentSchoolYear.id;
+            if (currentSemester) autofillParams.semester = currentSemester;
+            
+            const autofillResponse = await patientProfileAPI.autofillData(autofillParams);
+            const autofillData = autofillResponse.data;
+            
+            if (autofillData.has_previous_data) {
+              console.log('Merging current minimal profile with latest previous copy');
+              // Merge autofill data into profileData, but keep current values if they exist
+              Object.keys(autofillData).forEach(key => {
+                if (key !== 'id' && !['has_existing_profile', 'current_school_year', 'has_previous_data'].includes(key)) {
+                  if (profileData[key] === undefined || profileData[key] === null || profileData[key] === '' || 
+                      (Array.isArray(profileData[key]) && profileData[key].length === 0)) {
+                    profileData[key] = autofillData[key];
+                  }
+                }
+              });
+              
+              setIsAutoFilled(true);
+              setAutoFilledFromYear(autofillData.autofilled_from_year);
+              if (autofillData.autofilled_from_semester) {
+                setAutoFilledFromSemester(autofillData.autofilled_from_semester);
+              }
+            }
+          } catch (autofillErr) {
+            console.error('Failed to merge autofill data into existing profile:', autofillErr);
+          }
+        }
       } else {
         setIsEditMode(true); // Start in edit mode for new profiles
         setIsNewProfile(true); // This is a new profile
       }
       
+      // Process photo URL after loading/merging
+      if (profileData.photo && typeof profileData.photo === 'string' && profileData.photo.length > 0) {
+        // Append timestamp to force browser to fetch new image
+        const separator = profileData.photo.includes('?') ? '&' : '?';
+        profileData.photo = `${profileData.photo}${separator}t=${Date.now()}`;
+        
+        // Also set photo preview if in edit mode or new profile
+        if (isEditMode || !profileData.id) {
+          setPhotoPreview(profileData.photo);
+        }
+      }
+      
+      // Store updated profile data
+      setProfile(profileData);
+      setOriginalProfile(JSON.parse(JSON.stringify(profileData)));
+      
       // Debug photo loading
       if (process.env.NODE_ENV === 'development') {
-        console.log('Profile loaded with photo:', {
+        console.log('Profile loaded/merged with photo:', {
           photo: profileData.photo,
-          photoType: typeof profileData.photo,
-          photoLength: profileData.photo?.length,
           version: profileData.version,
-          id: profileData.id
+          id: profileData.id,
+          isAutoFilled: isAutoFilled
         });
       }
     } catch (err: any) {
@@ -1944,14 +2049,30 @@ export default function PatientProfileSetupPage() {
     }
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setPhotoFile(file);
+      let finalFile = file;
+      
+      // Convert to AVIF if it's an image
+      if (file.type.startsWith('image/') && file.type !== 'image/avif') {
+        try {
+          setPhotoConverting(true);
+          finalFile = await convertImageToAVIF(file);
+        } catch (error) {
+          console.error('Error converting photo to AVIF:', error);
+          // Fallback to original file
+          finalFile = file;
+        } finally {
+          setPhotoConverting(false);
+        }
+      }
+
+      setPhotoFile(finalFile);
       const reader = new FileReader();
       reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
-      handleProfileChange('photo', file);
+      reader.readAsDataURL(finalFile);
+      handleProfileChange('photo', finalFile);
     } else {
       setPhotoFile(null);
       setPhotoPreview(null);
@@ -2042,7 +2163,7 @@ export default function PatientProfileSetupPage() {
     }
   };
 
-  const handlePhotoChangeIndependent = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChangeIndependent = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       // Validate file size (max 5MB)
@@ -2059,6 +2180,21 @@ export default function PatientProfileSetupPage() {
         return;
       }
 
+      let finalFile = file;
+      
+      // Convert to AVIF
+      if (file.type !== 'image/avif') {
+        try {
+          setPhotoConverting(true);
+          finalFile = await convertImageToAVIF(file);
+        } catch (error) {
+          console.error('Error converting photo to AVIF:', error);
+          finalFile = file;
+        } finally {
+          setPhotoConverting(false);
+        }
+      }
+
       // Clear any photo-related validation errors immediately when a valid photo is selected
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -2070,7 +2206,7 @@ export default function PatientProfileSetupPage() {
       // This prevents showing stale preview data after upload completes
       
       // Upload immediately if profile exists, otherwise store for later
-      handleIndependentPhotoUpload(file);
+      handleIndependentPhotoUpload(finalFile);
     }
   };
 
@@ -2428,10 +2564,12 @@ export default function PatientProfileSetupPage() {
               </label>
               <label htmlFor="photo-upload" className="cursor-pointer group">
                 <div className="w-28 h-28 sm:w-32 sm:h-32 lg:w-40 lg:h-40 flex items-center justify-center border-2 border-dashed rounded-lg transition-all duration-200 border-gray-400 bg-gray-50 hover:bg-gray-100 group-active:bg-gray-200">
-                  {photoUploading ? (
+                  {photoUploading || photoConverting ? (
                     <div className="flex flex-col items-center justify-center">
                       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#800000]"></div>
-                      <span className="text-xs text-gray-600 mt-2">Uploading...</span>
+                      <span className="text-xs text-gray-600 mt-2">
+                        {photoConverting ? 'Optimizing...' : 'Uploading...'}
+                      </span>
                     </div>
                   ) : photoPreview ? (
                     <div className="relative w-full h-full">

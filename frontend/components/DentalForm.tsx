@@ -683,7 +683,29 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
           examinerPtr: data.examiner_ptr || '',
           examinerPhone: data.examiner_phone || '',
           date: data.date || '', // Auto-populated with current date
+          // Auto-filled fields
+          dentition: data.dentition || '',
+          periodontal: data.periodontal || '',
+          occlusion: data.occlusion || '',
+          malocclusionSeverity: data.malocclusion_severity || '',
+          decayedTeeth: data.decayed_teeth || '',
+          missingTeeth: data.missing_teeth || '',
+          filledTeeth: data.filled_teeth || '',
+          oralHygiene: data.oral_hygiene || '',
+          recommendedTreatments: data.recommended_treatments || '',
+          preventionAdvice: data.prevention_advice || '',
+          treatmentPriority: data.treatment_priority || '',
+          remarks: data.remarks || '',
+          hasToothbrush: data.has_toothbrush || 'Yes',
         }));
+        
+        // Auto-fill teeth status if available
+        if (data.permanent_teeth_status) {
+          setPermanentTeethStatus(data.permanent_teeth_status);
+        }
+        if (data.temporary_teeth_status) {
+          setTemporaryTeethStatus(data.temporary_teeth_status);
+        }
         
         if (data.patient_id) {
           setPatientId(data.patient_id);
@@ -725,8 +747,12 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
     setFormData(prev => ({ ...prev, [name]: value }));
   };
   
+  const handlePrint = () => {
+    window.print();
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setLoading(true);
     
     try {
@@ -844,7 +870,39 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
   return (
     <div className="max-w-6xl mx-auto p-6 bg-gray-50 min-h-screen">
       <FeedbackModal open={feedbackOpen} message={feedbackMessage} onClose={() => setFeedbackOpen(false)} />
-      <div className="mb-8 text-center">
+      
+      {/* Print Header (Only visible when printing) */}
+      <div className="hidden print-only-header mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
+            <div className="text-left">
+              <h1 className="text-lg font-bold text-[#800000] leading-tight">WESTERN MINDANAO STATE UNIVERSITY</h1>
+              <p className="text-sm text-gray-700 font-medium leading-tight">UNIVERSITY HEALTH SERVICES CENTER</p>
+              <p className="text-xs text-gray-500">Zamboanga City, Philippines</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-[10px] text-gray-500 italic">"Excellence in Health Service"</p>
+              <p className="text-xs text-[#800000] font-bold">DENTAL EXAMINATION RECORD</p>
+            </div>
+            <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-14 h-14 object-contain" />
+          </div>
+        </div>
+        
+        <div className="mt-6 flex justify-between items-end border-t border-gray-100 pt-4">
+          <div className="text-left">
+            <p className="text-sm font-bold uppercase">Patient: <span className="font-normal">{formData.firstName} {formData.middleName} {formData.surname}</span></p>
+          </div>
+          <div className="text-right text-[10px] text-gray-500">
+            <p>Printed: {new Date().toLocaleString()}</p>
+            <p>Examination: {formData.date || new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-8 text-center no-print">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Dental Examination Form</h1>
         <p className="text-gray-600">Complete the dental examination details below</p>
         {loading && (
@@ -1339,16 +1397,23 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
           </div>
         </FormSection>
 
-        <div className="flex justify-end pt-6">
+        <div className="flex justify-end gap-4 pt-6 no-print">
+            <button
+                type="button"
+                onClick={handlePrint}
+                className="px-6 py-3 bg-gray-600 text-white font-bold rounded-lg hover:bg-gray-700 transition-colors duration-200 shadow-md"
+            >
+                Print Record
+            </button>
             <button
                 type="submit"
-            disabled={loading}
-            className={`inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-base font-medium rounded-lg text-white transition-all duration-200 ${
-              loading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
-            }`}
-          >
+                disabled={loading}
+                className={`inline-flex justify-center py-3 px-8 border border-transparent shadow-sm text-base font-medium rounded-lg text-white transition-all duration-200 ${
+                  loading 
+                    ? 'bg-gray-400 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+                }`}
+            >
             {loading ? (
               <>
                 <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -1363,6 +1428,73 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
             </button>
         </div>
     </form>
+    <style jsx global>{`
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        .print-only-header {
+          display: block !important;
+        }
+        body {
+          padding: 0 !important;
+          background: white !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .max-w-6xl {
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+        }
+        .bg-gray-50 {
+          background-color: transparent !important;
+        }
+        .bg-white {
+          background-color: transparent !important;
+        }
+        .shadow-sm, .shadow-md, .shadow-lg {
+          box-shadow: none !important;
+        }
+        .rounded-2xl, .rounded-lg, .rounded-xl {
+          border-radius: 0 !important;
+        }
+        .border {
+          border: 1px solid #eee !important;
+        }
+        .p-6, .p-8 {
+          padding: 1rem 0 !important;
+        }
+        .grid {
+          display: grid !important;
+          gap: 1rem !important;
+        }
+        input, select, textarea {
+          border: none !important;
+          border-bottom: 1px solid #eee !important;
+          padding: 0.25rem 0 !important;
+          background: transparent !important;
+          color: black !important;
+          -webkit-appearance: none !important;
+          -moz-appearance: none !important;
+          appearance: none !important;
+        }
+        .text-gray-500, .text-gray-600 {
+          color: #333 !important;
+        }
+        /* Ensure dental chart is visible */
+        svg {
+          max-width: 400px !important;
+          margin: 0 auto !important;
+        }
+        .FormSection {
+          margin-bottom: 2rem !important;
+          page-break-inside: avoid !important;
+        }
+      }
+    `}</style>
     </div>
   );
 };

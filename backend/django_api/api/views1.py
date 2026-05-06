@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import MedicalFormData, Appointment, Patient, AcademicSchoolYear, StaffDetails, DentalInformationRecord
+from .models import MedicalFormData, Appointment, Patient, AcademicSchoolYear, StaffDetails, DentalInformationRecord, Course
 from .serializers import MedicalFormDataSerializer, PatientSerializer, PatientProfileUpdateSerializer, DentalInformationRecordSerializer
 
 
@@ -23,6 +23,16 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
             patient_profiles = user.patient_profiles.all()
             queryset = queryset.filter(patient__in=patient_profiles)
         
+        # Filter by appointment_id if provided
+        appointment_id = self.request.query_params.get('appointment_id')
+        if appointment_id:
+            queryset = queryset.filter(appointment_id=appointment_id)
+            
+        # Filter by patient_id if provided
+        patient_id = self.request.query_params.get('patient_id')
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+            
         return queryset.select_related('patient', 'appointment').order_by('-created_at')
 
     def perform_create(self, serializer):
@@ -48,7 +58,7 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def get_patient_data(self, request):
-        """Get patient data for medical form initialization"""
+        """Get patient data for medical form initialization with auto-fill from previous records"""
         appointment_id = request.query_params.get('appointment_id')
         patient_id = request.query_params.get('patient_id')
         
@@ -63,8 +73,10 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
                 patient = Patient.objects.get(id=patient_id)
                 appointment = None
             
-            # Get current user info for staff fields
-            user = request.user
+            user = patient.user
+            
+            # Get current user info for staff fields (examiner)
+            staff_user = request.user
             current_date = timezone.now().date()
             
             # Calculate suggested follow-up date (1 week from examination)
@@ -75,15 +87,15 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
             examiner_license = ''
             examiner_name = ''
             
-            if hasattr(user, 'staff_details') and user.staff_details:
-                examiner_license = user.staff_details.license_number or ''
-                examiner_name = user.staff_details.full_name or ''
+            if hasattr(staff_user, 'staff_details') and staff_user.staff_details:
+                examiner_license = staff_user.staff_details.license_number or ''
+                examiner_name = staff_user.staff_details.full_name or ''
             
             # Fallback to user model if staff details not available
             if not examiner_name:
-                examiner_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
+                examiner_name = f"{staff_user.first_name} {staff_user.last_name}".strip() if staff_user.first_name or staff_user.last_name else staff_user.username
             
-            # Extract surname from name field (assuming format "Surname, First Name")
+            # Extract names
             surname = ''
             first_name = ''
             middle_name = ''
@@ -100,21 +112,22 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
                         if len(name_parts_remaining) > 1:
                             middle_name = ' '.join(name_parts_remaining[1:])
                 else:
-                    # If no comma, try to split by spaces
                     name_parts = patient.name.split()
                     if name_parts:
-                        surname = name_parts[-1]  # Last part as surname
+                        surname = name_parts[-1]
                         if len(name_parts) > 1:
                             first_name = name_parts[0]
                         if len(name_parts) > 2:
                             middle_name = ' '.join(name_parts[1:-1])
             
-            # Use individual name fields if available
             if patient.first_name:
                 first_name = patient.first_name
             if patient.middle_name:
                 middle_name = patient.middle_name
             
+            department_value = patient.department or ''
+            
+            # Base data
             data = {
                 'patient_id': patient.id,
                 'file_no': patient.student_id or '',
@@ -123,7 +136,7 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
                 'middle_name': middle_name,
                 'age': patient.age or '',
                 'sex': patient.gender or 'Male',
-                'department': patient.department or '',
+                'department': department_value,
                 'contact': patient.contact_number or '',
                 'examined_by': examiner_name,
                 'examiner_name': examiner_name,
@@ -134,10 +147,9 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
                 'suggested_followup_date': suggested_followup_date.strftime('%Y-%m-%d'),
                 'follow_up_instructions': 'Return for follow-up consultation as needed.',
                 'suggested_followup_instructions': 'Return for follow-up consultation as needed.',
-                # Additional patient data that might be useful for medical forms
                 'blood_type': patient.blood_type or '',
                 'address': getattr(patient, 'address', '') or '',
-                'email': patient.email or patient.user.email if patient.user else '',
+                'email': patient.email or (patient.user.email if patient.user else ''),
                 'emergency_contact_name': f"{getattr(patient, 'emergency_contact_first_name', '') or ''} {getattr(patient, 'emergency_contact_surname', '') or ''}".strip(),
                 'emergency_contact_number': getattr(patient, 'emergency_contact_number', '') or '',
                 'comorbid_illnesses': patient.comorbid_illnesses or [],
@@ -145,6 +157,35 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
                 'past_medical_history': patient.past_medical_history or [],
                 'family_medical_history': patient.family_medical_history or [],
             }
+
+            # --- AUTO-FILL LOGIC ---
+            # Find the most recent medical form for this user
+            if user:
+                previous_form = MedicalFormData.objects.filter(
+                    patient__user=user
+                ).exclude(appointment_id=appointment_id).order_by('-created_at').first()
+                
+                if previous_form:
+                    # Auto-fill fields from the previous form
+                    # Excluding vitals as they are likely different, but following user request to auto-fill "fields"
+                    autofill_fields = [
+                        'blood_pressure', 'pulse_rate', 'temperature', 'respiratory_rate', 
+                        'weight', 'height', 'chief_complaint', 'present_illness', 
+                        'past_medical_history', 'family_history', 'allergies', 
+                        'medications', 'general_appearance', 'heent', 'cardiovascular', 
+                        'respiratory', 'gastrointestinal', 'genitourinary', 
+                        'neurological', 'musculoskeletal', 'integumentary', 
+                        'diagnosis', 'treatment_plan', 'recommendations', 'follow_up'
+                    ]
+                    
+                    for field in autofill_fields:
+                        val = getattr(previous_form, field)
+                        if val is not None:
+                            data[field] = val
+                    
+                    data['is_autofilled'] = True
+                    data['previous_form_id'] = previous_form.id
+                    data['previous_form_date'] = previous_form.created_at.strftime('%Y-%m-%d')
             
             return Response(data)
         except (Appointment.DoesNotExist, Patient.DoesNotExist):
@@ -215,25 +256,19 @@ class PatientViewSet(viewsets.ModelViewSet):
             except (ValueError, TypeError):
                 pass
         
-        # Apply deduplication for admin/staff view - show only latest profile per email
-        if user.is_staff or user.user_type in ['staff', 'admin']:
+        # Apply deduplication for admin/staff view - show only latest profile per student_id for list action
+        # For admin view, show only the most recent profile per person
+        if self.action == 'list' and (user.is_staff or user.user_type in ['staff', 'admin']):
             from django.db.models import Max
-            from django.db.models.functions import Coalesce
-            from django.db.models import Value
             
-            # Get the email to use for each patient (prefer patient.email, fallback to user.email)
-            queryset = queryset.annotate(
-                dedupe_email=Coalesce('email', 'user__email', Value(''))
-            )
-            
-            # Find the latest profile ID for each unique email
+            # Find the latest profile ID for each unique student_id
             # Use both created_at and id to ensure we get the most recent
-            latest_per_email = queryset.values('dedupe_email').annotate(
+            latest_per_student = queryset.values('student_id').annotate(
                 latest_id=Max('id')
             ).values_list('latest_id', flat=True)
             
             # Filter to only include the latest profiles
-            queryset = queryset.filter(id__in=latest_per_email)
+            queryset = queryset.filter(id__in=latest_per_student)
         
         return queryset.select_related('user', 'school_year').order_by('-created_at', '-id')
 

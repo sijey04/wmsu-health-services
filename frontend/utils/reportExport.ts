@@ -1,4 +1,5 @@
-import jsPDF from 'jspdf';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import html2canvas from 'html2canvas';
 
 // Types for our report data - Updated to integrate with UserTypeInformation system
@@ -15,7 +16,21 @@ interface StatsData {
   }>;
   semester?: { id: number | null; name: string };
   user_type_breakdown?: any;
-  // New fields from UserTypeInformation integration
+  clinicians?: Array<{
+    id: number;
+    name: string;
+    medical_count?: number;
+    dental_count?: number;
+    document_count?: number;
+    consultations: number;
+  }>;
+  medicine_usage?: Array<{
+    name: string;
+    quantity: number;
+    unit: string;
+    type: string;
+  }>;
+  medical_med_total_entries?: number;
   user_type_configurations?: Array<{
     id: number;
     name: string;
@@ -56,6 +71,197 @@ interface UserTypeData {
 }
 
 // Generate professional PDF report with charts and detailed demographics
+/**
+ * Generates a clean, minimalist PDF for a single medical or dental consultation form
+ */
+export const generateSingleFormPDF = async (
+  formData: any,
+  appointmentType: 'medical' | 'dental',
+  patientName: string,
+  teethChartImage?: string
+): Promise<void> => {
+  try {
+    const doc = new jsPDF();
+    
+    // Load and Add Logos
+    const loadLogo = (src: string): Promise<string | null> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = src;
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 2000);
+      });
+    };
+
+    const [wmsuLogo, healthLogo] = await Promise.all([
+      loadLogo('/WMSU-Logo.jpg'),
+      loadLogo('/WMSU-HealthLogo.png')
+    ]);
+
+    if (wmsuLogo) doc.addImage(wmsuLogo, 'JPEG', 15, 12, 22, 22);
+    if (healthLogo) doc.addImage(healthLogo, 'PNG', 173, 12, 22, 22);
+
+    // Minimalist University Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text('WESTERN MINDANAO STATE UNIVERSITY', 105, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('UNIVERSITY HEALTH SERVICES CENTER', 105, 26, { align: 'center' });
+    doc.text('Zamboanga City, Philippines', 105, 31, { align: 'center' });
+    
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.2);
+    doc.line(20, 36, 190, 36);
+    
+    // Report Title
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${appointmentType.toUpperCase()} EXAMINATION RECORD`, 105, 45, { align: 'center' });
+    
+    // Patient Info
+    autoTable(doc, {
+      startY: 50,
+      head: [['Patient Field', 'Information']],
+      body: [
+        ['Full Name', `${formData.first_name || ''} ${formData.middle_name || ''} ${formData.surname || ''}`.trim() || patientName],
+        ['File Number', formData.file_no || 'N/A'],
+        ['Age / Sex', `${formData.age || 'N/A'} / ${formData.sex || 'N/A'}`],
+        ['Examination Date', formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'],
+      ],
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
+      headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
+    });
+    
+    let currentY = (doc as any).lastAutoTable.finalY + 10;
+    
+    // Clinical Details - SHOW ALL FIELDS
+    const detailsBody: any[] = [];
+    if (appointmentType === 'medical') {
+      detailsBody.push(['Blood Pressure', formData.blood_pressure || 'N/A']);
+      detailsBody.push(['Temperature', formData.temperature ? `${formData.temperature}°C` : 'N/A']);
+      detailsBody.push(['Pulse Rate', formData.pulse_rate || 'N/A']);
+      detailsBody.push(['Respiratory Rate', formData.respiratory_rate || 'N/A']);
+      detailsBody.push(['Weight / Height', `${formData.weight || 'N/A'}kg / ${formData.height || 'N/A'}cm`]);
+      detailsBody.push(['Chief Complaint', formData.chief_complaint || 'N/A']);
+      detailsBody.push(['History of Present Illness', formData.present_illness || 'N/A']);
+      detailsBody.push(['Past Medical History', formData.past_medical_history || 'N/A']);
+      detailsBody.push(['Family History', formData.family_history || 'N/A']);
+      detailsBody.push(['Allergies', formData.allergies || 'N/A']);
+      detailsBody.push(['Medications', formData.medications || 'N/A']);
+      detailsBody.push(['Diagnosis', formData.diagnosis || 'N/A']);
+      detailsBody.push(['Treatment Plan', formData.treatment_plan || 'N/A']);
+      detailsBody.push(['Recommendations', formData.recommendations || 'N/A']);
+    } else {
+      detailsBody.push(['Chief Concern', formData.chief_concern || 'N/A']);
+      detailsBody.push(['History of Present Illness', formData.history_of_present_illness || 'N/A']);
+      detailsBody.push(['Medical History', formData.medical_history || 'N/A']);
+      detailsBody.push(['Oral Hygiene Habits', formData.oral_hygiene_habits || 'N/A']);
+      detailsBody.push(['Fluoride Exposure', formData.fluoride_exposure || 'N/A']);
+      detailsBody.push(['Extraoral Exam', formData.extraoral_examination || 'N/A']);
+      detailsBody.push(['Intraoral Exam', formData.intraoral_examination || 'N/A']);
+      detailsBody.push(['Occlusion', formData.occlusion || 'N/A']);
+      detailsBody.push(['Periodontal Screening', formData.periodontal_screening || 'N/A']);
+      detailsBody.push(['Oral Pathology', formData.oral_pathology || 'N/A']);
+      detailsBody.push(['Diagnosis', formData.diagnosis_dental || 'N/A']);
+      detailsBody.push(['Treatment Plan', formData.treatment_plan_dental || 'N/A']);
+      
+      // Teeth Status Counts
+      detailsBody.push(['Teeth Count', `Decayed: ${formData.decayed_teeth || '0'}, Missing: ${formData.missing_teeth || '0'}, Filled: ${formData.filled_teeth || '0'}`]);
+      
+      // Detailed Tooth Status (Permanent)
+      if (formData.permanent_teeth_status) {
+        try {
+          const data = typeof formData.permanent_teeth_status === 'string' ? JSON.parse(formData.permanent_teeth_status) : formData.permanent_teeth_status;
+          const teeth = Object.entries(data)
+            .filter(([_, t]: [string, any]) => t && (t.status || t.treatment))
+            .map(([num, t]: [string, any]) => `${num}(${t.status || ''}${t.treatment ? '/' + t.treatment : ''})`)
+            .join(', ');
+          if (teeth) detailsBody.push(['Permanent Teeth Status', teeth]);
+        } catch (e) {}
+      }
+
+      // Detailed Tooth Status (Temporary)
+      if (formData.temporary_teeth_status) {
+        try {
+          const data = typeof formData.temporary_teeth_status === 'string' ? JSON.parse(formData.temporary_teeth_status) : formData.temporary_teeth_status;
+          const teeth = Object.entries(data)
+            .filter(([_, t]: [string, any]) => t && (t.status || t.treatment))
+            .map(([num, t]: [string, any]) => `${num}(${t.status || ''}${t.treatment ? '/' + t.treatment : ''})`)
+            .join(', ');
+          if (teeth) detailsBody.push(['Temporary Teeth Status', teeth]);
+        } catch (e) {}
+      }
+    }
+
+    // Medicine Usage
+    if (formData.used_medicines && Array.isArray(formData.used_medicines) && formData.used_medicines.length > 0) {
+      const meds = formData.used_medicines.map((m: any) => `${m.item_name} (${m.quantity_used})`).join(', ');
+      detailsBody.push(['Issued Medicines', meds]);
+    }
+
+    detailsBody.push(['Additional Remarks', formData.remarks || 'N/A']);
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [['Clinical Findings / Details', 'Observations']],
+      body: detailsBody,
+      theme: 'striped',
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 20;
+
+    // Signature
+    if (currentY > doc.internal.pageSize.getHeight() - 40) {
+      doc.addPage();
+      currentY = 40;
+    }
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(formData.examined_by || formData.dentist_name || 'Attending Clinician', 130, currentY);
+    doc.line(125, currentY + 1, 185, currentY + 1);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text('Authorized Signature / Date', 130, currentY + 5);
+    doc.text(`License/PTR: ${formData.examiner_license || formData.dentist_license || 'N/A'}`, 130, currentY + 9);
+
+    // Dental Chart Image Page
+    if (appointmentType === 'dental' && teethChartImage) {
+      doc.addPage();
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('DENTAL CHART VISUAL', 105, 20, { align: 'center' });
+      doc.addImage(teethChartImage, 'PNG', 15, 30, 180, 180);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'italic');
+      doc.text('Visual representation of current dental status.', 105, 220, { align: 'center' });
+    }
+
+    doc.save(`${appointmentType}_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    throw error;
+  }
+};
+
 export const generatePDFReport = async (
   stats: StatsData,
   userTypeData: UserTypeData[],
@@ -68,380 +274,147 @@ export const generatePDFReport = async (
     const leftMargin = 15;
     const rightMargin = 105; // Split layout: left side for details, right for charts
     
-    // Professional Header with University Branding
-    pdf.setFillColor(128, 0, 0); // WMSU maroon color
-    pdf.rect(0, 0, pageWidth, 30, 'F'); // Reduced from 35 to 30
-    
-    // Add logo on the left side
-    try {
-      // Try to load and add logo
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'anonymous';
-      logoImg.src = '/logo.png';
-      await new Promise((resolve, reject) => {
-        logoImg.onload = () => {
+    // Load and Add Logos
+    const loadLogo = (src: string): Promise<string | null> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = src;
+        img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            canvas.width = logoImg.width;
-            canvas.height = logoImg.height;
-            ctx?.drawImage(logoImg, 0, 0);
-            const logoDataUrl = canvas.toDataURL('image/png');
-            pdf.addImage(logoDataUrl, 'PNG', leftMargin, 5, 15, 15); // Reduced logo size and adjusted position
-            resolve(true);
-          } catch (error) {
-            console.warn('Could not add logo:', error);
-            resolve(false);
-          }
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) { resolve(null); }
         };
-        logoImg.onerror = () => resolve(false);
-        // Timeout after 2 seconds
-        setTimeout(() => resolve(false), 2000);
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 2000);
       });
-    } catch (error) {
-      console.warn('Logo loading failed:', error);
-    }
-    
-    // Header text aligned to the right
-    pdf.setFontSize(16); // Reduced from 20
+    };
+
+    const [wmsuLogo, healthLogo] = await Promise.all([
+      loadLogo('/WMSU-Logo.jpg'),
+      loadLogo('/WMSU-HealthLogo.png')
+    ]);
+
+    if (wmsuLogo) pdf.addImage(wmsuLogo, 'JPEG', 15, 12, 22, 22);
+    if (healthLogo) pdf.addImage(healthLogo, 'PNG', 173, 12, 22, 22);
+
+    // Minimalist University Header
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text('WMSU Health Services Report', pageWidth - leftMargin, 12, { align: 'right' }); // Adjusted positioning
-    
-    pdf.setFontSize(9); // Reduced from 11
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Performance Report`, pageWidth - leftMargin, 18, { align: 'right' }); // Adjusted positioning
-    pdf.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth - leftMargin, 24, { align: 'right' }); // Adjusted positioning
-    
-    // Reset text color for content
+    pdf.setFontSize(14);
     pdf.setTextColor(0, 0, 0);
-    let yPosition = 35; // Reduced from 45
+    pdf.text('WESTERN MINDANAO STATE UNIVERSITY', 105, 20, { align: 'center' });
     
-    // Left Side - Summary Section
-    pdf.setFontSize(12); // Reduced from 14
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Summary', leftMargin, yPosition);
-    yPosition += 6; // Reduced from 8
-    
-    // Summary statistics in a structured format
-    pdf.setFontSize(9);
+    pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
+    pdf.text('UNIVERSITY HEALTH SERVICES CENTER', 105, 26, { align: 'center' });
+    pdf.text('Zamboanga City, Philippines', 105, 31, { align: 'center' });
     
-    const summaryItems = [
-      { label: 'Report Period', value: reportType.charAt(0).toUpperCase() + reportType.slice(1) },
-      { label: 'Total Services', value: (stats.medical.total + stats.dental.total + stats.documents.total).toString() },
-      { label: 'Completion Rate', value: `${((stats.medical.completed + stats.dental.completed + stats.documents.issued) / (stats.medical.total + stats.dental.total + stats.documents.total) * 100).toFixed(1)}%` },
-      { label: 'User Categories', value: userTypeData.length.toString() },
-      { label: 'Report Date', value: new Date().toLocaleDateString() }
-    ];
+    pdf.setDrawColor(0, 0, 0);
+    pdf.setLineWidth(0.2);
+    pdf.line(20, 36, 190, 36);
     
-    summaryItems.forEach(item => {
-      pdf.text(item.label, leftMargin, yPosition);
-      pdf.text(item.value, leftMargin + 35, yPosition);
-      yPosition += 4; // Reduced from 5
-    });
-    
-    yPosition += 6; // Reduced from 8
-    
-    // Key Metrics Section
-    pdf.setFontSize(12); // Reduced from 14
+    // Report Title
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Key Metrics', leftMargin, yPosition);
-    yPosition += 6; // Reduced from 8
+    pdf.text(`${reportType.toUpperCase()} INSTITUTIONAL PERFORMANCE REPORT`, 105, 45, { align: 'center' });
     
-    pdf.setFontSize(9);
-    pdf.setFont('helvetica', 'normal');
-    
-    const medicalRate = stats.medical.total > 0 ? ((stats.medical.completed / stats.medical.total) * 100).toFixed(1) : '0';
-    const dentalRate = stats.dental.total > 0 ? ((stats.dental.completed / stats.dental.total) * 100).toFixed(1) : '0';
-    const documentsRate = stats.documents.total > 0 ? ((stats.documents.issued / stats.documents.total) * 100).toFixed(1) : '0';
-    
-    const keyMetrics = [
-      { service: 'Medical Consultations', total: stats.medical.total, rate: `${medicalRate}%` },
-      { service: 'Dental Consultations', total: stats.dental.total, rate: `${dentalRate}%` },
-      { service: 'Medical Certificates', total: stats.documents.total, rate: `${documentsRate}%` }
-    ];
-    
-    keyMetrics.forEach(metric => {
-      pdf.text(metric.service, leftMargin, yPosition);
-      pdf.text(metric.total.toString(), leftMargin + 35, yPosition);
-      pdf.text(metric.rate, leftMargin + 50, yPosition);
-      yPosition += 4; // Reduced from 5
-    });
-    
-    yPosition += 6; // Reduced from 8
-    
-    // Demographics Breakdown Section - Enhanced with Configuration Data
-    pdf.setFontSize(12); // Reduced from 14
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('User Demographics & Configuration', leftMargin, yPosition);
-    yPosition += 6; // Reduced from 8
-    
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    
-    // Demographics table - show ALL user types with configuration status
-    const allUserTypes = userTypeData; // Show all user types, not just active ones
-    let maxDisplayUsers = Math.min(allUserTypes.length, 12); // Reduced to fit better on page
-    
-    // Enhanced demographics table headers
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('User Type', leftMargin, yPosition);
-    pdf.text('Services', leftMargin + 28, yPosition);
-    pdf.text('Complete', leftMargin + 40, yPosition);
-    pdf.text('Rate', leftMargin + 52, yPosition);
-    pdf.text('Status', leftMargin + 62, yPosition);
-    pdf.text('Config', leftMargin + 72, yPosition);
-    yPosition += 6; // Increased spacing for headers
-    pdf.setFont('helvetica', 'normal');
-    
-    for (let i = 0; i < maxDisplayUsers; i++) {
-      const user = allUserTypes[i];
-      const totalServices = user.medical.total + user.dental.total + user.documents.total;
-      const completedServices = user.medical.completed + user.dental.completed + (user.documents.completed || user.documents.issued || 0);
-      const userRate = totalServices > 0 ? ((completedServices / totalServices) * 100).toFixed(0) : '0';
-      
-      // User type with truncation if needed
-      const displayType = user.userType.length > 12 ? user.userType.substring(0, 12) + '...' : user.userType;
-      pdf.text(displayType, leftMargin, yPosition);
-      pdf.text(totalServices.toString(), leftMargin + 30, yPosition);
-      pdf.text(completedServices.toString(), leftMargin + 42, yPosition);
-      pdf.text(`${userRate}%`, leftMargin + 55, yPosition);
-      
-      // Configuration status
-      const isEnabled = user.configuration?.enabled !== false;
-      const configStatus = isEnabled ? 'Active' : 'Disabled';
-      pdf.text(configStatus, leftMargin + 62, yPosition);
-      
-      // Required fields count
-      const reqFieldsCount = user.configuration?.required_fields?.length || 0;
-      pdf.text(`${reqFieldsCount}F`, leftMargin + 72, yPosition);
-      yPosition += 3; // Reduced from 4
-      
-      // Check if we're approaching page boundary
-      if (yPosition > pageHeight - 120) {
-        maxDisplayUsers = i + 1; // Stop here to prevent overflow
-      }
-    }
-    
-    yPosition += 6; // Reduced from 8
-    
-    // Service Utilization Analysis - Enhanced with Configuration Analysis
-    pdf.setFontSize(12); // Reduced from 14
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Service & Configuration Analysis', leftMargin, yPosition);
-    yPosition += 6; // Reduced from 8
-    
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    
-    // Enhanced analysis points including configuration data
-    const enabledUserTypes = userTypeData.filter(ut => ut.configuration?.enabled !== false);
-    const disabledUserTypes = userTypeData.filter(ut => ut.configuration?.enabled === false);
-    const avgRequiredFields = userTypeData.reduce((sum, ut) => sum + (ut.configuration?.required_fields?.length || 0), 0) / userTypeData.length;
-    
-    const analysisPoints = [
-      `Total User Categories: ${userTypeData.length} (${enabledUserTypes.length} enabled, ${disabledUserTypes.length} disabled)`,
-      `Active Categories: ${userTypeData.filter(ut => ut.totalTransactions > 0).length} with service records`,
-      `Most Active: ${userTypeData[0]?.userType || 'N/A'} (${userTypeData[0]?.totalTransactions || 0} services)`,
-      `Configuration Coverage: ${enabledUserTypes.length}/${userTypeData.length} user types configured and active`,
-      `Average Required Fields: ${avgRequiredFields.toFixed(1)} fields per user type`,
-      `Medical Focus: ${stats.medical.completed}/${stats.medical.total} completed (${((stats.medical.completed/stats.medical.total)*100).toFixed(1)}%)`,
-      `Dental Focus: ${stats.dental.completed}/${stats.dental.total} completed (${((stats.dental.completed/stats.dental.total)*100).toFixed(1)}%)`,
-      `Certificate Demand: ${stats.documents.issued} issued certificates`,
-      `Peak Performance: ${Math.max(...userTypeData.map(ut => ut.completionRate)).toFixed(1)}% (best user type)`,
-      `Overall Efficiency: ${((stats.medical.completed + stats.dental.completed + stats.documents.issued) / (stats.medical.total + stats.dental.total + stats.documents.total) * 100).toFixed(1)}% completion`,
-      `Configuration Health: ${enabledUserTypes.length > 0 ? 'System properly configured' : 'Configuration needed'}`
-    ];
-    
-    analysisPoints.forEach(point => {
-      pdf.text(point, leftMargin, yPosition);
-      yPosition += 3; // Reduced from 4
-    });
-    
-    // Right Side - Charts and Visual Elements
-    const chartX = rightMargin;
-    const chartWidth = pageWidth - rightMargin - 15;
-    let rightY = 45;
-    
-    // Service Distribution Chart Area
-    pdf.setFontSize(10); // Reduced from 12
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Service Distribution', chartX, rightY);
-    rightY += 6; // Reduced from 8
-    
-    // Draw a simple pie chart representation
+    let currentY = 55;
+
     const totalServices = stats.medical.total + stats.dental.total + stats.documents.total;
-    if (totalServices > 0) {
-      const centerX = chartX + 30;
-      const centerY = rightY + 20;
-      const radius = 15;
-      
-      // Medical slice (blue)
-      const medicalAngle = (stats.medical.total / totalServices) * 360;
-      pdf.setFillColor(59, 130, 246); // Blue
-      pdf.circle(centerX, centerY, radius, 'F');
-      
-      // Dental slice (green) - simplified representation
-      pdf.setFillColor(16, 185, 129); // Green
-      const dentalAngle = (stats.dental.total / totalServices) * 360;
-      
-      // Documents slice (amber) - simplified representation
-      pdf.setFillColor(245, 158, 11); // Amber
-      
-      // Legend for the chart
-      pdf.setFontSize(8);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFillColor(59, 130, 246);
-      pdf.rect(chartX, rightY + 45, 3, 3, 'F');
-      pdf.text(`Medical: ${stats.medical.total}`, chartX + 5, rightY + 47);
-      
-      pdf.setFillColor(16, 185, 129);
-      pdf.rect(chartX, rightY + 52, 3, 3, 'F');
-      pdf.text(`Dental: ${stats.dental.total}`, chartX + 5, rightY + 54);
-      
-      pdf.setFillColor(245, 158, 11);
-      pdf.rect(chartX, rightY + 59, 3, 3, 'F');
-      pdf.text(`Certificates: ${stats.documents.total}`, chartX + 5, rightY + 61);
-      
-      rightY += 65; // Reduced from 75
-    }
-    
-    // Performance Table
-    pdf.setFontSize(10); // Reduced from 12
+    const totalCompleted = stats.medical.completed + stats.dental.completed + stats.documents.issued;
+    const totalCompletionRate = totalServices > 0 ? (totalCompleted / totalServices) * 100 : 0;
+    const itemsConsumed = stats.medicine_usage?.reduce((sum, i) => sum + i.quantity, 0) || 0;
+
+    // Summary Section (minimalist)
+    pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Performance Table', chartX, rightY);
-    rightY += 6; // Reduced from 8
-    
-    // Table headers
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Service', chartX, rightY);
-    pdf.text('Total', chartX + 25, rightY);
-    pdf.text('Completed', chartX + 40, rightY);
-    pdf.text('Rate', chartX + 60, rightY);
-    rightY += 5;
-    
-    // Table data
-    pdf.setFont('helvetica', 'normal');
-    const tableData = [
-      ['Medical', stats.medical.total.toString(), stats.medical.completed.toString(), `${medicalRate}%`],
-      ['Dental', stats.dental.total.toString(), stats.dental.completed.toString(), `${dentalRate}%`],
-      ['Certificates', stats.documents.total.toString(), stats.documents.issued.toString(), `${documentsRate}%`]
-    ];
-    
-    tableData.forEach(row => {
-      pdf.text(row[0], chartX, rightY);
-      pdf.text(row[1], chartX + 25, rightY);
-      pdf.text(row[2], chartX + 40, rightY);
-      pdf.text(row[3], chartX + 60, rightY);
-      rightY += 3; // Reduced from 4
+    pdf.setTextColor(0, 0, 0);
+    pdf.text('EXECUTIVE SUMMARY', leftMargin, currentY);
+    currentY += 8;
+
+    autoTable(pdf, {
+      startY: currentY,
+      head: [['Metric', 'Value', 'Details']],
+      body: [
+        ['Report Period', reportType.charAt(0).toUpperCase() + reportType.slice(1), `Generated on ${new Date().toLocaleDateString()}`],
+        ['Total Services', totalServices.toString(), 'Combined Medical, Dental, and Documents'],
+        ['Completion Rate', `${totalCompletionRate.toFixed(1)}%`, 'Successful consultation closures'],
+        ['Active Clinicians', (stats.clinicians?.length || 0).toString(), 'Staff with recorded activity'],
+        ['Items Consumed', itemsConsumed.toString(), 'Medical and dental supplies used']
+      ],
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
+      headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
     });
-    
-    rightY += 8; // Reduced from 10
-    
-    // User Demographics Area Chart with Numbered Bars
-    pdf.setFontSize(10); // Reduced from 12
+
+    currentY = (pdf as any).lastAutoTable.finalY + 12;
+
+    // Service Activity (minimalist)
+    pdf.setFontSize(14);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Demographics Trends', chartX, rightY);
-    rightY += 6; // Reduced from 8
-    
-    // Create area chart representation for user demographics
-    const maxDemographicValue = Math.max(...userTypeData.map(u => u.totalTransactions), 1); // Ensure minimum of 1
-    const areaChartHeight = 40;
-    const areaChartWidth = 70;
-    
-    // Draw chart background
-    pdf.setDrawColor(230, 230, 230);
-    pdf.rect(chartX, rightY, areaChartWidth, areaChartHeight);
-    
-    // Draw area chart for user demographics (show ALL user types)
-    if (userTypeData.length > 0) {
-      const displayData = userTypeData.slice(0, Math.min(10, userTypeData.length)); // Show up to 10 user types
-      const actualBarWidth = areaChartWidth / displayData.length;
-      
-      displayData.forEach((user, index) => {
-        const barHeight = maxDemographicValue > 0 ? (user.totalTransactions / maxDemographicValue) * (areaChartHeight - 5) : 5; // Minimum height for visibility
-        const barX = chartX + (index * actualBarWidth);
-        const barY = rightY + areaChartHeight - Math.max(barHeight, 3); // Ensure minimum visibility
-        
-        // Create gradient effect for area chart
-        const colors = [
-          [59, 130, 246],   // Blue
-          [16, 185, 129],   // Green  
-          [245, 158, 11],   // Amber
-          [239, 68, 68],    // Red
-          [139, 92, 246],   // Purple
-          [236, 72, 153],   // Pink
-          [20, 184, 166],   // Teal
-          [251, 146, 60],   // Orange
-          [34, 197, 94],    // Emerald
-          [168, 85, 247]    // Violet
-        ];
-        const color = colors[index % colors.length];
-        pdf.setFillColor(color[0], color[1], color[2]);
-        pdf.rect(barX, barY, actualBarWidth - 1, Math.max(barHeight, 3), 'F');
-        
-        // Add value on top of the bar (even if 0)
-        pdf.setFontSize(6);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setTextColor(0, 0, 0);
-        pdf.text(`${user.totalTransactions}`, barX + (actualBarWidth / 2), barY - 2, { align: 'center' });
-        
-        // Add user type label
-        pdf.setFontSize(5);
-        const shortLabel = user.userType.length > 6 ? user.userType.substring(0, 6) + '.' : user.userType;
-        pdf.text(shortLabel, barX + 1, rightY + areaChartHeight + 4, { angle: 45 });
-      });
-      
-      // Add legend below the chart for all displayed user types
-      pdf.setFontSize(6);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(80, 80, 80);
-      let legendY = rightY + areaChartHeight + 12;
-      const legendCols = 2;
-      displayData.forEach((user, index) => {
-        if (index % legendCols === 0 && index > 0) legendY += 6;
-        const legendX = chartX + (index % legendCols) * (areaChartWidth / legendCols);
-        const displayName = user.userType.length > 10 ? user.userType.substring(0, 10) + '...' : user.userType;
-        pdf.text(`${displayName} (${user.totalTransactions})`, legendX, legendY);
-      });
+    pdf.text('SERVICE ACTIVITY BREAKDOWN', leftMargin, currentY);
+    currentY += 8;
+
+    const medicalRate = stats.medical.total > 0 ? (stats.medical.completed / stats.medical.total) * 100 : 0;
+    const dentalRate = stats.dental.total > 0 ? (stats.dental.completed / stats.dental.total) * 100 : 0;
+    const documentRate = stats.documents.total > 0 ? (stats.documents.issued / stats.documents.total) * 100 : 0;
+
+    autoTable(pdf, {
+      startY: currentY,
+      head: [['Service Category', 'Total Volume', 'Completed', 'Success Rate']],
+      body: [
+        ['Medical Consultations', stats.medical.total.toString(), stats.medical.completed.toString(), `${medicalRate.toFixed(1)}%`],
+        ['Dental Examinations', stats.dental.total.toString(), stats.dental.completed.toString(), `${dentalRate.toFixed(1)}%`],
+        ['Document Issuance', stats.documents.total.toString(), stats.documents.issued.toString(), `${documentRate.toFixed(1)}%`]
+      ],
+      theme: 'striped',
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+    });
+
+    currentY = (pdf as any).lastAutoTable.finalY + 12;
+
+    pdf.setFontSize(9);
+    pdf.setFont('helvetica', 'italic');
+    pdf.setTextColor(80, 80, 80);
+    pdf.text('Detailed staff and inventory breakdowns follow on the next pages.', leftMargin, currentY);
+
+    // Page 2: User Type Breakdown
+    if (userTypeData && userTypeData.length > 0) {
+      pdf.addPage();
+      addUserTypeBreakdownPage(pdf, userTypeData, pageWidth, pageHeight, leftMargin);
+    }
+
+    // Page 3: Staff Activity
+    if (stats.clinicians && stats.clinicians.length > 0) {
+      pdf.addPage();
+      addClinicianPerformancePage(pdf, stats.clinicians, pageWidth, pageHeight, leftMargin);
     }
     
-    rightY += areaChartHeight + 15;
+    // Page 4: Resource Utilization
+    if (stats.medicine_usage && stats.medicine_usage.length > 0) {
+      pdf.addPage();
+      addMedicineUsagePage(pdf, stats.medicine_usage, stats.medical_med_total_entries || 0, pageWidth, pageHeight, leftMargin);
+    }
     
-    // Page 2+: User Type Distribution Analysis - One page per user type
-    pdf.addPage();
-    addUserTypeDistributionPage(pdf, userTypeData, pageWidth, pageHeight, leftMargin);
-    
-    // Demographics Breakdown Pages - One page per user type (after service pages)
-    addDemographicsBreakdownPages(pdf, userTypeData, pageWidth, pageHeight, leftMargin);
-    
-    // Calculate the final page number for Performance Summary 
-    // (1 overview + userType pages + demographics pages + performance page)
-    const totalUserTypePages = userTypeData.length; // One page per user type
-    const totalDemographicsPages = userTypeData.length; // One demographics page per user type
-    const performancePageNumber = 2 + totalUserTypePages + totalDemographicsPages;
-    
-    // Final Page: Performance Analytics & Summary
-    pdf.addPage();
-    addPerformanceSummaryPage(pdf, userTypeData, stats, pageWidth, pageHeight, leftMargin, performancePageNumber);
-    
-    // Add consistent footer to all pages
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(128, 128, 128);
-    pdf.text('Western Mindanao State University Health Services', pageWidth / 2, pageHeight - 15, { align: 'center' });
-    pdf.text(`Report generated on ${new Date().toLocaleDateString()} | System Status: Active | Data: Real-time`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    pdf.text(`Confidential - For authorized personnel only | Multi-page Report`, pageWidth / 2, pageHeight - 5, { align: 'center' });
-    
-    // Save the PDF
-    const filename = `WMSU-Health-${reportType}-report-${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${new Date().getDate().toString().padStart(2, '0')}.pdf`;
-    pdf.save(filename);
-    
+    // Page footer for all pages
+    const totalPages = (pdf as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(`WMSU Health Services - Institutional Report | Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    }
+
+    pdf.save(`WMSU-Health-${reportType}-Report-${new Date().toISOString().split('T')[0]}.pdf`);
   } catch (error) {
     console.error('Error generating PDF report:', error);
-    throw new Error('Failed to generate PDF report. Please try again.');
+    throw new Error('Failed to generate PDF report.');
   }
 };
 
@@ -963,9 +936,9 @@ function addEnhancedSummaryPage(pdf: any, userTypeData: any[], stats: any, leftM
   pdf.rect(leftMargin, yPos, chartWidth, chartHeight, 'FD');
   
   const services = [
-    { name: 'Medical Consultations', total: stats.medical.total, completed: stats.medical.completed, color: [59, 130, 246] },
-    { name: 'Dental Consultations', total: stats.dental.total, completed: stats.dental.completed, color: [16, 185, 129] },
-    { name: 'Medical Documents', total: stats.documents.total, completed: stats.documents.issued, color: [245, 158, 11] }
+    { name: 'Medical Consultations', total: stats.medical.total, completed: stats.medical.completed, pending: stats.medical.pending, rejected: stats.medical.rejected, color: [59, 130, 246] },
+    { name: 'Dental Consultations', total: stats.dental.total, completed: stats.dental.completed, pending: stats.dental.pending, rejected: stats.dental.rejected, color: [16, 185, 129] },
+    { name: 'Medical Documents', total: stats.documents.total, completed: stats.documents.issued, pending: stats.documents.pending, rejected: 0, color: [245, 158, 11] }
   ];
   
   const maxServiceValue = Math.max(...services.map(s => s.total));
@@ -1845,6 +1818,134 @@ function addPerformanceSummaryPage(pdf: any, userTypeData: any[], stats: any, pa
   pdf.text(`Page ${pageNumber} - Performance Analytics & Summary`, pageWidth / 2, pageHeight - 10, { align: 'center' });
 }
 
+// Helper function to add clinician performance page
+function addClinicianPerformancePage(pdf: any, clinicians: any[], pageWidth: number, pageHeight: number, leftMargin: number) {
+  let yPos = 30;
+  
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('STAFF ACTIVITY & SERVICE DELIVERY', leftMargin, yPos);
+  yPos += 12;
+  
+  autoTable(pdf, {
+    startY: yPos,
+    head: [['Service Provider', 'Medical', 'Dental', 'Docs', 'Total', 'Share']],
+    body: clinicians.sort((a, b) => b.consultations - a.consultations).map(staff => {
+      const total = clinicians.reduce((sum, c) => sum + c.consultations, 0);
+      const share = total > 0 ? ((staff.consultations / total) * 100).toFixed(1) : '0';
+      return [
+        staff.name, 
+        (staff.medical_count || 0).toString(),
+        (staff.dental_count || 0).toString(),
+        (staff.document_count || 0).toString(),
+        staff.consultations.toString(), 
+        `${share}%`
+      ];
+    }),
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
+    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+  });
+
+  const finalY = (pdf as any).lastAutoTable.finalY + 12;
+  yPos = finalY;
+  
+  // Summary Insights
+  pdf.setFontSize(11);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('Performance Insights', leftMargin, yPos);
+  yPos += 8;
+  
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'normal');
+  const totalConsultations = clinicians.reduce((sum, c) => sum + c.consultations, 0);
+  const topClinician = [...clinicians].sort((a, b) => b.consultations - a.consultations)[0];
+  const insights = [
+    `Total active clinical staff recorded: ${clinicians.length}`,
+    `Total completed consultations: ${totalConsultations}`,
+    `Average consultations per staff member: ${clinicians.length > 0 ? (totalConsultations / clinicians.length).toFixed(1) : 0}`,
+    `Lead clinician for the period: ${topClinician ? topClinician.name : 'N/A'} (${topClinician ? topClinician.consultations : 0} records)`
+  ];
+  
+  insights.forEach(insight => {
+    pdf.text(`• ${insight}`, leftMargin + 5, yPos);
+    yPos += 6;
+  });
+}
+
+// Helper function to add user type breakdown page
+function addUserTypeBreakdownPage(pdf: any, userTypeData: UserTypeData[], pageWidth: number, pageHeight: number, leftMargin: number) {
+  let yPos = 30;
+
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('USER TYPE BREAKDOWN', leftMargin, yPos);
+  yPos += 12;
+
+  const rows = userTypeData.map(userType => {
+    const medicalTotal = userType.medical?.total || 0;
+    const dentalTotal = userType.dental?.total || 0;
+    const documentsTotal = userType.documents?.total || 0;
+    const documentsCompleted = (userType.documents as any)?.issued || (userType.documents as any)?.completed || 0;
+    const total = medicalTotal + dentalTotal + documentsTotal;
+    const completed = (userType.medical?.completed || 0) + (userType.dental?.completed || 0) + documentsCompleted;
+    const rate = total > 0 ? ((completed / total) * 100).toFixed(1) : '0.0';
+
+    return [
+      userType.userType,
+      medicalTotal.toString(),
+      dentalTotal.toString(),
+      documentsTotal.toString(),
+      total.toString(),
+      `${rate}%`
+    ];
+  });
+
+  autoTable(pdf, {
+    startY: yPos,
+    head: [['User Type', 'Medical', 'Dental', 'Documents', 'Total', 'Success Rate']],
+    body: rows,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
+    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+  });
+
+  yPos = (pdf as any).lastAutoTable.finalY + 8;
+
+  const totals = userTypeData.reduce(
+    (acc, userType) => {
+      const medicalTotal = userType.medical?.total || 0;
+      const dentalTotal = userType.dental?.total || 0;
+      const documentsTotal = userType.documents?.total || 0;
+      const documentsCompleted = (userType.documents as any)?.issued || (userType.documents as any)?.completed || 0;
+      acc.medical += medicalTotal;
+      acc.dental += dentalTotal;
+      acc.documents += documentsTotal;
+      acc.completed += (userType.medical?.completed || 0) + (userType.dental?.completed || 0) + documentsCompleted;
+      return acc;
+    },
+    { medical: 0, dental: 0, documents: 0, completed: 0 }
+  );
+
+  const grandTotal = totals.medical + totals.dental + totals.documents;
+  const grandRate = grandTotal > 0 ? ((totals.completed / grandTotal) * 100).toFixed(1) : '0.0';
+
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setDrawColor(0, 0, 0);
+  pdf.line(leftMargin, yPos, pageWidth - leftMargin, yPos);
+  yPos += 6;
+
+  pdf.text('TOTAL SYSTEM SUMMARY', leftMargin, yPos);
+  pdf.text(totals.medical.toString(), leftMargin + 60, yPos);
+  pdf.text(totals.dental.toString(), leftMargin + 90, yPos);
+  pdf.text(totals.documents.toString(), leftMargin + 120, yPos);
+  pdf.text(grandTotal.toString(), leftMargin + 150, yPos);
+  pdf.text(`${grandRate}%`, leftMargin + 175, yPos);
+}
+
 // Generate service-specific PDF report with demographics
 export const generateServiceSpecificPDFReport = async (
   stats: StatsData,
@@ -1866,63 +1967,74 @@ export const generateServiceSpecificPDFReport = async (
     const leftMargin = 15;
     const rightMargin = 105;
     
-    // Professional Header with University Branding
-    pdf.setFillColor(128, 0, 0); // WMSU maroon color
-    pdf.rect(0, 0, pageWidth, 35, 'F');
+    // Header background (white)
+    pdf.setFillColor(255, 255, 255);
+    pdf.rect(0, 0, pageWidth, 45, 'F');
     
-    // Add logo on the left side
-    try {
-      const logoImg = new Image();
-      logoImg.crossOrigin = 'anonymous';
-      logoImg.src = '/logo.png';
-      await new Promise((resolve) => {
-        logoImg.onload = () => {
+    // Bottom border (Maroon)
+    pdf.setDrawColor(128, 0, 0);
+    pdf.setLineWidth(1);
+    pdf.line(0, 45, pageWidth, 45);
+    
+    // Load and Add Logos
+    const loadLogo = (src: string): Promise<string | null> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = src;
+        img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
             const ctx = canvas.getContext('2d');
-            canvas.width = logoImg.width;
-            canvas.height = logoImg.height;
-            ctx?.drawImage(logoImg, 0, 0);
-            const logoDataUrl = canvas.toDataURL('image/png');
-            pdf.addImage(logoDataUrl, 'PNG', leftMargin, 8, 20, 20);
-            resolve(true);
-          } catch (error) {
-            console.warn('Could not add logo:', error);
-            resolve(false);
-          }
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) { resolve(null); }
         };
-        logoImg.onerror = () => resolve(false);
-        setTimeout(() => resolve(false), 2000);
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 2000);
       });
-    } catch (error) {
-      console.warn('Logo loading failed:', error);
-    }
-    
-    // Header text aligned to the right
-    pdf.setFontSize(18);
+    };
+
+    const [wmsuLogo, healthLogo] = await Promise.all([
+      loadLogo('/WMSU-Logo.jpg'),
+      loadLogo('/WMSU-HealthLogo.png')
+    ]);
+
+    if (wmsuLogo) pdf.addImage(wmsuLogo, 'JPEG', leftMargin, 8, 28, 28);
+    if (healthLogo) pdf.addImage(healthLogo, 'PNG', pageWidth - leftMargin - 28, 8, 28, 28);
+
+    // University Header Text
+    pdf.setTextColor(128, 0, 0);
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Services Report`, pageWidth - leftMargin, 15, { align: 'right' });
-    
-    pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Demographics Report`, pageWidth - leftMargin, 23, { align: 'right' });
-    pdf.text(`Generated: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, pageWidth - leftMargin, 30, { align: 'right' });
-    
-    // Reset text color for content
-    pdf.setTextColor(0, 0, 0);
-    let yPosition = 45;
-    
-    // Service-specific overview (Left side)
     pdf.setFontSize(14);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Overview`, leftMargin, yPosition);
-    yPosition += 8;
+    pdf.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 15, { align: 'center' });
     
-    pdf.setFontSize(9);
+    pdf.setTextColor(100, 100, 100);
     pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.text('Zamboanga City', pageWidth / 2, 21, { align: 'center' });
     
-    // Service statistics
+    pdf.setTextColor(128, 0, 0);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 27, { align: 'center' });
+    
+    pdf.setTextColor(150, 150, 150);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7);
+    pdf.text('Tel. no. (062) 991-6736 | Email: healthservices@wmsu.edu.ph', pageWidth / 2, 32, { align: 'center' });
+
+    // Report Title
+    pdf.setTextColor(0, 0, 0);
+    pdf.setFontSize(12);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Services ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`, pageWidth / 2, 40, { align: 'center' });
+    
+    let yPosition = 55;
+
+    // Service statistics definition
     let serviceStats;
     if (serviceType === 'medical') {
       serviceStats = stats.medical;
@@ -1932,31 +2044,48 @@ export const generateServiceSpecificPDFReport = async (
       serviceStats = stats.documents;
     }
     
-    const serviceItems = [
-      { label: 'Total', value: serviceStats.total.toString() },
-      { label: 'Completed', value: serviceType === 'certificates' ? serviceStats.issued.toString() : serviceStats.completed.toString() },
-      { label: 'Pending', value: serviceStats.pending.toString() },
-      { label: 'Rate', value: `${serviceStats.total > 0 ? ((serviceType === 'certificates' ? serviceStats.issued : serviceStats.completed) / serviceStats.total * 100).toFixed(1) : '0'}%` }
-    ];
-    
-    serviceItems.forEach(item => {
-      pdf.text(item.label, leftMargin, yPosition);
-      pdf.text(item.value, leftMargin + 35, yPosition);
-      yPosition += 5;
-    });
-    
-    yPosition += 8;
-    
-    // Demographics Breakdown
-    pdf.setFontSize(14);
+    // Main Table - Professional structure
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
-    pdf.text('Demographics Breakdown', leftMargin, yPosition);
+    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Service Report Details`, leftMargin, yPosition);
     yPosition += 8;
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.setFillColor(240, 240, 240);
+    pdf.rect(leftMargin, yPosition, pageWidth - 2 * leftMargin, 8, 'F');
     
-    pdf.setFontSize(8);
+    pdf.text('User Type', leftMargin + 2, yPosition + 6);
+    pdf.text('Total', leftMargin + 60, yPosition + 6);
+    pdf.text('Completed', leftMargin + 90, yPosition + 6);
+    pdf.text('Pending', leftMargin + 120, yPosition + 6);
+    pdf.text('Success Rate', leftMargin + 150, yPosition + 6);
+    
+    yPosition += 12;
     pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
     
-    userTypeData.slice(0, 8).forEach(user => {
+    userTypeData.forEach((user, index) => {
+      // Check for page overflow
+      if (yPosition > pageHeight - 40) {
+        pdf.addPage();
+        yPosition = 20;
+        
+        // Re-draw headers on new page
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(9);
+        pdf.setFillColor(240, 240, 240);
+        pdf.rect(leftMargin, yPosition, pageWidth - 2 * leftMargin, 8, 'F');
+        pdf.text('User Type', leftMargin + 2, yPosition + 6);
+        pdf.text('Total', leftMargin + 60, yPosition + 6);
+        pdf.text('Completed', leftMargin + 90, yPosition + 6);
+        pdf.text('Pending', leftMargin + 120, yPosition + 6);
+        pdf.text('Success Rate', leftMargin + 150, yPosition + 6);
+        yPosition += 12;
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+      }
+
       let userServiceData;
       if (serviceType === 'medical') {
         userServiceData = user.medical;
@@ -1967,192 +2096,125 @@ export const generateServiceSpecificPDFReport = async (
       }
       
       const completed = serviceType === 'certificates' ? (userServiceData.completed || userServiceData.issued || 0) : userServiceData.completed;
-      const rate = userServiceData.total > 0 ? ((completed / userServiceData.total) * 100).toFixed(0) : '0';
+      const rate = userServiceData.total > 0 ? ((completed / userServiceData.total) * 100).toFixed(1) : '0';
       
-      const displayType = user.userType.length > 12 ? user.userType.substring(0, 12) + '...' : user.userType;
-      pdf.text(displayType, leftMargin, yPosition);
-      pdf.text(userServiceData.total.toString(), leftMargin + 30, yPosition);
-      pdf.text(completed.toString(), leftMargin + 42, yPosition);
-      pdf.text(`${rate}%`, leftMargin + 55, yPosition);
-      yPosition += 4;
-    });
-    
-    // Right side - Service-specific visualization
-    const chartX = rightMargin;
-    let rightY = 45;
-    
-    // Service Distribution
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} by User Type`, chartX, rightY);
-    rightY += 8;
-    
-    // Create demographic area chart for this service
-    const maxServiceValue = Math.max(...userTypeData.map(u => {
-      if (serviceType === 'medical') return u.medical.total;
-      if (serviceType === 'dental') return u.dental.total;
-      return u.documents.total;
-    }));
-    
-    if (maxServiceValue > 0) {
-      const serviceChartHeight = 45;
-      const serviceChartWidth = 75;
-      
-      // Draw chart background
+      // Draw row line
       pdf.setDrawColor(230, 230, 230);
-      pdf.rect(chartX, rightY, serviceChartWidth, serviceChartHeight);
+      pdf.line(leftMargin, yPosition + 2, pageWidth - leftMargin, yPosition + 2);
       
-      userTypeData.slice(0, 6).forEach((user, index) => {
-        let userServiceTotal = 0;
-        if (serviceType === 'medical') userServiceTotal = user.medical.total;
-        else if (serviceType === 'dental') userServiceTotal = user.dental.total;
-        else userServiceTotal = user.documents.total;
-        
-        const barHeight = (userServiceTotal / maxServiceValue) * (serviceChartHeight - 5);
-        const barWidth = serviceChartWidth / 6;
-        const barX = chartX + (index * barWidth);
-        const barY = rightY + serviceChartHeight - barHeight;
-        
-        // Service-specific colors
-        let color;
-        if (serviceType === 'medical') color = [59, 130, 246]; // Blue
-        else if (serviceType === 'dental') color = [16, 185, 129]; // Green
-        else color = [245, 158, 11]; // Amber
-        
-        pdf.setFillColor(color[0] + (index * 10), color[1] - (index * 5), color[2] + (index * 8));
-        pdf.rect(barX, barY, barWidth - 1, barHeight, 'F');
-        
-        // Add value on top of the bar
-        pdf.setFontSize(6);
-        pdf.setFont('helvetica', 'normal');
-        pdf.text(`${userServiceTotal}`, barX + (barWidth / 2), barY - 2, { align: 'center' });
-        
-        // Add user type label
-        pdf.setFontSize(6);
-        const shortLabel = user.userType.length > 6 ? user.userType.substring(0, 6) + '.' : user.userType;
-        pdf.text(shortLabel, barX + 1, rightY + serviceChartHeight + 4, { angle: 45 });
-      });
+      pdf.text(user.userType, leftMargin + 2, yPosition);
+      pdf.text(userServiceData.total.toString(), leftMargin + 60, yPosition);
+      pdf.text(completed.toString(), leftMargin + 90, yPosition);
+      pdf.text(userServiceData.pending.toString(), leftMargin + 120, yPosition);
+      pdf.text(`${rate}%`, leftMargin + 150, yPosition);
       
-      // Add simple legend below the chart (without numbers)
-      pdf.setFontSize(7);
-      pdf.setFont('helvetica', 'normal');
-      pdf.setTextColor(80, 80, 80);
-      let legendY = rightY + serviceChartHeight + 12;
-      userTypeData.slice(0, 6).forEach((user, index) => {
-        if (index % 2 === 0 && index > 0) legendY += 4; // New line every 2 items for space
-        const legendX = chartX + (index % 2) * 35;
-        pdf.text(`${user.userType}`, legendX, legendY);
-      });
-      
-      rightY += serviceChartHeight + 15;
-    }
-    
-    // Performance Summary Table
-    pdf.setFontSize(10);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('Performance Summary', chartX, rightY);
-    rightY += 6;
-    
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    
-    const topPerformers = userTypeData
-      .filter(user => {
-        if (serviceType === 'medical') return user.medical.total > 0;
-        if (serviceType === 'dental') return user.dental.total > 0;
-        return user.documents.total > 0;
-      })
-      .slice(0, 5);
-    
-    topPerformers.forEach((user, index) => {
-      let total = 0;
-      if (serviceType === 'medical') total = user.medical.total;
-      else if (serviceType === 'dental') total = user.dental.total;
-      else total = user.documents.total;
-      
-      const displayType = user.userType.length > 12 ? user.userType.substring(0, 12) + '...' : user.userType;
-      pdf.text(`${index + 1}. ${displayType}`, chartX, rightY);
-      pdf.text(total.toString(), chartX + 65, rightY);
-      rightY += 4;
+      yPosition += 8;
     });
+    
+    // Summary Section at the bottom of the table
+    yPosition += 5;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(9);
+    pdf.setDrawColor(0, 0, 0);
+    pdf.line(leftMargin, yPosition, pageWidth - leftMargin, yPosition);
+    yPosition += 6;
+    
+    pdf.text('TOTAL SYSTEM SUMMARY', leftMargin + 2, yPosition);
+    pdf.text(serviceStats.total.toString(), leftMargin + 60, yPosition);
+    pdf.text((serviceType === 'certificates' ? serviceStats.issued : serviceStats.completed).toString(), leftMargin + 90, yPosition);
+    pdf.text(serviceStats.pending.toString(), leftMargin + 120, yPosition);
+    pdf.text(`${serviceStats.total > 0 ? ((serviceType === 'certificates' ? serviceStats.issued : serviceStats.completed) / serviceStats.total * 100).toFixed(1) : '0'}%`, leftMargin + 150, yPosition);
+    
+    yPosition += 15;
     
     // Add Medical Inventory section for dental reports
     if (serviceType === 'dental' && medicalInventory && medicalInventory.length > 0) {
-      rightY += 15;
+      yPosition += 15;
       
       // Check if we need a new page
-      if (rightY > pageHeight - 80) {
+      if (yPosition > pageHeight - 80) {
         pdf.addPage();
-        rightY = 30;
+        yPosition = 30;
       }
       
-      pdf.setFontSize(12);
+      pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`Medical Items Used in ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Dental Services`, leftMargin, rightY);
-      rightY += 8;
+      pdf.text(`Medical Items Used in ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Dental Services`, leftMargin, yPosition);
+      yPosition += 8;
       
       // Table header
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Item Name', leftMargin, rightY);
-      pdf.text('Quantity Used', leftMargin + 40, rightY);
-      pdf.text('Unit', leftMargin + 65, rightY);
+      pdf.text('Item Name', leftMargin, yPosition);
+      pdf.text('Quantity Used', leftMargin + 40, yPosition);
+      pdf.text('Unit', leftMargin + 65, yPosition);
       if (medicalInventory.some(item => item.total_cost)) {
-        pdf.text('Total Cost', leftMargin + 80, rightY);
+        pdf.text('Total Cost', leftMargin + 80, yPosition);
       }
-      rightY += 6;
+      yPosition += 6;
       
       // Draw header underline
-      pdf.line(leftMargin, rightY - 2, leftMargin + 90, rightY - 2);
+      pdf.line(leftMargin, yPosition - 2, leftMargin + 90, yPosition - 2);
       
       // Table data
       pdf.setFont('helvetica', 'normal');
       medicalInventory.slice(0, 20).forEach(item => { // Limit to 20 items to avoid overflow
-        pdf.text(item.item_name.length > 25 ? item.item_name.substring(0, 25) + '...' : item.item_name, leftMargin, rightY);
-        pdf.text(item.quantity_used.toString(), leftMargin + 40, rightY);
-        pdf.text(item.unit || 'pcs', leftMargin + 65, rightY);
+        pdf.text(item.item_name.length > 25 ? item.item_name.substring(0, 25) + '...' : item.item_name, leftMargin, yPosition);
+        pdf.text(item.quantity_used.toString(), leftMargin + 40, yPosition);
+        pdf.text(item.unit || 'pcs', leftMargin + 65, yPosition);
         if (item.total_cost) {
-          pdf.text(`₱${item.total_cost.toFixed(2)}`, leftMargin + 80, rightY);
+          pdf.text(`₱${item.total_cost.toFixed(2)}`, leftMargin + 80, yPosition);
         }
-        rightY += 4;
+        yPosition += 4;
         
         // Check if we need a new page
-        if (rightY > pageHeight - 30) {
+        if (yPosition > pageHeight - 30) {
           pdf.addPage();
-          rightY = 30;
+          yPosition = 30;
         }
       });
       
       // Summary
-      rightY += 6;
+      yPosition += 6;
       const totalItems = medicalInventory.reduce((sum, item) => sum + item.quantity_used, 0);
       const totalCost = medicalInventory.reduce((sum, item) => sum + (item.total_cost || 0), 0);
       
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`Total Items Used: ${totalItems}`, leftMargin, rightY);
+      pdf.text(`Total Items Used: ${totalItems}`, leftMargin, yPosition);
       if (totalCost > 0) {
-        pdf.text(`Total Cost: ₱${totalCost.toFixed(2)}`, leftMargin + 50, rightY);
+        pdf.text(`Total Cost: ₱${totalCost.toFixed(2)}`, leftMargin + 50, yPosition);
       }
-      rightY += 4;
+      yPosition += 4;
       
       if (medicalInventory.length > 20) {
         pdf.setFont('helvetica', 'italic');
-        pdf.text(`Note: Showing top 20 items. Total ${medicalInventory.length} items used.`, leftMargin, rightY);
-        rightY += 4;
+        pdf.text(`Note: Showing top 20 items. Total ${medicalInventory.length} items used.`, leftMargin, yPosition);
+        yPosition += 4;
       }
     }
     
-    // Footer
-    pdf.setFontSize(8);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(128, 128, 128);
-    pdf.text('Western Mindanao State University Health Services', pageWidth / 2, pageHeight - 15, { align: 'center' });
-    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Services Report | Generated: ${new Date().toLocaleDateString()}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-    pdf.text(`Confidential - For authorized personnel only`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+    // Page 2: Clinician Performance for this service
+    if (stats.clinicians && stats.clinicians.length > 0) {
+      pdf.addPage();
+      addClinicianPerformancePage(pdf, stats.clinicians, pageWidth, pageHeight, leftMargin);
+    }
     
-    // Save the PDF
-    const filename = `WMSU-${serviceType}-${reportType}-demographics-${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${new Date().getDate().toString().padStart(2, '0')}.pdf`;
-    pdf.save(filename);
+    // Page 3: Medicine Usage
+    if (stats.medicine_usage && stats.medicine_usage.length > 0) {
+      pdf.addPage();
+      addMedicineUsagePage(pdf, stats.medicine_usage, stats.medical_med_total_entries || 0, pageWidth, pageHeight, leftMargin);
+    }
+
+    // Page footer for all pages
+    const totalPages = (pdf as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      pdf.setPage(i);
+      pdf.setFontSize(8);
+      pdf.setTextColor(150, 150, 150);
+      pdf.text(`WMSU Health Services - Institutional Report | Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    }
+
+    pdf.save(`WMSU-${serviceType}-${reportType}-Detailed-Report-${new Date().toISOString().split('T')[0]}.pdf`);
     
   } catch (error) {
     console.error('Error generating service-specific PDF report:', error);
@@ -2451,6 +2513,60 @@ export const generateEnhancedCSV = (
   
   return csvContent;
 };
+
+// Helper function to add medicine usage page
+function addMedicineUsagePage(pdf: any, medicineUsage: any[], medicalMedCount: number, pageWidth: number, pageHeight: number, leftMargin: number) {
+  let yPos = 30;
+  
+  pdf.setFontSize(14);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('RESOURCE UTILIZATION & CONSUMABLES', leftMargin, yPos);
+  yPos += 12;
+
+  // Medicine Summary Table
+  const medicalTotal = medicineUsage.filter(m => m.type === 'medical').reduce((sum, m) => sum + m.quantity, 0);
+  const dentalTotal = medicineUsage.filter(m => m.type === 'dental').reduce((sum, m) => sum + m.quantity, 0);
+
+  autoTable(pdf, {
+    startY: yPos,
+    head: [['Service Category', 'Total Items Consumed']],
+    body: [
+      ['Medical Consultations', medicalTotal.toString()],
+      ['Dental Examinations', dentalTotal.toString()],
+      ['Total Combined', (medicalTotal + dentalTotal).toString()]
+    ],
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+    columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
+  });
+
+  yPos = (pdf as any).lastAutoTable.finalY + 12;
+  
+  pdf.setFontSize(11);
+  pdf.text('DETAILED ITEM BREAKDOWN', leftMargin, yPos);
+  yPos += 8;
+
+  autoTable(pdf, {
+    startY: yPos,
+    head: [['Item Name', 'Quantity Used', 'Unit', 'Service']],
+    body: medicineUsage.sort((a, b) => b.quantity - a.quantity).map(item => [
+      item.name,
+      item.quantity.toString(),
+      item.unit || 'pcs',
+      item.type === 'dental' ? 'Dental' : 'Medical'
+    ]),
+    theme: 'striped',
+    styles: { fontSize: 9, cellPadding: 2 },
+    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+  });
+  
+  const finalY = (pdf as any).lastAutoTable.finalY + 10;
+  pdf.setFontSize(9);
+  pdf.setFont('helvetica', 'italic');
+  pdf.text(`Total Medical prescription entries analyzed: ${medicalMedCount}`, leftMargin, finalY);
+}
 
 // Download function for files
 export const downloadFile = (filename: string, content: string | Blob, type: 'csv' | 'pdf' = 'csv') => {

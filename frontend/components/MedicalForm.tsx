@@ -77,6 +77,13 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
   const [loading, setLoading] = useState(false);
   const [patientId, setPatientId] = useState(patientIdProp || '');
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: '' });
+
+  const formatListValue = (value: any) => {
+    if (Array.isArray(value)) {
+      return value.filter(Boolean).join(', ');
+    }
+    return value || '';
+  };
   // Calculate BMI when height and weight change
   useEffect(() => {
     const weight = parseFloat(formData.weight);
@@ -93,80 +100,113 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
     const fetchPatientData = async () => {
       if (!appointmentId && !patientIdProp) return;
 
+      setLoading(true);
       try {
-        setLoading(true);        if (appointmentId) {
-          // Use the medical form API to get auto-filled patient data
-          const response = await medicalFormAPI.getData(appointmentId);
-          const autoFillData = response.data;
-          
-          // Also fetch full patient data to get department and other details
-          const patientResponse = await patientsAPI.getById(autoFillData.patient_id);
-          const patientData = patientResponse.data;
-          
-          setFormData(prevData => ({
-            ...prevData,
-            fileNo: autoFillData.file_no || '',
-            surname: autoFillData.surname || '',
-            firstName: autoFillData.first_name || '',
-            middleName: autoFillData.middle_name || '',
-            age: autoFillData.age?.toString() || '',
-            sex: autoFillData.sex || 'Male',
-            department: patientData.department || '',
-            contact: patientData.contact_number || '',
-            allergies: patientData.allergies || '',
-            pastMedicalHistory: Array.isArray(patientData.past_medical_history) 
-              ? patientData.past_medical_history.join(', ') 
-              : patientData.past_medical_history || '',
-            familyHistory: Array.isArray(patientData.family_medical_history) 
-              ? patientData.family_medical_history.join(', ') 
-              : patientData.family_medical_history || '',
-            medications: Array.isArray(patientData.maintenance_medications) 
-              ? patientData.maintenance_medications.join(', ') 
-              : patientData.maintenance_medications || '',
-            // Auto-fill examination details
-            examinedBy: autoFillData.examined_by || '',
-            examinerLicense: autoFillData.examiner_license || '',
-            dateOfExamination: autoFillData.date || new Date().toISOString().split('T')[0],
-            // Auto-fill follow-up details
-            followUpDate: autoFillData.follow_up_date || '',
-            followUpInstructions: autoFillData.follow_up_instructions || '',
-          }));
-          setPatientId(autoFillData.patient_id?.toString() || '');
+        let appointmentData: any = null;
+        let autoFillData: any = null;
+        let patientData: any = null;
+
+        if (appointmentId) {
+          const [appointmentResult, autoFillResult] = await Promise.allSettled([
+            appointmentsAPI.getById(appointmentId),
+            medicalFormAPI.getData(appointmentId),
+          ]);
+
+          if (appointmentResult.status === 'fulfilled') {
+            appointmentData = appointmentResult.value.data;
+          }
+
+          if (autoFillResult.status === 'fulfilled') {
+            autoFillData = autoFillResult.value.data;
+          }
         } else if (patientIdProp) {
-          // Fetch patient data directly for manual patient selection
-          const patientResponse = await patientsAPI.getById(patientIdProp);
-          const patientData = patientResponse.data;
-          
-          setFormData(prevData => ({
-            ...prevData,
-            fileNo: patientData.student_id || '',
-            surname: patientData.last_name || patientData.name?.split(' ').pop() || '',
-            firstName: patientData.first_name || patientData.name?.split(' ')[0] || '',
-            middleName: patientData.middle_name || '',
-            age: patientData.age?.toString() || '',
-            sex: patientData.gender || 'Male',
-            department: patientData.department || '',
-            contact: patientData.contact_number || '',
-            allergies: patientData.allergies || '',
-            pastMedicalHistory: Array.isArray(patientData.past_medical_history) 
-              ? patientData.past_medical_history.join(', ') 
-              : patientData.past_medical_history || '',
-            familyHistory: Array.isArray(patientData.family_medical_history) 
-              ? patientData.family_medical_history.join(', ') 
-              : patientData.family_medical_history || '',
-            medications: Array.isArray(patientData.maintenance_medications) 
-              ? patientData.maintenance_medications.join(', ') 
-              : patientData.maintenance_medications || '',
-          }));
-          setPatientId(patientIdProp);
+          const [autoFillResult] = await Promise.allSettled([
+            medicalFormAPI.getDataByPatientId(patientIdProp),
+          ]);
+
+          if (autoFillResult.status === 'fulfilled') {
+            autoFillData = autoFillResult.value.data;
+          }
         }
 
+        const resolvedPatientId =
+          patientIdProp ||
+          autoFillData?.patient_id?.toString() ||
+          appointmentData?.patient?.toString() ||
+          appointmentData?.patient_id?.toString() ||
+          '';
+
+        const shouldFetchPatient = Boolean(resolvedPatientId && !autoFillData);
+        if (shouldFetchPatient) {
+          try {
+            const patientResponse = await patientsAPI.getById(resolvedPatientId);
+            patientData = patientResponse.data;
+          } catch (patientError) {
+            console.warn('Patient profile lookup failed, using appointment autofill data.', patientError);
+          }
+        }
+
+        if (!appointmentData && !autoFillData && !patientData) {
+          setFeedbackModal({
+            open: true,
+            message: 'Failed to load patient information. Please fill the form manually.'
+          });
+          return;
+        }
+
+        setFormData(prevData => ({
+          ...prevData,
+          fileNo: autoFillData?.file_no || autoFillData?.student_id || patientData?.student_id || prevData.fileNo,
+          surname: autoFillData?.surname || patientData?.surname || patientData?.last_name || patientData?.name?.split(' ').pop() || prevData.surname,
+          firstName: autoFillData?.first_name || patientData?.first_name || patientData?.name?.split(' ')[0] || prevData.firstName,
+          middleName: autoFillData?.middle_name || patientData?.middle_name || prevData.middleName,
+          age: (autoFillData?.age ?? patientData?.age)?.toString() || prevData.age,
+          sex: autoFillData?.sex || patientData?.sex || patientData?.gender || prevData.sex || 'Male',
+          department: autoFillData?.department || patientData?.department || prevData.department,
+          contact: autoFillData?.contact || autoFillData?.contact_number || patientData?.contact_number || patientData?.contact || prevData.contact,
+          allergies: formatListValue(autoFillData?.allergies ?? patientData?.allergies) || prevData.allergies,
+          pastMedicalHistory: formatListValue(autoFillData?.past_medical_history ?? patientData?.past_medical_history) || prevData.pastMedicalHistory,
+          familyHistory: formatListValue(autoFillData?.family_medical_history ?? patientData?.family_medical_history) || prevData.familyHistory,
+          medications: formatListValue(autoFillData?.maintenance_medications ?? patientData?.maintenance_medications) || prevData.medications,
+          examinedBy: autoFillData?.examined_by || prevData.examinedBy,
+          examinerLicense: autoFillData?.examiner_license || autoFillData?.license_number || prevData.examinerLicense,
+          dateOfExamination: autoFillData?.date || prevData.dateOfExamination,
+          followUpDate: autoFillData?.follow_up_date || prevData.followUpDate,
+          followUpInstructions: autoFillData?.follow_up_instructions || prevData.followUpInstructions,
+          chiefComplaint: autoFillData?.chief_complaint || prevData.chiefComplaint || appointmentData?.purpose || appointmentData?.concern || '',
+          historyOfPresentIllness: autoFillData?.present_illness || prevData.historyOfPresentIllness || appointmentData?.notes || '',
+          // New auto-filled fields
+          bloodPressure: autoFillData?.blood_pressure || prevData.bloodPressure,
+          temperature: autoFillData?.temperature || prevData.temperature,
+          pulseRate: autoFillData?.pulse_rate || prevData.pulseRate,
+          respiratoryRate: autoFillData?.respiratory_rate || prevData.respiratoryRate,
+          weight: autoFillData?.weight || prevData.weight,
+          height: autoFillData?.height || prevData.height,
+          generalAppearance: autoFillData?.general_appearance || prevData.generalAppearance,
+          headAndNeck: autoFillData?.heent || prevData.headAndNeck,
+          cardiovascular: autoFillData?.cardiovascular || prevData.cardiovascular,
+          respiratory: autoFillData?.respiratory || prevData.respiratory,
+          gastrointestinal: autoFillData?.gastrointestinal || prevData.gastrointestinal,
+          genitourinary: autoFillData?.genitourinary || prevData.genitourinary,
+          neurological: autoFillData?.neurological || prevData.neurological,
+          musculoskeletal: autoFillData?.musculoskeletal || prevData.musculoskeletal,
+          integumentary: autoFillData?.integumentary || prevData.integumentary,
+          diagnosis: autoFillData?.diagnosis || prevData.diagnosis,
+          treatment: autoFillData?.treatment_plan || prevData.treatment,
+          recommendations: autoFillData?.recommendations || prevData.recommendations,
+          followUpInstructions: autoFillData?.follow_up || autoFillData?.follow_up_instructions || prevData.followUpInstructions,
+        }));
+
+        if (resolvedPatientId) {
+          setPatientId(resolvedPatientId.toString());
+        }
       } catch (error) {
         console.error('Error fetching patient data:', error);
-        setFeedbackModal({ 
-          open: true, 
-          message: 'Failed to load patient information. Please fill the form manually.' 
-        });      } finally {
+        setFeedbackModal({
+          open: true,
+          message: 'Failed to load patient information. Please fill the form manually.'
+        });
+      } finally {
         setLoading(false);
       }
     };
@@ -182,8 +222,12 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
     }));
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     
     if (!patientId) {
       setFeedbackModal({ open: true, message: 'Patient information is required.' });
@@ -272,6 +316,39 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      <FeedbackModal open={feedbackModal.open} message={feedbackModal.message} onClose={() => setFeedbackModal({ ...feedbackModal, open: false })} />
+      
+      {/* Print Header (Only visible when printing) */}
+      <div className="hidden print-only-header mb-8 border-b-2 border-black pb-4">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
+            <div className="text-left">
+              <h1 className="text-lg font-bold text-[#800000] leading-tight">WESTERN MINDANAO STATE UNIVERSITY</h1>
+              <p className="text-sm text-gray-700 font-medium leading-tight">UNIVERSITY HEALTH SERVICES CENTER</p>
+              <p className="text-xs text-gray-500">Zamboanga City, Philippines</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-right">
+              <p className="text-[10px] text-gray-500 italic">"Excellence in Health Service"</p>
+              <p className="text-xs text-[#800000] font-bold">MEDICAL CONSULTATION RECORD</p>
+            </div>
+            <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-14 h-14 object-contain" />
+          </div>
+        </div>
+        
+        <div className="mt-6 flex justify-between items-end border-t border-gray-100 pt-4">
+          <div className="text-left">
+            <p className="text-sm font-bold uppercase">Patient: <span className="font-normal">{formData.firstName} {formData.middleName} {formData.surname}</span></p>
+          </div>
+          <div className="text-right text-[10px] text-gray-500">
+            <p>Printed: {new Date().toLocaleString()}</p>
+            <p>Examination: {formData.dateOfExamination || new Date().toLocaleDateString()}</p>
+          </div>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Patient Information Section */}
         <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -828,8 +905,8 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
           </div>
         </div>
 
-        {/* Submit Button */}
-        <div className="flex justify-end space-x-4">
+        {/* Action Buttons */}
+        <div className="flex justify-end space-x-4 no-print">
           <button
             type="button"
             onClick={() => window.history.back()}
@@ -838,13 +915,56 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
             Cancel
           </button>
           <button
+            type="button"
+            onClick={handlePrint}
+            className="px-6 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000] transition-colors"
+          >
+            Print Record
+          </button>
+          <button
             type="submit"
             disabled={loading}
-            className="px-6 py-3 bg-[#800000] text-white rounded-md hover:bg-[#600000] focus:outline-none focus:ring-2 focus:ring-[#800000] focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className={`px-8 py-3 rounded-md text-white font-medium shadow-md transition-all ${
+              loading 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-[#800000] hover:bg-[#a00000] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000]'
+            }`}
           >
-            {loading ? 'Submitting...' : 'Submit Medical Examination'}
+            {loading ? 'Submitting...' : 'Submit Form'}
           </button>
         </div>
+
+        <style jsx global>{`
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+            body {
+              padding: 0 !important;
+              background: white !important;
+            }
+            .max-w-4xl {
+              max-width: 100% !important;
+              padding: 0 !important;
+            }
+            input, textarea, select {
+              border: none !important;
+              padding: 0 !important;
+              appearance: none !important;
+              -moz-appearance: none !important;
+              -webkit-appearance: none !important;
+            }
+            .bg-white {
+              border: none !important;
+              padding: 10px 0 !important;
+            }
+            h1, h2, h3, h4 {
+              color: black !important;
+              margin-top: 20px !important;
+              border-bottom: 1px solid #ccc !important;
+            }
+          }
+        `}</style>
       </form>
 
       <FeedbackModal
@@ -852,6 +972,66 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
         message={feedbackModal.message}
         onClose={() => setFeedbackModal({ open: false, message: '' })}
       />
+    <style jsx global>{`
+      @media print {
+        .no-print {
+          display: none !important;
+        }
+        .print-only-header {
+          display: block !important;
+        }
+        body {
+          padding: 0 !important;
+          background: white !important;
+          color: black !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+        .max-w-4xl {
+          max-width: 100% !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
+        }
+        .bg-white {
+          background-color: transparent !important;
+        }
+        .shadow-sm, .shadow-md, .shadow-lg {
+          box-shadow: none !important;
+        }
+        .rounded-lg, .rounded-xl {
+          border-radius: 0 !important;
+        }
+        .border {
+          border: 1px solid #eee !important;
+        }
+        .p-6 {
+          padding: 1rem 0 !important;
+        }
+        .grid {
+          display: grid !important;
+          gap: 1rem !important;
+        }
+        input, select, textarea {
+          border: none !important;
+          border-bottom: 1px solid #eee !important;
+          padding: 0.25rem 0 !important;
+          background: transparent !important;
+          color: black !important;
+          -webkit-appearance: none !important;
+          -moz-appearance: none !important;
+          appearance: none !important;
+        }
+        .text-gray-700, .text-gray-600 {
+          color: #333 !important;
+        }
+        h2.text-xl {
+          color: black !important;
+          border-bottom: 2px solid black !important;
+          margin-top: 1.5rem !important;
+        }
+      }
+    `}</style>
     </div>
   );
 };

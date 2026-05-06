@@ -114,7 +114,7 @@ export default function AdminPatientProfile() {
     setSearchTerm('');
     setUserTypeFilter('All User Types');
     setSelectedAcademicYear('all');
-    setSelectedSemester('all');
+    setSelectedSemester(currentSemester?.id?.toString() || 'all');
     setGenderFilter('all');
     setBloodTypeFilter('all');
     setNationalityFilter('all');
@@ -168,6 +168,11 @@ export default function AdminPatientProfile() {
       setSemesters(semestersData);
       setCurrentSemester(currentSemesterData);
       
+      // Default to current semester if available
+      if (currentSemesterData && currentSemesterData.id) {
+        setSelectedSemester(currentSemesterData.id.toString());
+      }
+      
       // Extract unique academic years
       const academicYearsList: string[] = [];
       semestersData.forEach((sem: any) => {
@@ -207,7 +212,7 @@ export default function AdminPatientProfile() {
       // Use semester record ID which already includes academic_year + semester_type
       if (selectedSemester !== 'all') {
         // selectedSemester now contains the complete semester record ID
-        params.school_year = selectedSemester;
+        params.school_year_id = selectedSemester;
         console.log('Filtering by semester record ID:', selectedSemester);
       } else if (selectedAcademicYear !== 'all') {
         // If only academic year is selected, filter by academic year
@@ -278,68 +283,122 @@ export default function AdminPatientProfile() {
   };
 
   const handleViewProfile = async (patientId: number) => {
-    const patient = patients.find((p) => p.id === patientId);
+    if (!patientId || isNaN(patientId)) return;
+
+    let patient = patients.find((p) => p.id === patientId);
     
-    console.log('=== handleViewProfile Debug ===');
-    console.log('Patient clicked:', patient);
-    console.log('Patient ID:', patientId);
-    console.log('Patient User ID:', patient?.user);
-    
-    // Fetch all patient profiles for this user
-    let allProfiles = [];
-    if (patient && patient.user) {
+    if (!patient) {
       try {
-        console.log('=== handleViewProfile Debug ===');
-        console.log('Patient clicked:', patient);
-        console.log('Patient ID:', patient.id);
-        console.log('User ID:', patient.user);
-        console.log('Fetching all profiles for user:', patient.user);
+        const response = await patientsAPI.getById(patientId);
+        patient = response.data;
+      } catch (error) {
+        console.error("Failed to fetch patient by ID:", patientId, error);
+        return;
+      }
+    }
+
+    if (!patient) return;
+
+    // Update URL if it's not already there
+    if (router.query.id !== String(patient.id)) {
+      router.push({
+        pathname: router.pathname,
+        query: { ...router.query, id: patient.id }
+      }, undefined, { shallow: true });
+    }
+
+    console.log('=== Patient Profile Resolution ===');
+    console.log('Initial Patient ID:', patientId);
+    console.log('Found Patient:', patient);
+    console.log('Student ID:', patient?.student_id);
+    
+    let allProfiles = [];
+    // Always use student_id for resolution as it's the unique identifier for a person in the university
+    if (patient && patient.student_id) {
+      try {
+        console.log('Fetching all profile versions for Student ID:', patient.student_id);
+        const allProfilesResponse = await patientsAPI.getByStudentId(patient.student_id);
         
-        const allProfilesResponse = await patientsAPI.getByUserId(patient.user);
-        console.log('Raw API response:', allProfilesResponse);
-        console.log('Response data:', allProfilesResponse.data);
-        console.log('Response data type:', typeof allProfilesResponse.data);
-        console.log('Is array?', Array.isArray(allProfilesResponse.data));
-        
-        // Ensure we always have an array
         let profilesData = allProfilesResponse.data;
         if (!Array.isArray(profilesData)) {
-          console.warn('API returned non-array, converting to array');
           profilesData = profilesData ? [profilesData] : [];
         }
         
         allProfiles = profilesData;
         
-        console.log('All profiles fetched:', allProfiles);
-        console.log('All profiles count:', allProfiles.length);
-        
-        // Sort profiles by date to find the most recent one
-        const sortedProfiles = allProfiles.sort((a: any, b: any) => {
-          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
-          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
-          return dateB - dateA; // Most recent first
+        // Sort profiles by recency (updated_at > created_at > id)
+        const sortedProfiles = [...allProfiles].sort((a: any, b: any) => {
+          const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+          if (timeB !== timeA) return timeB - timeA;
+          return b.id - a.id;
         });
         
-        console.log('Sorted profiles:', sortedProfiles);
+        const latestProfile = sortedProfiles[0] || patient;
+        setSelectedPatient(latestProfile);
         
-        // Set the most recent profile as the selected patient
-        setSelectedPatient(sortedProfiles[0] || patient);
-        console.log('Selected patient (most recent):', sortedProfiles[0] || patient);
+        // If the current profile is not the latest, redirect the URL
+        if (latestProfile.id !== patient.id) {
+          console.log(`Redirecting from historical version ${patient.id} to latest version ${latestProfile.id}`);
+          router.push({
+            pathname: router.pathname,
+            query: { ...router.query, id: latestProfile.id }
+          }, undefined, { shallow: true });
+        }
       } catch (error) {
-        console.error("Failed to fetch all patient profiles:", error);
-        allProfiles = [patient]; // Fallback to single profile
+        console.error("Failed to fetch all patient profiles for student ID:", error);
+        allProfiles = [patient];
         setSelectedPatient(patient);
       }
     } else {
-      allProfiles = [patient]; // If no user linked, just use the current profile
+      console.log('No student ID found for this profile, showing single version.');
+      allProfiles = [patient];
       setSelectedPatient(patient);
     }
     
-    console.log('Setting allPatientProfiles to:', allProfiles);
-    console.log('=== End handleViewProfile Debug ===');
-    
     setAllPatientProfiles(allProfiles);
+    console.log('Resolution complete. Latest ID:', selectedPatient?.id);
+    console.log('===================================');
     setViewModalOpen(true);
+  };
+
+  const handleViewProfileByUserId = async (userId: number) => {
+    try {
+      const response = await patientsAPI.getByUserId(userId);
+      const profiles = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
+      
+      if (profiles.length > 0) {
+        // Sort by date to get the latest
+        const sortedProfiles = profiles.sort((a: any, b: any) => {
+          const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return dateB - dateA;
+        });
+        
+        const latestProfile = sortedProfiles[0];
+        handleViewProfile(latestProfile.id);
+      }
+    } catch (error) {
+      console.error("Failed to fetch patient by user ID:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (router.isReady) {
+      if (router.query.id) {
+        handleViewProfile(Number(router.query.id));
+      } else if (router.query.user_id) {
+        handleViewProfileByUserId(Number(router.query.user_id));
+      } else {
+        setViewModalOpen(false);
+      }
+    }
+  }, [router.isReady, router.query.id, router.query.user_id]);
+
+  const handleCloseViewModal = () => {
+    setViewModalOpen(false);
+    const { id, ...rest } = router.query;
+    router.push({ pathname: router.pathname, query: rest }, undefined, { shallow: true });
   };
 
   const handleEditProfile = (patientId: number) => {
@@ -1005,7 +1064,7 @@ export default function AdminPatientProfile() {
 
         allPatientProfiles={allPatientProfiles}
 
-        onClose={() => setViewModalOpen(false)} 
+        onClose={handleCloseViewModal} 
       />
       
       <PatientProfileEditor

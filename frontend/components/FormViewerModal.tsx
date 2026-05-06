@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import DentalChartDisplay from './DentalChartDisplay';
+import { XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 import { medicalFormAPI, dentalFormAPI } from '../utils/api';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import html2canvas from 'html2canvas';
+import { generateSingleFormPDF } from '../utils/reportExport';
 
 interface FormViewerModalProps {
   open: boolean;
@@ -97,6 +102,31 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
       fetchFormData();
     }
   }, [open, appointmentId, appointmentType]);
+
+  const handleExportPDF = async () => {
+    if (!formData) return;
+    
+    let teethChartImage = undefined;
+    if (appointmentType === 'dental') {
+      const chartElement = document.getElementById('dental-chart-to-export');
+      if (chartElement) {
+        try {
+          // Wait a bit to ensure it's rendered
+          const canvas = await html2canvas(chartElement, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+          });
+          teethChartImage = canvas.toDataURL('image/png');
+        } catch (err) {
+          console.error('Failed to capture dental chart:', err);
+        }
+      }
+    }
+    
+    generateSingleFormPDF(formData, appointmentType, patientName, teethChartImage);
+  };
 
   const fetchFormData = async () => {
     setLoading(true);
@@ -322,6 +352,15 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
               <p className="text-sm text-gray-900">{formData.malocclusion_severity || 'N/A'}</p>
             </div>
           </div>
+        </div>
+
+        {/* Teeth Layout Visualization */}
+        <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm" id="dental-chart-to-export">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">Teeth Layout Visualization</h3>
+          <DentalChartDisplay 
+            permanentTeethStatus={formData.permanent_teeth_status}
+            temporaryTeethStatus={formData.temporary_teeth_status}
+          />
         </div>
 
         {/* Dental Findings */}
@@ -607,47 +646,162 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
           </button>
         </div>
 
+        {/* Print Header (Only visible when printing) */}
+        <div className="hidden print-only-header mb-8 border-b-2 border-black pb-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-4">
+              <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
+              <div className="text-left">
+                <h1 className="text-lg font-bold text-[#800000] leading-tight">WESTERN MINDANAO STATE UNIVERSITY</h1>
+                <p className="text-sm text-gray-700 font-medium leading-tight">UNIVERSITY HEALTH SERVICES CENTER</p>
+                <p className="text-xs text-gray-500">Zamboanga City, Philippines</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-[10px] text-gray-500 italic">"Excellence in Health Service"</p>
+                <p className="text-xs text-[#800000] font-bold">{appointmentType.toUpperCase()} CONSULTATION</p>
+              </div>
+              <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-14 h-14 object-contain" />
+            </div>
+          </div>
+          
+          <div className="mt-6 flex justify-between items-end border-t border-gray-100 pt-4">
+            <div className="text-left">
+              <p className="text-sm font-bold uppercase">Patient: <span className="font-normal">{patientName}</span></p>
+            </div>
+            <div className="text-right text-[10px] text-gray-500">
+              <p>Printed: {new Date().toLocaleString()}</p>
+              {formData && formData.created_at && (
+                <p>Record: {new Date(formData.created_at).toLocaleDateString()}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Content */}
-        <div className="max-h-[calc(90vh-160px)] overflow-y-auto p-6">
+        <div className="max-h-[calc(90vh-160px)] overflow-y-auto p-6 print-content">
           {loading && (
-            <div className="flex justify-center items-center py-8">
+            <div className="flex justify-center items-center py-8 no-print">
               <div className="text-lg text-gray-600">Loading form data...</div>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 no-print">
               {error}
             </div>
           )}
 
           {!loading && !error && formData && (
-            <>
+            <div className="printable-data">
               {appointmentType === 'medical' ? renderMedicalForm() : renderDentalForm()}
-            </>
+            </div>
           )}
 
           {!loading && !error && !formData && (
-            <div className="text-center py-8">
+            <div className="text-center py-8 no-print">
               <p className="text-gray-500">No form data found for this appointment.</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center no-print">
           <div className="text-sm text-gray-500">
             {formData && formData.created_at && (
               <>Form submitted: {new Date(formData.created_at).toLocaleDateString()}</>
             )}
           </div>
-          <button
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-md"
-          >
-            Close
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={handleExportPDF}
+              className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md transition-colors font-medium shadow-sm flex items-center"
+            >
+              <ArrowDownTrayIcon className="h-4 w-4 mr-2" />
+              Export PDF
+            </button>
+            <button
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 rounded-md transition-colors"
+            >
+              Close
+            </button>
+          </div>
         </div>
+
+        <style jsx global>{`
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+            .print-only-header {
+              display: block !important;
+            }
+            body {
+              padding: 0 !important;
+              background: white !important;
+              color: black !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            .fixed.inset-0 {
+              position: relative !important;
+              display: block !important;
+              z-index: auto !important;
+              background: none !important;
+              backdrop-filter: none !important;
+            }
+            .max-w-4xl {
+              max-width: 100% !important;
+              box-shadow: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              border: none !important;
+            }
+            .max-h-\[90vh\] {
+              max-height: none !important;
+              overflow: visible !important;
+            }
+            .print-content {
+              max-height: none !important;
+              overflow: visible !important;
+              padding: 0 !important;
+            }
+            .bg-gray-50 {
+              background-color: transparent !important;
+              border-bottom: 1px solid #eee !important;
+              padding-left: 0 !important;
+              padding-right: 0 !important;
+            }
+            .bg-white {
+              background-color: transparent !important;
+            }
+            .shadow-lg, .shadow-2xl, .shadow-sm {
+              box-shadow: none !important;
+            }
+            .rounded-lg, .rounded-xl, .rounded-md {
+              border-radius: 0 !important;
+            }
+            h2.text-2xl {
+              display: none !important; /* Hide the modal header title */
+            }
+            .bg-\[\#800000\] {
+              display: none !important; /* Hide the colored modal header */
+            }
+            .border {
+              border: 1px solid #eee !important;
+            }
+            .grid {
+              display: grid !important;
+            }
+            /* Force dental chart to be visible and correctly sized */
+            svg {
+              max-width: 400px !important;
+              margin: 0 auto !important;
+            }
+          }
+        `}</style>
       </div>
     </div>
   );

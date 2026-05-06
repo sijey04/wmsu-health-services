@@ -335,10 +335,10 @@ function DentalMedicinesAdmin() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'usage' || activeTab === 'reports') {
+    if (activeTab === 'usage' || activeTab === 'reports' || activeTab === 'medicines') {
       loadUsageData();
     }
-  }, [activeTab]); // Remove loadUsageData dependency to avoid infinite loop
+  }, [activeTab, reportPeriod]); 
 
   useEffect(() => {
     if (usageData.length > 0) {
@@ -458,6 +458,18 @@ function DentalMedicinesAdmin() {
                       />
                     </div>
                     <div className="relative">
+                      <ClockIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                      <select
+                        value={reportPeriod}
+                        onChange={(e) => setReportPeriod(e.target.value as 'week' | 'month' | 'year')}
+                        className="pl-10 pr-8 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                      >
+                        <option value="week">Used This Week</option>
+                        <option value="month">Used This Month</option>
+                        <option value="year">Used This Year</option>
+                      </select>
+                    </div>
+                    <div className="relative">
                       <FunnelIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
                       <select
                         value={filterType}
@@ -473,8 +485,13 @@ function DentalMedicinesAdmin() {
                       </select>
                     </div>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Showing {filteredMedicines.length} of {medicines.length} medicines
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="text-sm text-gray-600 font-medium">
+                      {reportPeriod === 'week' ? 'Weekly' : reportPeriod === 'month' ? 'Monthly' : 'Yearly'} Usage View
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Showing {filteredMedicines.length} of {medicines.length} items
+                    </div>
                   </div>
                 </div>
               </div>
@@ -609,6 +626,12 @@ function DentalMedicinesAdmin() {
                             {medicine.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </div>
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-50">
+                          <span className="text-gray-600">Usage ({reportPeriod}):</span>
+                          <span className="font-bold text-[#800000]">
+                            {usageReports.find(r => r.medicine_name === medicine.name)?.usage_count || 0} times
+                          </span>
+                        </div>
                       </div>
                       
                       {medicine.description && (
@@ -663,14 +686,28 @@ function DentalMedicinesAdmin() {
                     <h3 className="text-2xl font-bold text-gray-800 mb-2">Medicine Usage Tracking</h3>
                     <p className="text-gray-600">Real-time tracking of medicine usage from dental consultations</p>
                   </div>
-                  <button
-                    onClick={loadUsageData}
-                    disabled={loading}
-                    className="flex items-center px-6 py-3 bg-[#800000] text-white rounded-xl font-medium hover:bg-[#a83232] transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50"
-                  >
-                    <ArrowPathIcon className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                    {loading ? 'Loading...' : 'Refresh Data'}
-                  </button>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <div className="flex items-center space-x-2">
+                        <CalendarDaysIcon className="w-5 h-5 text-gray-400" />
+                        <select
+                          value={reportPeriod}
+                          onChange={(e) => setReportPeriod(e.target.value as 'week' | 'month' | 'year')}
+                          className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent text-sm"
+                        >
+                          <option value="week">Last Week</option>
+                          <option value="month">Last Month</option>
+                          <option value="year">Last Year</option>
+                        </select>
+                      </div>
+                      <button
+                        onClick={loadUsageData}
+                        disabled={loading}
+                        className="flex items-center px-6 py-3 bg-[#800000] text-white rounded-xl font-medium hover:bg-[#a83232] transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 disabled:opacity-50"
+                      >
+                        <ArrowPathIcon className={`w-5 h-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                        {loading ? 'Loading...' : 'Refresh Data'}
+                      </button>
+                    </div>
                 </div>
 
                 {usageData.length > 0 ? (

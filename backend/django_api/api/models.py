@@ -167,10 +167,43 @@ class Patient(models.Model):
     ]
     RELIGION_CHOICES = [
         ('Roman Catholic', 'Roman Catholic'),
-        ('Seventh-day Adventist', 'Seventh-day Adventist'),
-        ('Islam', 'Islam'),
-        ('Protestant', 'Protestant'),
+        ('Independent Catholic', 'Independent Catholic'),
+        ('Aglipayan (Philippine Independent Church)', 'Aglipayan (Philippine Independent Church)'),
+        ('Baptist', 'Baptist'),
+        ('Methodist', 'Methodist'),
+        ('Presbyterian', 'Presbyterian'),
+        ('Lutheran', 'Lutheran'),
+        ('Anglican/Episcopalian', 'Anglican/Episcopalian'),
+        ('Evangelical', 'Evangelical'),
+        ('Pentecostal', 'Pentecostal'),
+        ('Born Again Christian', 'Born Again Christian'),
+        ('United Church of Christ', 'United Church of Christ'),
+        ('Church of Christ', 'Church of Christ'),
         ('Iglesia ni Cristo', 'Iglesia ni Cristo'),
+        ('Iglesia Filipina Independiente', 'Iglesia Filipina Independiente'),
+        ('Members Church of God International (MCGI)', 'Members Church of God International (MCGI)'),
+        ('Seventh-day Adventist', 'Seventh-day Adventist'),
+        ('Jesus is Lord Church', 'Jesus is Lord Church'),
+        ('Jesus Miracle Crusade', 'Jesus Miracle Crusade'),
+        ('Kingdom of Jesus Christ', 'Kingdom of Jesus Christ'),
+        ('Philippine Benevolent Missionaries Association', 'Philippine Benevolent Missionaries Association'),
+        ('Jehovah\'s Witnesses', 'Jehovah\'s Witnesses'),
+        ('Church of Jesus Christ of Latter-day Saints (Mormon)', 'Church of Jesus Christ of Latter-day Saints (Mormon)'),
+        ('Islam - Sunni', 'Islam - Sunni'),
+        ('Islam - Shia', 'Islam - Shia'),
+        ('Islam', 'Islam (Other)'),
+        ('Buddhism', 'Buddhism'),
+        ('Hinduism', 'Hinduism'),
+        ('Sikhism', 'Sikhism'),
+        ('Judaism', 'Judaism'),
+        ('Bahá\'í Faith', 'Bahá\'í Faith'),
+        ('Taoism', 'Taoism'),
+        ('Confucianism', 'Confucianism'),
+        ('Indigenous/Tribal Religion', 'Indigenous/Tribal Religion'),
+        ('Atheist', 'Atheist'),
+        ('Agnostic', 'Agnostic'),
+        ('No Religion', 'No Religion'),
+        ('Prefer not to say', 'Prefer not to say'),
         ('Other', 'Other'),
     ]
     BLOOD_TYPE_CHOICES = [
@@ -208,7 +241,7 @@ class Patient(models.Model):
     barangay = models.CharField(max_length=100, blank=True, null=True)
     street = models.CharField(max_length=200, blank=True, null=True)
     blood_type = models.CharField(max_length=5, choices=BLOOD_TYPE_CHOICES, blank=True, null=True)
-    religion = models.CharField(max_length=50, choices=RELIGION_CHOICES, blank=True, null=True)
+    religion = models.CharField(max_length=100, choices=RELIGION_CHOICES, blank=True, null=True)
     religion_specify = models.CharField(max_length=100, blank=True, null=True, help_text='Specify religion if Other is selected')
     nationality = models.CharField(max_length=50, choices=NATIONALITY_CHOICES, blank=True, null=True)
     nationality_specify = models.CharField(max_length=100, blank=True, null=True, help_text='Specify nationality if Foreigner is selected')
@@ -1979,3 +2012,19 @@ class UserAnnouncementView(models.Model):
     
     def __str__(self):
         return f"{self.user.email} viewed {self.announcement.title}"
+
+
+class Notification(models.Model):
+    """Model for user-specific notifications"""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='notifications')
+    message = models.TextField()
+    type = models.CharField(max_length=50, default='info') # e.g., 'appointment', 'document', 'system', 'info'
+    is_read = models.BooleanField(default=False)
+    link = models.CharField(max_length=255, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Notification for {self.user.email}: {self.message[:30]}..."

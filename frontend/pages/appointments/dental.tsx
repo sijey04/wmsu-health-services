@@ -311,17 +311,51 @@ export default function DentalAppointmentPage() {
     try {
       const response = await djangoApiClient.get('/staff-details/');
       const allStaff = response.data || [];
+
+      const extractCampusLetter = (value: string): string => {
+        if (!value) return '';
+        const str = value.toString().toLowerCase().trim();
+        const match = str.match(/[abc]/);
+        return match ? match[0] : '';
+      };
       
       // Filter for dentist positions at Campus A
-      const dentists = allStaff.filter((staff: any) => 
-        ['Dentist', 'Dental Staff'].includes(staff.position) && 
-        staff.campus?.toLowerCase() === 'a'
-      );
+      const dentists = allStaff.filter((staff: any) => {
+        const position = (staff.position || '').toLowerCase();
+        const isDental = position.includes('dentist') || position.includes('dental');
+        if (!isDental) return false;
+
+        const staffCampuses: string[] = [];
+
+        if (staff.assigned_campuses) {
+          const campusValues = Array.isArray(staff.assigned_campuses)
+            ? staff.assigned_campuses
+            : staff.assigned_campuses.toString().split(',');
+          campusValues.forEach((campus: string) => {
+            const letter = extractCampusLetter(campus);
+            if (letter) staffCampuses.push(letter);
+          });
+        }
+
+        if (staff.campus_assigned) {
+          const letter = extractCampusLetter(staff.campus_assigned);
+          if (letter) staffCampuses.push(letter);
+        }
+
+        if (staff.campus) {
+          const letter = extractCampusLetter(staff.campus);
+          if (letter) staffCampuses.push(letter);
+        }
+
+        return staffCampuses.includes('a');
+      });
       
       setDentistStaff(dentists);
       
       if (dentists.length === 0) {
         setError('No dentists available for Campus A. Please contact the administrator.');
+      } else {
+        setError('');
       }
     } catch (error) {
       console.error('Error loading dentist staff:', error);

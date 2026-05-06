@@ -3,6 +3,11 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
+import { notificationsAPI } from '../utils/api';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 type LayoutProps = {
   children: ReactNode;
@@ -15,19 +20,19 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  
+
   // Get user from localStorage and update in real time
   const [user, setUser] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Real notifications from backend
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const notificationRef = useRef<HTMLDivElement>(null);
 
-  // Sample notifications
-  const notifications = [
-    { id: 1, message: 'New medical appointment booked', time: '2 mins ago' },
-    { id: 2, message: 'Document request approved', time: '10 mins ago' },
-    { id: 3, message: 'System update scheduled', time: '1 hour ago' },
-  ];
+  const getNotificationToken = () => {
+    return localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
+  };
 
   // Close notification dropdown on outside click
   useEffect(() => {
@@ -48,8 +53,14 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     function syncUser() {
       const userData = localStorage.getItem('user');
       if (userData) {
-        setUser(JSON.parse(userData));
-        setIsLoggedIn(true);
+        try {
+          setUser(JSON.parse(userData));
+          setIsLoggedIn(true);
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+          setUser(null);
+          setIsLoggedIn(false);
+        }
       } else {
         setUser(null);
         setIsLoggedIn(false);
@@ -60,6 +71,68 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     return () => window.removeEventListener('storage', syncUser);
   }, []);
 
+  // Fetch notifications
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchNotifications();
+      // Set up polling for new notifications
+      const interval = setInterval(fetchNotifications, 60000); // Every minute
+      return () => clearInterval(interval);
+    }
+  }, [isLoggedIn]);
+
+  const fetchNotifications = async () => {
+    const token = getNotificationToken();
+    if (!token) {
+      setNotifications([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await notificationsAPI.getAll();
+      const data = response.data.results || response.data;
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationsAPI.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      return dayjs(dateString).fromNow();
+    } catch (e) {
+      return 'just now';
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    if (showNotifications) {
+      fetchNotifications();
+    }
+  }, [showNotifications]);
+
   // Use parent login state if provided, otherwise use local state
   const currentIsLoggedIn = parentIsLoggedIn !== undefined ? parentIsLoggedIn : isLoggedIn;
 
@@ -67,10 +140,10 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
   const isIncomingFreshman = () => {
     if (!user) return false;
     const gradeLevel = user.grade_level?.toLowerCase() || '';
-    return gradeLevel.includes('grade 12') || 
-           gradeLevel.includes('incoming freshman') ||
-           gradeLevel.includes('freshman') ||
-           gradeLevel === '12';
+    return gradeLevel.includes('grade 12') ||
+      gradeLevel.includes('incoming freshman') ||
+      gradeLevel.includes('freshman') ||
+      gradeLevel === '12';
   };
 
   // Helper to get avatar content
@@ -99,26 +172,28 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
         <meta name="description" content="WMSU Health Services Portal" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-      
+
       <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <div className="flex justify-between h-16 sm:h-20">
             <div className="flex items-center">
               <div className="flex-shrink-0 flex items-center group">
                 <Link href="/" className="flex items-center space-x-2 sm:space-x-3 hover:scale-105 transition-transform duration-300">
-                  <div className="relative">
-                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#800000] to-[#a83232] rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
-                      <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="relative">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#800000] to-[#a83232] rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
+                        <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                      </div>
+                      <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
                     </div>
-                    <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
-                  </div>
-                  <div className="hidden sm:block">
-                    <h1 className="font-bold text-lg sm:text-xl bg-gradient-to-r from-[#800000] to-[#a83232] bg-clip-text text-transparent">
-                      WMSU Health Services
-                    </h1>
-                    <p className="text-xs sm:text-sm text-gray-500 font-medium">Your Health, Our Priority</p>
+                    <div className="hidden sm:block">
+                      <h1 className="font-bold text-lg sm:text-xl bg-gradient-to-r from-[#800000] to-[#a83232] bg-clip-text text-transparent">
+                        WMSU Health Services
+                      </h1>
+                      <p className="text-xs sm:text-sm text-gray-500 font-medium">Your Health, Our Priority</p>
+                    </div>
                   </div>
                 </Link>
               </div>
@@ -127,64 +202,79 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
             <div className="flex items-center space-x-2 sm:space-x-4">
               {/* Larger Notification Bell */}
               <div className="relative" tabIndex={0}>
-                <button 
+                <button
                   onClick={() => setShowNotifications(v => !v)}
                   className="relative p-1.5 sm:p-2 text-gray-500 hover:text-[#800000] transition-colors duration-200"
                 >
                   <svg className="w-6 h-6 sm:w-7 sm:h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                  {notifications.length > 0 && (
+                  {unreadCount > 0 && (
                     <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-5 sm:h-5 bg-[#800000] rounded-full text-xs text-white flex items-center justify-center font-medium">
-                      {notifications.length}
+                      {unreadCount}
                     </span>
                   )}
                 </button>
                 {showNotifications && (
-                  <div ref={notificationRef} className="fixed sm:absolute inset-x-0 sm:inset-x-auto top-16 sm:top-auto sm:right-0 mt-0 sm:mt-2 mx-3 sm:mx-0 w-auto sm:w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 max-h-[calc(100vh-5rem)] sm:max-h-96 overflow-hidden">
+                  <div
+                    ref={notificationRef}
+                    onClick={(event) => event.stopPropagation()}
+                    className="fixed sm:absolute inset-x-0 sm:inset-x-auto top-16 sm:top-auto sm:right-0 mt-0 sm:mt-2 mx-3 sm:mx-0 w-auto sm:w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 max-h-[calc(100vh-5rem)] sm:max-h-96 overflow-hidden"
+                  >
                     <div className="p-3 sm:p-3 border-b border-gray-100 bg-gradient-to-r from-[#800000] to-[#a83232]">
                       <div className="flex items-center justify-between">
                         <h3 className="font-semibold text-white text-sm sm:text-base">Notifications</h3>
-                        <span className="text-xs text-white/90 bg-white/20 px-2 py-0.5 rounded-full">{notifications.length} new</span>
+                        <div className="flex items-center space-x-2">
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleMarkAllAsRead(); }}
+                              className="text-[10px] text-white/90 bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded transition-colors"
+                            >
+                              Mark all read
+                            </button>
+                          )}
+                          <span className="text-xs text-white/90 bg-white/20 px-2 py-0.5 rounded-full">{unreadCount} new</span>
+                        </div>
                       </div>
                     </div>
                     <div className="overflow-y-auto max-h-[calc(100vh-12rem)] sm:max-h-64">
-                      {notifications.map((n, index) => (
-                        <div key={n.id} className={`p-3 sm:p-3 hover:bg-gray-50 transition-all duration-200 cursor-pointer group ${index === notifications.length - 1 ? '' : 'border-b border-gray-100'}`}>
-                          <div className="flex items-start space-x-3">
-                            <div className="flex-shrink-0 mt-0.5">
-                              <div className="w-8 h-8 sm:w-9 sm:h-9 bg-[#800000]/10 rounded-full flex items-center justify-center group-hover:bg-[#800000]/20 transition-colors">
-                                <svg className="w-4 h-4 sm:w-5 sm:h-5 text-[#800000]" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
-                                </svg>
-                              </div>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs sm:text-sm text-gray-900 font-medium group-hover:text-[#800000] transition-colors line-clamp-2">{n.message}</p>
-                              <p className="text-xs text-gray-500 mt-1 flex items-center">
-                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                {n.time}
-                              </p>
-                            </div>
-                            <button className="flex-shrink-0 text-gray-400 hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center text-gray-500 text-sm">
+                          No notifications yet
                         </div>
-                      ))}
+                      ) : (
+                        notifications.map((n, index) => (
+                          <div
+                            key={n.id}
+                            onClick={() => { if (!n.is_read) handleMarkAsRead(n.id); if (n.link) router.push(n.link); }}
+                            className={`p-3 sm:p-3 hover:bg-gray-50 transition-all duration-200 cursor-pointer group ${index === notifications.length - 1 ? '' : 'border-b border-gray-100'} ${!n.is_read ? 'bg-blue-50/30' : ''}`}
+                          >
+                            <div className="flex items-start space-x-3">
+                              <div className="flex-shrink-0 mt-0.5">
+                                <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors ${!n.is_read ? 'bg-[#800000]/20' : 'bg-gray-100 group-hover:bg-gray-200'}`}>
+                                  <svg className={`w-4 h-4 sm:w-5 sm:h-5 ${!n.is_read ? 'text-[#800000]' : 'text-gray-400'}`} fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-xs sm:text-sm transition-colors line-clamp-2 ${!n.is_read ? 'text-gray-900 font-bold group-hover:text-[#800000]' : 'text-gray-600'}`}>{n.message}</p>
+                                <p className="text-xs text-gray-500 mt-1 flex items-center">
+                                  <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                  {formatTime(n.created_at)}
+                                </p>
+                              </div>
+                              {!n.is_read && (
+                                <div className="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2 animate-pulse"></div>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
-                    <div className="p-2.5 sm:p-2 border-t border-gray-100 bg-gray-50">
-                      <button 
-                        onClick={() => setShowNotifications(false)}
-                        className="w-full text-center text-xs sm:text-sm text-gray-600 hover:text-[#800000] font-medium py-1.5 sm:py-1 hover:bg-white rounded transition-all"
-                      >
-                        View all notifications
-                      </button>
-                    </div>
+
                   </div>
                 )}
               </div>
@@ -269,14 +359,14 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
                   </div>
                 ) : (
                   <div className="flex items-center space-x-2 sm:space-x-3">
-                    <button 
-                      onClick={onLoginClick} 
+                    <button
+                      onClick={onLoginClick}
                       className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:text-[#800000] transition-colors"
                     >
                       Login
                     </button>
-                    <button 
-                      onClick={onSignupClick} 
+                    <button
+                      onClick={onSignupClick}
                       className="px-3 py-1.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-white bg-[#800000] hover:bg-[#a83232] rounded-lg transition-colors"
                     >
                       Sign Up
@@ -356,7 +446,7 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
                 >
                   Profile Setup
                 </Link>
-               
+
                 <button
                   className="block w-full text-left px-3 sm:px-4 py-2 text-sm sm:text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                   onClick={() => {
@@ -374,11 +464,11 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
           </div>
         )}
       </header>
-      
+
       <main className="flex-grow">
         {children}
       </main>
-      
+
       <footer className="bg-white border-t border-gray-200 py-4 sm:py-6">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
           <div className="md:flex md:items-center md:justify-between">

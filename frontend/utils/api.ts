@@ -27,7 +27,7 @@ const apiClient = expressApiClient;
 const addAuthInterceptor = (client: any) => {
   client.interceptors.request.use(
     (config: any) => {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
       console.log('API request URL:', config.url);
       console.log('API request baseURL:', config.baseURL);
       console.log('Full URL:', `${config.baseURL}${config.url}`);
@@ -87,6 +87,7 @@ export const patientsAPI = {
   getAll: () => djangoApiClient.get('/patients/'),
   getById: (id: string | number) => djangoApiClient.get(`/patients/${id}/`),
   getByUserId: (userId: string | number) => djangoApiClient.get(`/patients/by_user_id/`, { params: { user_id: userId } }),
+  getByStudentId: (studentId: string) => djangoApiClient.get(`/patients/by_student_id/`, { params: { student_id: studentId } }),
   create: (patientData: any) => djangoApiClient.post('/patients/', patientData),
   update: (id: string | number, patientData: any) => djangoApiClient.put(`/patients/${id}/`, patientData),
   delete: (id: string | number) => djangoApiClient.delete(`/patients/${id}/`),
@@ -145,11 +146,12 @@ export const dentalFormAPI = {
 
 export const medicalFormAPI = {
   getData: (appointmentId: string) => djangoApiClient.get(`/medical-forms/get_patient_data/?appointment_id=${appointmentId}`),
+  getDataByPatientId: (patientId: string | number) => djangoApiClient.get(`/medical-forms/get_patient_data/?patient_id=${patientId}`),
   create: (medicalFormData: any) => djangoApiClient.post('/medical-forms/', medicalFormData),
   getAll: () => djangoApiClient.get('/medical-forms/'),
   getById: (id: string | number) => djangoApiClient.get(`/medical-forms/${id}/`),
   // Check if medical form exists for appointment
-  checkFormExists: (appointmentId: string | number) => djangoApiClient.get('/medical-form-data/', { params: { appointment_id: appointmentId } }),
+  checkFormExists: (appointmentId: string | number) => djangoApiClient.get('/medical-forms/', { params: { appointment_id: appointmentId } }),
 };
 
 // Medical Records APIs
@@ -251,7 +253,7 @@ export const dentalWaiversAPI = {
 };
 
 function getAuthHeaders() {
-  const token = localStorage.getItem('access_token') || localStorage.getItem('token');
+  const token = localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -554,6 +556,15 @@ export const dentalMedicinesAPI = {
       responseType: 'blob'
     });
   }
+};
+
+// Notifications API
+export const notificationsAPI = {
+  getAll: () => djangoApiClient.get('/notifications/'),
+  getById: (id: string | number) => djangoApiClient.get(`/notifications/${id}/`),
+  markAsRead: (id: string | number) => djangoApiClient.post(`/notifications/${id}/mark_as_read/`),
+  markAllAsRead: () => djangoApiClient.post('/notifications/mark_all_as_read/'),
+  delete: (id: string | number) => djangoApiClient.delete(`/notifications/${id}/`),
 };
 
 export default apiClient;

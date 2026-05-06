@@ -128,16 +128,20 @@ export default function UploadDocumentsPage() {
         console.log('program:', profileData.program);
         console.log('user_type:', profileData.user_type);
         
-        // Determine if user is a freshman based on user_type, grade_level, or year_level
+        // Determine if user is a freshman based on user_type, department, grade_level, or year_level
         const userType = (profileData.user_type || '').toLowerCase();
+        const department = (profileData.department || '').toLowerCase();
         const gradeLevel = (profileData.grade_level || profileData.year_level || '').toLowerCase();
         const isFreshman = userType.includes('freshman') || 
                           userType.includes('incoming freshman') ||
+                          department.includes('freshman') ||
+                          department.includes('incoming freshman') ||
                           gradeLevel.includes('freshman') || 
                           gradeLevel.includes('1st year') ||
                           gradeLevel === '1';
         
         console.log('userType value:', userType);
+        console.log('department value:', department);
         console.log('gradeLevel value:', gradeLevel);
         console.log('isFreshman result:', isFreshman);
         console.log('=== End Debug ===');

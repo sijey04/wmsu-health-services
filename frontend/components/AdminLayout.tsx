@@ -2,6 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
+import { notificationsAPI } from '../utils/api';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+dayjs.extend(relativeTime);
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -23,23 +28,29 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     function syncUser() {
       const userData = localStorage.getItem('user');
       if (userData) {
-        const parsedUser = JSON.parse(userData);
-        setUser(parsedUser);
-        
-        // Check if user is superuser - only superusers can access full admin
-        if (!parsedUser.is_superuser) {
-          // Redirect non-superuser staff to their specific dashboards
-          const staffRole = parsedUser.staff_role || parsedUser.user_type;
+        try {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
           
-          if (staffRole === 'medical_staff' || staffRole === 'doctor' || staffRole === 'nurse') {
-            router.push('/staff/medical');
-          } else if (staffRole === 'dental_staff' || staffRole === 'dentist') {
-            router.push('/staff/dental');
-          } else if (!parsedUser.is_staff) {
-            // Regular users shouldn't be here
-            router.push('/');
+          // Check if user is superuser - only superusers can access full admin
+          if (!parsedUser.is_superuser) {
+            // Redirect non-superuser staff to their specific dashboards
+            const staffRole = parsedUser.staff_role || parsedUser.user_type;
+            
+            if (staffRole === 'medical_staff' || staffRole === 'doctor' || staffRole === 'nurse') {
+              router.push('/staff/medical');
+            } else if (staffRole === 'dental_staff' || staffRole === 'dentist') {
+              router.push('/staff/dental');
+            } else if (!parsedUser.is_staff) {
+              // Regular users shouldn't be here
+              router.push('/');
+            }
+            // If staff but no specific role, show warning but allow access
           }
-          // If staff but no specific role, show warning but allow access
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+          setUser(null);
+          router.push('/login');
         }
       } else {
         setUser(null);
@@ -123,12 +134,75 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     };
   }, [isMobileMenuOpen]);
 
-  // Sample notifications
-  const notifications = [
-    { id: 1, message: 'New medical appointment booked', time: '2 mins ago' },
-    { id: 2, message: 'Document request approved', time: '10 mins ago' },
-    { id: 3, message: 'System update scheduled', time: '1 hour ago' },
-  ];
+  // Real notifications from backend
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const getNotificationToken = () => {
+    return localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
+  };
+
+  // Fetch notifications
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
+      // Set up polling for new notifications
+      const interval = setInterval(fetchNotifications, 60000); // Every minute
+      return () => clearInterval(interval);
+    }
+  }, [user]);
+
+  const fetchNotifications = async () => {
+    const token = getNotificationToken();
+    if (!token) {
+      setNotifications([]);
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await notificationsAPI.getAll();
+      const data = response.data.results || response.data;
+      setNotifications(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await notificationsAPI.markAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationsAPI.markAllAsRead();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    try {
+      return dayjs(dateString).fromNow();
+    } catch (e) {
+      return 'just now';
+    }
+  };
+
+  const unreadCount = notifications.filter(n => !n.is_read).length;
+
+  useEffect(() => {
+    if (showNotifications) {
+      fetchNotifications();
+    }
+  }, [showNotifications]);
 
   // Close profile menu on outside click
   useEffect(() => {
@@ -160,6 +234,48 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showNotifications]);
 
+  // RBAC Helper: Check if user has permission to see a link
+  const canSee = (link: string) => {
+    if (!user) return false;
+    
+    const role = user.staff_role || user.user_type;
+    const isSuperuser = user.is_superuser;
+    const isAdmin = role === 'admin' || isSuperuser; // Admin role or superuser has full access
+    
+    // Admins and superusers see everything
+    if (isAdmin) return true;
+
+    // Group permissions for other staff
+    const isMedical = ['doctor', 'nurse', 'medical_staff', 'receptionist'].includes(role);
+    const isDental = ['dentist', 'dental_staff', 'receptionist'].includes(role);
+    const isStaff = role === 'staff' || user.is_staff;
+
+    switch (link) {
+      case 'dashboard':
+        return true;
+      case 'appointments':
+        return isMedical || isDental || isStaff;
+      case 'content':
+        return false; // Only admin (handled above)
+      case 'dental':
+        return isDental || isStaff;
+      case 'medical':
+        return isMedical || isStaff;
+      case 'documents':
+        return isMedical || isStaff;
+      case 'profiles':
+        return true; // All staff can see profiles
+      case 'staff':
+        return isStaff;
+      case 'users':
+        return isStaff;
+      case 'controls':
+        return false; // Only admin (handled above)
+      default:
+        return false;
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-white">
       {/* Mobile Overlay */}
@@ -182,116 +298,131 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
 
         {/* Navigation - Scrollable */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4">
-            <ul>
-              <li className="mb-4">
-                <Link href="/admin">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Dashboard"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/content">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/content' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/content' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Content Management"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/dental-consultations">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/dental-consultations' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/dental-consultations' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Dental Consultations"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/medical-consultations">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/medical-consultations' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/medical-consultations' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Medical Consultations"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/medical-documents">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/medical-documents' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/medical-documents' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Medical Documents"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/patient-profile">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/patient-profile' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/patient-profile' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Patient Profile"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/staff-management">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/staff-management' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/staff-management' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "Staff Management"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/users">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/users' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/users' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "User Management"}
-                  </div>
-                </Link>
-              </li>
-              <li className="mb-4">
-                <Link href="/admin/controls">
-                  <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
-                    router.pathname === '/admin/controls' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
-                  }`}>
-                    <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/controls' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
-                    </svg>
-                    {!(isSidebarCollapsed && !isMobileMenuOpen) && "System Controls"}
-                  </div>
-                </Link>
-              </li>
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+            <ul className="space-y-2">
+              {canSee('dashboard') && (
+                <li>
+                  <Link href="/admin">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "Dashboard"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+           
+
+            
+
+              {canSee('dental') && (
+                <li>
+                  <Link href="/admin/dental-consultations">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/dental-consultations' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/dental-consultations' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "Dental Consultations"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+              {canSee('medical') && (
+                <li>
+                  <Link href="/admin/medical-consultations">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/medical-consultations' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/medical-consultations' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "Medical Consultations"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+              {canSee('documents') && (
+                <li>
+                  <Link href="/admin/medical-documents">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/medical-documents' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/medical-documents' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "Medical Documents"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+              {canSee('profiles') && (
+                <li>
+                  <Link href="/admin/patient-profile">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/patient-profile' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/patient-profile' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "Patient Profile"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+              {canSee('staff') && (
+                <li>
+                  <Link href="/admin/staff-management">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/staff-management' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/staff-management' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "Staff Management"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+              {canSee('users') && (
+                <li>
+                  <Link href="/admin/users">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/users' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/users' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "User Management"}
+                    </div>
+                  </Link>
+                </li>
+              )}
+
+              {canSee('controls') && (
+                <li>
+                  <Link href="/admin/controls">
+                    <div className={`block py-2 px-4 rounded-lg transition-all duration-200 flex items-center cursor-pointer ${isSidebarCollapsed && !isMobileMenuOpen ? 'justify-center' : ''} ${
+                      router.pathname === '/admin/controls' ? 'bg-[#800000] text-white shadow-lg' : 'text-[#800000] hover:bg-[#fbeaec] hover:shadow-md'
+                    }`}>
+                      <svg className={`w-6 h-6 ${!(isSidebarCollapsed && !isMobileMenuOpen) ? 'mr-2' : ''} ${router.pathname === '/admin/controls' ? 'text-white' : 'text-[#800000]'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                      </svg>
+                      {!(isSidebarCollapsed && !isMobileMenuOpen) && "System Controls"}
+                    </div>
+                  </Link>
+                </li>
+              )}
             </ul>
           </nav>
 
@@ -348,18 +479,44 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
               </svg>
               {/* Red dot for unread notifications */}
-              <span className="absolute top-0 right-0 block h-2 w-2 sm:h-3 sm:w-3 rounded-full ring-2 ring-white bg-red-500 animate-pulse"></span>
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 block h-2 w-2 sm:h-3 sm:w-3 rounded-full ring-2 ring-white bg-red-500 animate-pulse"></span>
+              )}
               {/* Notification dropdown */}
               {showNotifications && (
-                <div ref={notificationRef} className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-fade-in-up">
-                  <div className="p-4 border-b font-semibold text-[#800000]">Notifications</div>
+                <div
+                  ref={notificationRef}
+                  onClick={(event) => event.stopPropagation()}
+                  className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-fade-in-up"
+                >
+                  <div className="p-4 border-b font-semibold text-[#800000] flex justify-between items-center">
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleMarkAllAsRead(); }}
+                        className="text-[10px] text-[#800000] bg-[#800000]/10 hover:bg-[#800000]/20 px-2 py-0.5 rounded transition-colors"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
                   <ul className="max-h-60 overflow-y-auto">
-                    {notifications.map(n => (
-                      <li key={n.id} className="px-4 py-3 hover:bg-[#fbeaec] transition-all border-b last:border-b-0">
-                        <div className="text-sm text-gray-800">{n.message}</div>
-                        <div className="text-xs text-gray-500 mt-1">{n.time}</div>
+                    {notifications.length === 0 ? (
+                      <li className="px-4 py-8 text-center text-gray-500 text-sm">
+                        No notifications yet
                       </li>
-                    ))}
+                    ) : (
+                      notifications.map(n => (
+                        <li 
+                          key={n.id} 
+                          onClick={() => { if (!n.is_read) handleMarkAsRead(n.id); if (n.link) router.push(n.link); }}
+                          className={`px-4 py-3 hover:bg-[#fbeaec] transition-all border-b last:border-b-0 cursor-pointer ${!n.is_read ? 'bg-blue-50/30' : ''}`}
+                        >
+                          <div className={`text-sm ${!n.is_read ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>{n.message}</div>
+                          <div className="text-xs text-gray-500 mt-1">{formatTime(n.created_at)}</div>
+                        </li>
+                      ))
+                    )}
                   </ul>
                   <div className="p-2 text-center text-xs text-gray-500 cursor-pointer hover:text-[#800000]">View all notifications</div>
                 </div>

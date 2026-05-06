@@ -1,6 +1,9 @@
 import React from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { waiversAPI } from '../utils/api';
+import WmsuLogo from './WMSU-Logo.jpg';
+import HealthLogo from './WMSU-HealthLogo.png';
+import Image from 'next/image';
 
 interface Patient {
   // Basic info
@@ -815,28 +818,41 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="bg-[#8B0000] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-red-800 transition-colors flex items-center gap-2"
+            className="bg-[#8B0000] text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-red-800 transition-colors flex items-center gap-2 print:hidden"
           >
             <span>←</span> Back
           </button>
 
           {/* Header Content */}
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-[#8B0000] font-bold text-xs">WMSU</span>
+          <div className="flex items-center gap-4 sm:gap-6 print:w-full print:justify-center">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative">
+              <Image 
+                src={WmsuLogo} 
+                alt="WMSU Logo" 
+                width={80} 
+                height={80} 
+                className="object-contain"
+              />
             </div>
             <div className="text-center">
-              <h1 className="text-[#8B0000] text-lg font-bold">WESTERN MINDANAO STATE UNIVERSITY</h1>
-              <p className="text-xs text-gray-600">ZAMBOANGA CITY - UNIVERSITY HEALTH SERVICES CENTER</p>
-              <p className="text-xs text-gray-600">Tel. no. (062) 991-6736 | Email: healthservices@wmsu.edu.ph</p>
+              <h1 className="text-[#8B0000] text-lg sm:text-xl font-bold leading-tight">WESTERN MINDANAO STATE UNIVERSITY</h1>
+              <p className="text-xs text-gray-600 uppercase tracking-wider">Zamboanga City</p>
+              <p className="text-xs sm:text-sm font-bold text-[#8B0000] mt-1">UNIVERSITY HEALTH SERVICES CENTER</p>
+              <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Tel. no. (062) 991-6736 | Email: healthservices@wmsu.edu.ph</p>
             </div>
-            <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center">
-              <span className="text-[#8B0000] font-bold text-xs">DOH</span>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative">
+              <Image 
+                src={HealthLogo} 
+                alt="Health Services Logo" 
+                width={80} 
+                height={80} 
+                className="object-contain"
+              />
             </div>
           </div>
 
           {/* Profile Selection */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 print:hidden">
             {allPatientProfiles.length > 0 && (
               <div className="text-right">
                 <label className="text-xs font-medium text-gray-500 block mb-1">VIEW PROFILE VERSION:</label>
@@ -873,7 +889,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       </div>
       
       {/* Navigation Tabs */}
-      <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0">
+      <div className="bg-gray-50 border-b border-gray-200 flex-shrink-0 print:hidden">
         <div className="max-w-7xl mx-auto px-4">
           <div className="flex space-x-8">
             <button
@@ -916,9 +932,20 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       <div className="flex-1 overflow-y-auto bg-gray-50 min-h-0">
         <div className="max-w-7xl mx-auto p-6">
           {activeTab === 'current' ? (
-            <div className="bg-white rounded-lg shadow-lg">
+            <div className="bg-white rounded-lg shadow-lg print:shadow-none">
               {/* Current Profile Content */}
               <div className="p-6">
+                <div className="flex justify-end mb-4 print:hidden">
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-[#8B0000] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-800 transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    </svg>
+                    Print Profile
+                  </button>
+                </div>
                 <div className="text-center italic text-sm py-2 mb-4 text-gray-600">
                   (Electronic or Paper-based Input)
                 </div>
@@ -926,8 +953,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               </div>
             </div>
           ) : activeTab === 'waiver' ? (
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex justify-between items-center mb-4">
+            <div className="bg-white rounded-lg shadow-lg p-6 print:shadow-none print:p-0">
+              <div className="flex justify-between items-center mb-6 print:hidden">
                 <h2 className="text-lg font-bold text-[#8B0000]">Signed Waiver</h2>
                 {waiver && (
                   <button
@@ -949,61 +976,59 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                   </svg>
                 </div>
               ) : waiver ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3">Waiver Information</h3>
-                      <div className="space-y-3 text-sm">
-                        <div>
-                          <span className="font-medium text-gray-600">Full Name:</span>
-                          <div className="mt-1 text-gray-900">{waiver.full_name}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-600">Date Signed:</span>
-                          <div className="mt-1 text-gray-900">{new Date(waiver.date_signed).toLocaleDateString()}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-600">Submitted On:</span>
-                          <div className="mt-1 text-gray-900">{new Date(waiver.created_at).toLocaleString()}</div>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-600">Status:</span>
-                          <div className="mt-1">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                              ✓ Signed
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-3">Signature</h3>
-                      <div className="bg-gray-50 border border-gray-300 rounded p-4 flex items-center justify-center min-h-[150px]">
+                <div className="max-w-4xl mx-auto">
+                  {/* Formal Waiver Layout */}
+                  <div className="text-center mb-8">
+                    <h2 className="text-xl font-bold text-gray-900 border-b-2 border-gray-900 pb-2 inline-block px-12">
+                      WAIVER AND CONSENT FORM
+                    </h2>
+                  </div>
+
+                  <div className="space-y-8 text-gray-800 leading-relaxed text-justify">
+                    <p className="text-base">
+                      I, <span className="font-bold border-b border-gray-800 px-4 min-w-[200px] inline-block text-center">{waiver.full_name}</span>, 
+                      of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:
+                    </p>
+
+                    <p>
+                      I have given explicit consent to the <strong>University Health Services Center (UHSC)</strong> to collect, use, store, 
+                      and process my personal and sensitive health information for the purpose of promoting and maintaining my health 
+                      and general well-being as part of the school community.
+                    </p>
+
+                    <p>
+                      I understand that this information will be used to maintain my medical records, facilitate consultations, 
+                      and ensure that appropriate medical assistance is provided when necessary. I am aware that my data will be 
+                      handled with the utmost confidentiality in accordance with the <strong>Data Privacy Act of 2012 (Republic Act 10173)</strong>.
+                    </p>
+
+                    <p>
+                      This consent is given freely and voluntarily, and I understand that I may withdraw this consent at any time 
+                      by providing a written notice to the University Health Services Center, subject to legal and university requirements.
+                    </p>
+
+                    <div className="mt-16 pt-8 flex flex-col items-center sm:items-end">
+                      <div className="w-full max-w-xs flex flex-col items-center">
                         {waiver.signature ? (
                           <img 
                             src={waiver.signature} 
-                            alt="Patient Signature" 
-                            className="max-h-32 max-w-full object-contain"
+                            alt="Signature" 
+                            className="max-h-24 object-contain mb-[-10px] relative z-10"
                           />
                         ) : (
-                          <span className="text-gray-400 text-sm">No signature image</span>
+                          <div className="h-20 flex items-end justify-center italic text-gray-400 text-sm">No signature on file</div>
                         )}
+                        <div className="w-full border-t border-gray-900 pt-2 text-center">
+                          <p className="font-bold text-base uppercase">{waiver.full_name}</p>
+                          <p className="text-xs text-gray-600">Signature over Printed Name</p>
+                          <p className="text-sm mt-2 font-medium">Date Signed: {new Date(waiver.date_signed).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="border-t border-gray-200 pt-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Waiver Agreement</h3>
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <p className="text-sm text-gray-700 leading-relaxed">
-                        By signing this waiver, the individual has given explicit consent to the University Health Services
-                        Center to collect, use, store, and process their personal and sensitive health information for the purpose 
-                        of promoting and maintaining their health and general well-being as part of the school community.
-                      </p>
-                      <p className="text-sm text-gray-700 leading-relaxed mt-3">
-                        This consent was provided in accordance with the Data Privacy Act of 2012 (Republic Act 10173).
-                      </p>
+
+                    <div className="mt-12 text-[10px] text-gray-500 border-t border-gray-100 pt-4 italic">
+                      This is a system-generated document based on the electronic waiver signed on {new Date(waiver.created_at).toLocaleString()}.
+                      Document ID: WMSU-UHSC-WVR-{waiver.id.toString().padStart(6, '0')}
                     </div>
                   </div>
                 </div>

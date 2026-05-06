@@ -3,8 +3,7 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
-import { BarChart, LineChart, DoughnutChart, MiniBarChart, MiniLineChart } from '../../components/Charts';
-import { generatePDFReport, generateEnhancedCSV, generateServiceSpecificCSV, generateServiceSpecificPDFReport, downloadFile } from '../../utils/reportExport';
+import { generateServiceSpecificCSV, generateServiceSpecificPDFReport, generatePDFReport, downloadFile } from '../../utils/reportExport';
 import UserTypeDetailsModal from '../../components/UserTypeDetailsModal';
 import {
   ArrowPathIcon,
@@ -14,8 +13,6 @@ import {
   CalendarDaysIcon,
   CheckCircleIcon,
   DocumentTextIcon,
-  ChartBarIcon,
-  ArrowDownTrayIcon,
 } from '@heroicons/react/24/outline';
 
 interface UserTypeInformation {
@@ -43,20 +40,18 @@ interface StatisticsData {
   detailed_demographics: any;
   monthly_trends: any[];
   completion_rates: { medical: number; dental: number; documents: number; overall: number };
+  clinicians?: Array<{
+    id: number;
+    name: string;
+    consultations: number;
+    medical_count?: number;
+    dental_count?: number;
+    document_count?: number;
+  }>;
+  medicine_usage?: Array<{ name: string; quantity: number; unit: string; type: string }>;
+  medical_med_total_entries?: number;
 }
 
-// CSV download function
-function downloadCSV(filename: string, data: string) {
-  const blob = new Blob([data], { type: 'text/csv' });
-  const url = window.URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  window.URL.revokeObjectURL(url);
-}
 
 function AdminDashboard() {
   const [stats, setStats] = useState<StatisticsData>({
@@ -334,119 +329,6 @@ function AdminDashboard() {
     }
   }, [navigating]);
 
-  // Enhanced CSV data generation functions with comprehensive reports
-
-  const generateMedicalCSV = () => {
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
-    let csvData = `"WMSU Health Services - Medical Consultations Report"\n`;
-    csvData += `"Generated on: ${currentDate}"\n`;
-    csvData += `"Academic Semester: ${stats.semester.name}"\n\n`;
-    
-    csvData += `"=== MEDICAL CONSULTATION SUMMARY ==="\n`;
-    csvData += `"Metric","Value"\n`;
-    csvData += `"Total Consultations","${stats.medical.total}"\n`;
-    csvData += `"Completed","${stats.medical.completed}"\n`;
-    csvData += `"Pending","${stats.medical.pending}"\n`;
-    csvData += `"Rejected","${stats.medical.rejected}"\n`;
-    csvData += `"Completion Rate","${medicalCompletionRate.toFixed(1)}%"\n\n`;
-    
-    csvData += `"=== BY USER TYPE ==="\n`;
-    csvData += `"User Type","Total","Completed","Pending","Rejected","Rate (%)"\n`;
-    getUserTypeData().forEach(userType => {
-      csvData += `"${userType.userType}","${userType.medical.total}","${userType.medical.completed}","${userType.medical.pending}","${userType.medical.rejected}","${userType.medicalRate.toFixed(1)}"\n`;
-    });
-    
-    return csvData;
-  };
-
-  const generateDentalCSV = () => {
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
-    let csvData = `"WMSU Health Services - Dental Consultations Report"\n`;
-    csvData += `"Generated on: ${currentDate}"\n`;
-    csvData += `"Academic Semester: ${stats.semester.name}"\n\n`;
-    
-    csvData += `"=== DENTAL CONSULTATION SUMMARY ==="\n`;
-    csvData += `"Metric","Value"\n`;
-    csvData += `"Total Consultations","${stats.dental.total}"\n`;
-    csvData += `"Completed","${stats.dental.completed}"\n`;
-    csvData += `"Pending","${stats.dental.pending}"\n`;
-    csvData += `"Rejected","${stats.dental.rejected}"\n`;
-    csvData += `"Completion Rate","${dentalCompletionRate.toFixed(1)}%"\n\n`;
-    
-    csvData += `"=== BY USER TYPE ==="\n`;
-    csvData += `"User Type","Total","Completed","Pending","Rejected","Rate (%)"\n`;
-    getUserTypeData().forEach(userType => {
-      csvData += `"${userType.userType}","${userType.dental.total}","${userType.dental.completed}","${userType.dental.pending}","${userType.dental.rejected}","${userType.dentalRate.toFixed(1)}"\n`;
-    });
-    
-    return csvData;
-  };
-
-  const generateDocumentsCSV = () => {
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
-    let csvData = `"WMSU Health Services - Medical Documents Report"\n`;
-    csvData += `"Generated on: ${currentDate}"\n`;
-    csvData += `"Academic Semester: ${stats.semester.name}"\n\n`;
-    
-    csvData += `"=== DOCUMENT ISSUANCE SUMMARY ==="\n`;
-    csvData += `"Metric","Value"\n`;
-    csvData += `"Total Documents","${stats.documents.total}"\n`;
-    csvData += `"Issued","${stats.documents.issued}"\n`;
-    csvData += `"Pending","${stats.documents.pending}"\n`;
-    csvData += `"Completion Rate","${documentsCompletionRate.toFixed(1)}%"\n\n`;
-    
-    csvData += `"=== BY USER TYPE ==="\n`;
-    csvData += `"User Type","Total","Issued","Pending","Rate (%)"\n`;
-    getUserTypeData().forEach(userType => {
-      csvData += `"${userType.userType}","${userType.documents.total}","${userType.documents.issued}","${userType.documents.pending}","${userType.documentRate.toFixed(1)}"\n`;
-    });
-    
-    return csvData;
-  };
-
-  const generatePatientsCSV = () => {
-    const currentDate = new Date().toLocaleDateString('en-US', { 
-      month: 'long', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    
-    let csvData = `"WMSU Health Services - Patient Profiles Report"\n`;
-    csvData += `"Generated on: ${currentDate}"\n`;
-    csvData += `"Academic Semester: ${stats.semester.name}"\n\n`;
-    
-    csvData += `"=== PATIENT PROFILE SUMMARY ==="\n`;
-    csvData += `"Metric","Value"\n`;
-    csvData += `"Total Patients","${stats.patients.total}"\n`;
-    csvData += `"Verified","${stats.patients.verified}"\n`;
-    csvData += `"Unverified","${stats.patients.unverified}"\n`;
-    csvData += `"Verification Rate","${patientsVerificationRate.toFixed(1)}%"\n\n`;
-    
-    csvData += `"=== BY USER TYPE ==="\n`;
-    csvData += `"User Type","Total","Verified","Unverified","Rate (%)"\n`;
-    getUserTypeData().forEach(userType => {
-      const verificationRate = userType.patients.total > 0 ? ((userType.patients.verified / userType.patients.total) * 100) : 0;
-      csvData += `"${userType.userType}","${userType.patients.total}","${userType.patients.verified}","${userType.patients.unverified}","${verificationRate.toFixed(1)}"\n`;
-    });
-    
-    return csvData;
-  };
-
   // Calculate percentages
   const medicalCompletionRate = stats.medical.total > 0 ? (stats.medical.completed / stats.medical.total) * 100 : 0;
   const dentalCompletionRate = stats.dental.total > 0 ? (stats.dental.completed / stats.dental.total) * 100 : 0;
@@ -503,30 +385,6 @@ function AdminDashboard() {
     }).sort((a, b) => b.totalTransactions - a.totalTransactions);
   };
 
-  // PDF Export Functions
-  const handlePDFExport = async (reportType: 'weekly' | 'monthly' | 'yearly') => {
-    try {
-      setNavigating(true);
-      await generatePDFReport(stats, getUserTypeData(), reportType);
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF report. Please try again.');
-    } finally {
-      setNavigating(false);
-    }
-  };
-
-  const handleEnhancedCSVExport = (reportType: 'weekly' | 'monthly' | 'yearly') => {
-    try {
-      const csvContent = generateEnhancedCSV(stats, getUserTypeData(), reportType);
-      const filename = `wmsu-health-${reportType}-enhanced-report-${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}-${new Date().getDate().toString().padStart(2, '0')}.csv`;
-      downloadFile(filename, csvContent, 'csv');
-    } catch (error) {
-      console.error('Error generating enhanced CSV:', error);
-      alert('Failed to generate enhanced CSV report. Please try again.');
-    }
-  };
-
   // Service-specific export functions
   const handleServiceSpecificCSVExport = async (serviceType: 'medical' | 'dental' | 'certificates', reportType: 'weekly' | 'monthly' | 'yearly') => {
     try {
@@ -535,9 +393,10 @@ function AdminDashboard() {
       // Fetch dental inventory data if needed
       if (serviceType === 'dental') {
         try {
+          const inventoryToken = localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
           const response = await fetch(`/api/patients/dental_inventory_usage/?type=${reportType}`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Authorization': inventoryToken ? `Bearer ${inventoryToken}` : '',
             },
           });
           
@@ -574,9 +433,10 @@ function AdminDashboard() {
       // Fetch dental inventory data if needed
       if (serviceType === 'dental') {
         try {
+          const inventoryToken = localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
           const response = await fetch(`/api/patients/dental_inventory_usage/?type=${reportType}`, {
             headers: {
-              'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+              'Authorization': inventoryToken ? `Bearer ${inventoryToken}` : '',
             },
           });
           
@@ -598,13 +458,34 @@ function AdminDashboard() {
         usage_date: new Date().toISOString() // Add required usage_date
       }));
       
+      const serviceLabels = {
+        medical: 'Medical Consultations',
+        dental: 'Dental Consultations',
+        certificates: 'Medical Documents',
+      } as const;
+
       await generateServiceSpecificPDFReport(stats, getUserTypeData(), serviceType, reportType, normalizedInventory);
-      alert(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} demographics ${reportType} PDF report generated successfully!`);
+      alert(`${serviceLabels[serviceType]} ${reportType} PDF report generated successfully!`);
     } catch (error) {
       console.error('Error generating service-specific PDF:', error);
       alert('Failed to generate service-specific PDF report. Please try again.');
     }
   };
+
+  const reportRowsByTab: Record<'medical' | 'dental' | 'certificates', Array<{ label: string; service: 'medical' | 'dental' | 'certificates' }>> = {
+    medical: [{ label: 'Medical Consultations', service: 'medical' }],
+    dental: [{ label: 'Dental Consultations', service: 'dental' }],
+    certificates: [{ label: 'Medical Documents', service: 'certificates' }],
+  };
+
+  const activeReportRows = reportRowsByTab[activeTab];
+  const activeReportLabel = reportRowsByTab[activeTab][0].label;
+
+  const reportPeriods: Array<{ key: 'weekly' | 'monthly' | 'yearly'; label: string }> = [
+    { key: 'weekly', label: 'Weekly' },
+    { key: 'monthly', label: 'Monthly' },
+    { key: 'yearly', label: 'Yearly' },
+  ];
 
   return (
     <AdminLayout>
@@ -647,6 +528,14 @@ function AdminDashboard() {
                 <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                 <span className="sm:hidden">↻</span>
               </button>
+              <button
+                onClick={() => generatePDFReport(stats, getUserTypeData())}
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors border border-gray-200 bg-slate-800 text-white hover:bg-slate-900 h-8 sm:h-9 px-2 sm:px-3 text-xs sm:text-sm"
+              >
+                <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                <span className="hidden sm:inline">Export Full PDF</span>
+                <span className="sm:hidden">PDF</span>
+              </button>
             </div>
           </div>
           
@@ -668,6 +557,59 @@ function AdminDashboard() {
               )}
             </div>
           </div>
+
+          {/* New Dashboard Insights - Performance & Resources */}
+          {!loading && !error && (
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 className="text-sm font-bold text-[#800000] mb-3 uppercase tracking-wider">Clinician Activity Highlights</h3>
+                <div className="space-y-3">
+                  {stats.clinicians && stats.clinicians.length > 0 ? (
+                    stats.clinicians.slice(0, 3).map((clinician, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold mr-3">
+                            {idx + 1}
+                          </div>
+                          <span className="text-sm text-gray-700 font-medium">{clinician.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-900">{clinician.consultations} records</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No clinical activity recorded yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border shadow-sm">
+                <h3 className="text-sm font-bold text-[#800000] mb-3 uppercase tracking-wider">Resource Utilization Breakdown</h3>
+                <div className="space-y-3">
+                  {stats.medicine_usage && stats.medicine_usage.length > 0 ? (
+                    stats.medicine_usage.slice(0, 3).map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold mr-3">
+                            <DocumentTextIcon className="w-4 h-4" />
+                          </div>
+                          <span className="text-sm text-gray-700 font-medium">{item.name}</span>
+                        </div>
+                        <span className="text-sm font-bold text-gray-900">{item.quantity} {item.unit || 'pcs'}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-gray-500 italic">No inventory usage data available.</p>
+                  )}
+                  {stats.medical_med_total_entries > 0 && (
+                    <div className="pt-2 border-t text-xs text-gray-500 flex justify-between">
+                      <span>Total Medical Prescriptions:</span>
+                      <span className="font-bold">{stats.medical_med_total_entries} entries</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tab Navigation */}
@@ -751,145 +693,72 @@ function AdminDashboard() {
             </div>
           </div>
         ) : (
-          <>
-            {/* Statistics Cards */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
-              {/* Medical Consultations Card */}
-              <div className="rounded-xl border bg-white shadow">
-                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Medical</h3>
-                  <UserGroupIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                </div>
-                <div className="p-3 sm:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl font-bold">{stats.medical.total}</div>
-                  <p className="text-xs text-gray-600">
-                    {medicalCompletionRate.toFixed(1)}% completion rate
-                  </p>
-                </div>
-              </div>
-
-              {/* Dental Consultations Card */}
-              <div className="rounded-xl border bg-white shadow">
-                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Dental</h3>
-                  <UserGroupIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                </div>
-                <div className="p-3 sm:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl font-bold">{stats.dental.total}</div>
-                  <p className="text-xs text-gray-600">
-                    {dentalCompletionRate.toFixed(1)}% completion rate
-                  </p>
-                </div>
-              </div>
-
-              {/* Total Patients Card */}
-              <div className="rounded-xl border bg-white shadow">
-                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Patients</h3>
-                  <UserGroupIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                </div>
-                <div className="p-3 sm:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl font-bold">{stats.patients.total}</div>
-                  <p className="text-xs text-gray-600">
-                    {patientsVerificationRate.toFixed(1)}% verified
-                  </p>
-                </div>
-              </div>
-
-              {/* Documents Card */}
-              <div className="rounded-xl border bg-white shadow">
-                <div className="p-3 sm:p-6 flex flex-row items-center justify-between space-y-0 pb-2">
-                  <h3 className="tracking-tight text-xs sm:text-sm font-medium">Documents</h3>
-                  <DocumentTextIcon className="h-3 w-3 sm:h-4 sm:w-4 text-gray-600" />
-                </div>
-                <div className="p-3 sm:p-6 pt-0">
-                  <div className="text-xl sm:text-2xl font-bold">{stats.documents.issued}</div>
-                  <p className="text-xs text-gray-600">
-                    {documentsCompletionRate.toFixed(1)}% completion rate
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* User Type Configuration Status */}
+          <div className="space-y-6">
+            {/* Common Status Section - Dynamic based on tab */}
             <div className="rounded-xl border bg-white shadow">
               <div className="p-4 sm:p-6 border-b border-gray-200">
                 <h3 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
                   <UserGroupIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-[#800000]" />
-                  <span className="hidden sm:inline">User Type Configuration Status</span>
-                  <span className="sm:hidden">User Types</span>
+                  {activeTab === 'medical' ? 'Medical' : activeTab === 'dental' ? 'Dental' : 'Certificate'} Service Configuration Status
                 </h3>
                 <p className="text-xs sm:text-sm text-gray-600 mt-1">
-                  System configuration overview and user type management
+                  Service-specific configuration and utilization overview
                 </p>
               </div>
               <div className="p-4 sm:p-6">
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* Total Configurations */}
                   <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-blue-900">Total User Types</span>
-                      <UserGroupIcon className="w-4 h-4 text-blue-600" />
+                      <span className="text-sm font-medium text-blue-900">Total {activeTab === 'certificates' ? 'Issued' : 'Consultations'}</span>
+                      <DocumentTextIcon className="w-4 h-4 text-blue-600" />
                     </div>
-                    <div className="text-2xl font-bold text-blue-600">{userTypeInformations.length}</div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {activeTab === 'medical' ? stats.medical.total : activeTab === 'dental' ? stats.dental.total : stats.documents.total}
+                    </div>
                     <p className="text-xs text-blue-700">
-                      {userTypeInformations.filter(uti => uti.enabled).length} active configurations
+                      System-wide total for {activeTab}
                     </p>
                   </div>
 
-                  {/* Service Coverage */}
                   <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-green-900">Service Coverage</span>
+                      <span className="text-sm font-medium text-green-900">Completion Status</span>
                       <CheckCircleIcon className="w-4 h-4 text-green-600" />
                     </div>
                     <div className="text-2xl font-bold text-green-600">
-                      {userTypeInformations.filter(uti => 
-                        uti.enabled
-                      ).length}
+                      {activeTab === 'medical' ? stats.medical.completed : activeTab === 'dental' ? stats.dental.completed : stats.documents.issued}
                     </div>
                     <p className="text-xs text-green-700">
-                      User types with service access
+                      Processed and finalized records
                     </p>
                   </div>
 
-                  {/* Configuration Health */}
                   <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-purple-900">Avg. Required Fields</span>
-                      <DocumentTextIcon className="w-4 h-4 text-purple-600" />
+                      <span className="text-sm font-medium text-purple-900">Pending Requests</span>
+                      <ClockIcon className="w-4 h-4 text-purple-600" />
                     </div>
                     <div className="text-2xl font-bold text-purple-600">
-                      {userTypeInformations.length > 0 
-                        ? (userTypeInformations.reduce((sum, uti) => sum + (uti.required_fields?.length || 0), 0) / userTypeInformations.length).toFixed(1)
-                        : '0'
-                      }
+                      {activeTab === 'medical' ? stats.medical.pending : activeTab === 'dental' ? stats.dental.pending : stats.documents.pending}
                     </div>
                     <p className="text-xs text-purple-700">
-                      Fields per user type
+                      Awaiting staff action
                     </p>
                   </div>
                 </div>
-                
-                {userTypeInformations.length === 0 && (
-                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <div className="flex items-center">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 mr-2" />
-                      <span className="text-sm text-yellow-800">
-                        No user type configurations found. Consider setting up user types through the Controls panel.
-                      </span>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
 
-            {/* Tab Content with User Type Organization */}
-            {activeTab === 'medical' && (
-              <div className="space-y-4 sm:space-y-6">
-                {/* Medical Overview by User Type */}
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {getUserTypeData().slice(0, 6).map((userType, index) => (
+            {/* Tab Content */}
+            <div className="space-y-6">
+              {/* Individual User Type Overview */}
+              <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {getUserTypeData().map((userType) => {
+                  const currentStats = activeTab === 'medical' ? userType.medical : activeTab === 'dental' ? userType.dental : userType.documents;
+                  const rate = activeTab === 'medical' ? userType.medicalRate : activeTab === 'dental' ? userType.dentalRate : userType.documentRate;
+                  const label = activeTab === 'certificates' ? 'Issued' : 'Completed';
+
+                  return (
                     <div 
                       key={userType.userType} 
                       className="rounded-xl border bg-white shadow p-4 sm:p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
@@ -905,929 +774,136 @@ function AdminDashboard() {
                       </div>
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Medical Total:</span>
-                          <span className="font-semibold">{userType.medical.total}</span>
+                          <span className="text-gray-600">Total Records:</span>
+                          <span className="font-semibold">{currentStats.total}</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Completed:</span>
-                          <span className="font-semibold text-green-600">{userType.medical.completed}</span>
+                          <span className="text-gray-600">{label}:</span>
+                          <span className="font-semibold text-green-600">{activeTab === 'certificates' ? (currentStats as any).issued : (currentStats as any).completed}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Pending:</span>
-                          <span className="font-semibold text-yellow-600">{userType.medical.pending}</span>
+                          <span className="font-semibold text-yellow-600">{currentStats.pending}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600">Completion Rate:</span>
-                          <span className="font-semibold text-[#800000]">{userType.medicalRate.toFixed(1)}%</span>
+                          <span className="font-semibold text-[#800000]">{rate.toFixed(1)}%</span>
                         </div>
                       </div>
                       <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
                         <div 
                           className="bg-gradient-to-r from-[#800000] to-[#a83232] h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${userType.medicalRate}%` }}
+                          style={{ width: `${rate}%` }}
                         ></div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
+              </div>
 
-                {/* Medical Quick Actions */}
-                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Medical Consultation Actions</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                    <button
-                      onClick={() => handleQuickAction('medical-forms')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">View Medical Forms</div>
-                      <div className="text-sm opacity-90">Review all medical consultations</div>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction('patient-reports')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Patient Profiles</div>
-                      <div className="text-sm opacity-90">Manage patient information</div>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction('appointments')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Appointments</div>
-                      <div className="text-sm opacity-90">Schedule management</div>
-                    </button>
+              {/* Service Reports Table */}
+              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2">
+                  <div>
+                    <h3 className="text-base sm:text-lg font-semibold text-slate-900">Reports</h3>
+                    <p className="text-xs sm:text-sm text-slate-600">{activeReportLabel}</p>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {activeTab === 'dental' && (
-              <div className="space-y-4 sm:space-y-6">
-                {/* Dental Overview by User Type */}
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {getUserTypeData().slice(0, 6).map((userType, index) => (
-                    <div 
-                      key={userType.userType} 
-                      className="rounded-xl border bg-white shadow p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
-                      onClick={() => handleUserTypeClick(userType.userType)}
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900">{userType.userType}</h3>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#800000] to-[#a83232] flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">
-                            {userType.userType.charAt(0)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Dental Total:</span>
-                          <span className="font-semibold">{userType.dental.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Completed:</span>
-                          <span className="font-semibold text-green-600">{userType.dental.completed}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Pending:</span>
-                          <span className="font-semibold text-yellow-600">{userType.dental.pending}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Completion Rate:</span>
-                          <span className="font-semibold text-[#800000]">{userType.dentalRate.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                      <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-[#800000] to-[#a83232] h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${userType.dentalRate}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Dental Quick Actions */}
-                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Dental Services Actions</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                    <button
-                      onClick={() => handleQuickAction('dental-forms')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Dental Forms</div>
-                      <div className="text-sm opacity-90">Review dental consultations</div>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction('medicine-inventory')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Medicine Inventory</div>
-                      <div className="text-sm opacity-90">Manage dental supplies</div>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction('dental-reports')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Dental Reports</div>
-                      <div className="text-sm opacity-90">Analytics and insights</div>
-                    </button>
-                  </div>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm border border-slate-200 rounded-lg">
+                    <thead className="bg-slate-50 text-slate-700">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold">Report Type</th>
+                        {reportPeriods.map(period => (
+                          <th key={period.key} className="px-4 py-3 text-left font-semibold">{period.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                      {activeReportRows.map(row => (
+                        <tr key={row.service} className="bg-white">
+                          <td className="px-4 py-3 font-medium text-slate-900">{row.label}</td>
+                          {reportPeriods.map(period => (
+                            <td key={`${row.service}-${period.key}`} className="px-4 py-3">
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => handleServiceSpecificPDFExport(row.service, period.key)}
+                                  className="px-3 py-1.5 text-xs font-semibold text-white bg-slate-700 hover:bg-slate-800 rounded-md transition-colors"
+                                >
+                                  PDF
+                                </button>
+                                <button
+                                  onClick={() => handleServiceSpecificCSVExport(row.service, period.key)}
+                                  className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors"
+                                >
+                                  CSV
+                                </button>
+                              </div>
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-            )}
 
-            {activeTab === 'certificates' && (
-              <div className="space-y-4 sm:space-y-6">
-                {/* Certificate Overview by User Type */}
-                <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {getUserTypeData().slice(0, 6).map((userType, index) => (
-                    <div 
-                      key={userType.userType} 
-                      className="rounded-xl border bg-white shadow p-6 cursor-pointer hover:shadow-lg hover:scale-105 transition-all duration-200"
-                      onClick={() => handleUserTypeClick(userType.userType)}
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="font-semibold text-gray-900">{userType.userType}</h3>
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#800000] to-[#a83232] flex items-center justify-center">
-                          <span className="text-xs font-bold text-white">
-                            {userType.userType.charAt(0)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Documents Total:</span>
-                          <span className="font-semibold">{userType.documents.total}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Issued:</span>
-                          <span className="font-semibold text-green-600">{userType.documents.issued}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Pending:</span>
-                          <span className="font-semibold text-yellow-600">{userType.documents.pending}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-600">Completion Rate:</span>
-                          <span className="font-semibold text-[#800000]">{userType.documentRate.toFixed(1)}%</span>
-                        </div>
-                      </div>
-                      <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                        <div 
-                          className="bg-gradient-to-r from-[#800000] to-[#a83232] h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${userType.documentRate}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Certificate Quick Actions */}
-                <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Medical Certificate Actions</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                    <button
-                      onClick={() => handleQuickAction('issue-certificate')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Issue Certificate</div>
-                      <div className="text-sm opacity-90">Create new medical documents</div>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction('review-requests')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Review Requests</div>
-                      <div className="text-sm opacity-90">Pending document approvals</div>
-                    </button>
-                    <button
-                      onClick={() => handleQuickAction('document-reports')}
-                      disabled={navigating}
-                      className={`w-full bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all duration-200 ${navigating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:scale-105'}`}
-                    >
-                      <div className="font-medium">Document Reports</div>
-                      <div className="text-sm opacity-90">Certificate analytics</div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Enhanced Chart and Activity Section with Chart.js */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 lg:grid-cols-7">
-              {/* Monthly Trends Bar Chart */}
-              <div className="lg:col-span-4 rounded-xl border bg-white shadow">
-                <div className="p-4 sm:p-6">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
-                    <div>
-                      <h3 className="text-base sm:text-lg font-semibold text-slate-900">Monthly Activity Trends</h3>
-                      <p className="text-xs sm:text-sm text-slate-600">Transaction trends across all services</p>
-                    </div>
-                    <div className="flex items-center space-x-2 w-full sm:w-auto">
-                      <button className="inline-flex items-center justify-center rounded-md text-xs sm:text-sm font-medium transition-colors border border-slate-200 bg-white hover:bg-slate-50 h-8 px-2 sm:px-3 text-slate-700 w-full sm:w-auto">
-                        <ClockIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                        Last 6 months
+              {/* Quick Actions Footer - Dynamic based on tab */}
+              <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
+                  {activeTab === 'medical' ? 'Medical' : activeTab === 'dental' ? 'Dental' : 'Certificate'} Quick Actions
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {activeTab === 'medical' ? (
+                    <>
+                      <button onClick={() => handleQuickAction('medical-forms')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Medical Forms</div>
+                        <div className="text-sm opacity-90">View all consultations</div>
                       </button>
-                    </div>
-                  </div>
-                  
-                  <div className="h-[200px] sm:h-[280px]" id="monthly-trends-chart">
-                    {stats.monthly_trends && Array.isArray(stats.monthly_trends) && stats.monthly_trends.length > 0 ? (
-                      <BarChart
-                        data={{
-                          labels: stats.monthly_trends.map(item => item.month),
-                          datasets: [
-                            {
-                              label: 'Medical',
-                              data: stats.monthly_trends.map(item => item.medical || 0),
-                              backgroundColor: '#3b82f6',
-                            },
-                            {
-                              label: 'Dental', 
-                              data: stats.monthly_trends.map(item => item.dental || 0),
-                              backgroundColor: '#10b981',
-                            },
-                            {
-                              label: 'Documents',
-                              data: stats.monthly_trends.map(item => item.documents || 0),
-                              backgroundColor: '#f59e0b',
-                            },
-                          ],
-                        }}
-                      />
-                    ) : (
-                      <div className="h-full flex items-center justify-center text-slate-500">
-                        <div className="text-center">
-                          <ChartBarIcon className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                          <p className="text-sm">No chart data available</p>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {loading ? "Loading data..." : "Data will appear when available"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* User Type Activity Feed */}
-              <div className="lg:col-span-3 rounded-xl border bg-white shadow">
-                <div className="p-4 sm:p-6">
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-3 sm:mb-4">User Type Activity</h3>
-                  <div className="space-y-3 sm:space-y-4 max-h-60 sm:max-h-80 overflow-y-auto">
-                    {getUserTypeData() && getUserTypeData().length > 0 ? (
-                      getUserTypeData().map((user, index) => (
-                        <div key={user.userType} className="flex items-center p-3 rounded-lg hover:bg-slate-50 transition-colors border border-slate-100">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center mr-4 flex-shrink-0">
-                            <span className="text-sm font-bold text-white">
-                              {user.userType.charAt(0)}
-                            </span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-900 truncate">{user.userType}</p>
-                            <p className="text-xs text-slate-600">
-                              {user.totalTransactions} total • {user.completedTransactions} completed
-                            </p>
-                            <div className="mt-2 w-full bg-slate-200 rounded-full h-1.5">
-                              <div 
-                                className="bg-gradient-to-r from-slate-700 to-slate-900 h-1.5 rounded-full transition-all duration-500"
-                                style={{ width: `${user.completionRate}%` }}
-                              ></div>
-                            </div>
-                          </div>
-                          <div className="text-right ml-4 flex-shrink-0">
-                            <div className="text-sm font-bold text-slate-900">
-                              {user.completionRate.toFixed(0)}%
-                            </div>
-                            <div className="text-xs text-slate-500">completion</div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center py-8 text-slate-500">
-                        <UserGroupIcon className="w-12 h-12 mx-auto mb-2 text-slate-300" />
-                        <p className="text-sm">No user activity data</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Enhanced Chart Analytics Grid */}
-            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {/* Service Distribution Doughnut Chart */}
-              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-slate-900">Service Distribution</h3>
-                  <p className="text-sm text-slate-600">Overview of all health services</p>
-                </div>
-                <div className="h-[240px]" id="service-distribution-chart">
-                  <DoughnutChart
-                    data={{
-                      labels: ['Medical', 'Dental', 'Documents'],
-                      datasets: [{
-                        data: [stats.medical.total, stats.dental.total, stats.documents.total],
-                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
-                      }],
-                    }}
-                  />
-                </div>
-                <div className="mt-4 grid grid-cols-3 gap-4 text-center text-sm">
-                  <div>
-                    <div className="font-semibold text-slate-900">{stats.medical.total}</div>
-                    <div className="text-slate-600">Medical</div>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">{stats.dental.total}</div>
-                    <div className="text-slate-600">Dental</div>
-                  </div>
-                  <div>
-                    <div className="font-semibold text-slate-900">{stats.documents.total}</div>
-                    <div className="text-slate-600">Documents</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Completion Rates Progress Chart */}
-              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
-                <div className="mb-3 sm:mb-4">
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Completion Rates</h3>
-                  <p className="text-xs sm:text-sm text-slate-600">Service completion performance</p>
-                </div>
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-slate-600 font-medium">Medical Consultations</span>
-                      <span className="font-semibold text-slate-900">{medicalCompletionRate.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-1000"
-                        style={{ width: `${medicalCompletionRate}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {stats.medical.completed} of {stats.medical.total} completed
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-slate-600 font-medium">Dental Consultations</span>
-                      <span className="font-semibold text-slate-900">{dentalCompletionRate.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-emerald-500 h-2 rounded-full transition-all duration-1000"
-                        style={{ width: `${dentalCompletionRate}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {stats.dental.completed} of {stats.dental.total} completed
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-slate-600 font-medium">Medical Documents</span>
-                      <span className="font-semibold text-slate-900">{documentsCompletionRate.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-amber-500 h-2 rounded-full transition-all duration-1000"
-                        style={{ width: `${documentsCompletionRate}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {stats.documents.issued} of {stats.documents.total} issued
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-slate-600 font-medium">Patient Verification</span>
-                      <span className="font-semibold text-slate-900">{patientsVerificationRate.toFixed(1)}%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div 
-                        className="bg-slate-700 h-2 rounded-full transition-all duration-1000"
-                        style={{ width: `${patientsVerificationRate}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">
-                      {stats.patients.verified} of {stats.patients.total} verified
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Top Performing User Types */}
-              <div className="rounded-xl border bg-white shadow p-4 sm:p-6">
-                <div className="mb-3 sm:mb-4">
-                  <h3 className="text-base sm:text-lg font-semibold text-slate-900">Top User Types</h3>
-                  <p className="text-xs sm:text-sm text-slate-600">Ranked by total activity</p>
-                </div>
-                <div className="space-y-3 sm:space-y-4">
-                  {getUserTypeData().slice(0, 5).map((user, index) => (
-                    <div key={user.userType} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-100">
-                      <div className="flex items-center">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center mr-3">
-                          <span className="text-xs font-bold text-white">
-                            {index + 1}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-medium text-slate-900">{user.userType}</span>
-                          <div className="flex items-center mt-1">
-                            <MiniBarChart 
-                              data={[user.medical.total, user.dental.total, user.documents.total]} 
-                              height={16} 
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-slate-900">{user.totalTransactions}</div>
-                        <div className="text-xs text-slate-500">{user.completionRate.toFixed(0)}% rate</div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {getUserTypeData().length === 0 && (
-                    <div className="text-center py-4 text-slate-500">
-                      <p className="text-sm">No user type data available</p>
-                    </div>
+                      <button onClick={() => handleQuickAction('patient-reports')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Patient Profiles</div>
+                        <div className="text-sm opacity-90">Manage patient records</div>
+                      </button>
+                      <button onClick={() => handleQuickAction('appointments')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Appointments</div>
+                        <div className="text-sm opacity-90">Manage schedules</div>
+                      </button>
+                    </>
+                  ) : activeTab === 'dental' ? (
+                    <>
+                      <button onClick={() => handleQuickAction('dental-forms')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Dental Forms</div>
+                        <div className="text-sm opacity-90">View all consultations</div>
+                      </button>
+                      <button onClick={() => handleQuickAction('medicine-inventory')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Medicine Inventory</div>
+                        <div className="text-sm opacity-90">Manage supplies</div>
+                      </button>
+                      <button onClick={() => handleQuickAction('dental-reports')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Dental Analytics</div>
+                        <div className="text-sm opacity-90">View reports</div>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button onClick={() => handleQuickAction('issue-certificate')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Issue Certificate</div>
+                        <div className="text-sm opacity-90">Create new documents</div>
+                      </button>
+                      <button onClick={() => handleQuickAction('review-requests')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Review Requests</div>
+                        <div className="text-sm opacity-90">Verify applications</div>
+                      </button>
+                      <button onClick={() => handleQuickAction('document-reports')} className="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg p-4 text-left transition-all hover:scale-105">
+                        <div className="font-medium">Document Archive</div>
+                        <div className="text-sm opacity-90">History and reports</div>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
             </div>
-
-            {/* Enhanced Export Reports Section with Time Periods */}
-            <div className="rounded-xl border bg-gradient-to-br from-[#800000] to-[#a83232] text-white shadow p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-                <div>
-                  <h3 className="text-base sm:text-lg font-semibold mb-1">📊 Comprehensive Reports</h3>
-                  <p className="text-white text-opacity-90 text-xs sm:text-sm">Export detailed analytics with charts, graphs, and breakdowns</p>
-                </div>
-                <ArrowDownTrayIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white text-opacity-80" />
-              </div>
-              
-              {/* Visual Reports with Charts and Demographics (PDF) */}
-              <div className="mb-4 sm:mb-6">
-                <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-white text-opacity-90">📊 Professional PDF Reports (Charts + Demographics)</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                  <button
-                    onClick={() => handlePDFExport('weekly')}
-                    disabled={navigating}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 disabled:opacity-50"
-                  >
-                    <div className="flex items-center">
-                      <CalendarDaysIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Weekly Report</div>
-                        <div className="text-xs text-white text-opacity-90">Professional Layout</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handlePDFExport('monthly')}
-                    disabled={navigating}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 disabled:opacity-50"
-                  >
-                    <div className="flex items-center">
-                      <ChartBarIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Monthly Report</div>
-                        <div className="text-xs text-white text-opacity-90">Professional Layout</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handlePDFExport('yearly')}
-                    disabled={navigating}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105 disabled:opacity-50"
-                  >
-                    <div className="flex items-center">
-                      <ClockIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Yearly Report</div>
-                        <div className="text-xs text-white text-opacity-90">Professional Layout</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Comprehensive CSV Reports */}
-              <div className="mb-4 sm:mb-6">
-                <h4 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 text-white text-opacity-90">📄 Comprehensive CSV Reports</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-                  <button
-                    onClick={() => handleEnhancedCSVExport('weekly')}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <CalendarDaysIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Enhanced Weekly</div>
-                        <div className="text-xs text-white text-opacity-75">Detailed analytics</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleEnhancedCSVExport('monthly')}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <ChartBarIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Enhanced Monthly</div>
-                        <div className="text-xs text-white text-opacity-75">Comprehensive data</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleEnhancedCSVExport('yearly')}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <ClockIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Enhanced Yearly</div>
-                        <div className="text-xs text-white text-opacity-75">Annual insights</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Service-Specific Demographic Reports */}
-              <div className="border-t border-white border-opacity-20 pt-4">
-                <h4 className="text-sm font-semibold mb-3 text-white text-opacity-90">🔍 Service-Specific Demographic Reports</h4>
-                
-                {/* Medical Consultations Reports */}
-                <div className="mb-4">
-                  <h5 className="text-xs font-medium mb-2 text-white text-opacity-80">🏥 Medical Consultations by Demographics</h5>
-                  
-                  {/* CSV Exports */}
-                  <div className="mb-2">
-                    <p className="text-xs text-white text-opacity-70 mb-1">CSV Reports:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('medical', 'weekly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-blue-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                          <span>Weekly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('medical', 'monthly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-blue-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <ChartBarIcon className="w-4 h-4 mr-2" />
-                          <span>Monthly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('medical', 'yearly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-blue-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <ClockIcon className="w-4 h-4 mr-2" />
-                          <span>Yearly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* PDF Exports */}
-                  <div>
-                    <p className="text-xs text-white text-opacity-70 mb-1">PDF Reports with Charts:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('medical', 'weekly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-blue-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Weekly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('medical', 'monthly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-blue-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Monthly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('medical', 'yearly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-blue-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Yearly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Dental Consultations Reports */}
-                <div className="mb-4">
-                  <h5 className="text-xs font-medium mb-2 text-white text-opacity-80">🦷 Dental Consultations by Demographics</h5>
-                  
-                  {/* CSV Exports */}
-                  <div className="mb-2">
-                    <p className="text-xs text-white text-opacity-70 mb-1">CSV Reports:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('dental', 'weekly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-green-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                          <span>Weekly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('dental', 'monthly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-green-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <ChartBarIcon className="w-4 h-4 mr-2" />
-                          <span>Monthly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('dental', 'yearly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-green-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <ClockIcon className="w-4 h-4 mr-2" />
-                          <span>Yearly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* PDF Exports */}
-                  <div>
-                    <p className="text-xs text-white text-opacity-70 mb-1">PDF Reports with Charts:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('dental', 'weekly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-green-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Weekly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('dental', 'monthly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-green-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Monthly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('dental', 'yearly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-green-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Yearly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Medical Certificates Reports */}
-                <div className="mb-4">
-                  <h5 className="text-xs font-medium mb-2 text-white text-opacity-80">📄 Medical Certificates by Demographics</h5>
-                  
-                  {/* CSV Exports */}
-                  <div className="mb-2">
-                    <p className="text-xs text-white text-opacity-70 mb-1">CSV Reports:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('certificates', 'weekly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-amber-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <CalendarDaysIcon className="w-4 h-4 mr-2" />
-                          <span>Weekly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('certificates', 'monthly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-amber-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <ChartBarIcon className="w-4 h-4 mr-2" />
-                          <span>Monthly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificCSVExport('certificates', 'yearly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-amber-500 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <ClockIcon className="w-4 h-4 mr-2" />
-                          <span>Yearly CSV</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* PDF Exports */}
-                  <div>
-                    <p className="text-xs text-white text-opacity-70 mb-1">PDF Reports with Charts:</p>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('certificates', 'weekly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-amber-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Weekly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('certificates', 'monthly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-amber-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Monthly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                      
-                      <button
-                        onClick={() => handleServiceSpecificPDFExport('certificates', 'yearly')}
-                        className="group flex items-center justify-between w-full py-2 px-3 bg-amber-600 bg-opacity-20 hover:bg-opacity-30 text-white rounded-md text-sm font-medium transition-all duration-200 shadow-sm hover:shadow-md hover:scale-105"
-                      >
-                        <div className="flex items-center">
-                          <DocumentTextIcon className="w-4 h-4 mr-2" />
-                          <span>Yearly PDF</span>
-                        </div>
-                        <ArrowDownTrayIcon className="w-3 h-3 group-hover:animate-bounce" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="text-xs text-white text-opacity-70 italic mt-3 p-2 bg-white bg-opacity-10 rounded-md">
-                  💡 These reports include detailed demographic breakdowns: Elementary, High School, College students with their year levels, courses, and Employee categories (Teaching/Non-Teaching staff).
-                </div>
-              </div>
-              
-              {/* Legacy Specialized Reports */}
-              <div className="border-t border-white border-opacity-20 pt-4">
-                <h4 className="text-sm font-semibold mb-3 text-white text-opacity-90">📋 Legacy Detailed Reports</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => downloadCSV('medical-consultations-detailed.csv', generateMedicalCSV())}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <UserGroupIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Medical Detailed</div>
-                        <div className="text-xs text-white text-opacity-75">{stats.medical.total} consultations</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => downloadCSV('dental-consultations-detailed.csv', generateDentalCSV())}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <UserGroupIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Dental Detailed</div>
-                        <div className="text-xs text-white text-opacity-75">{stats.dental.total} consultations</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => downloadCSV('medical-documents-detailed.csv', generateDocumentsCSV())}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <DocumentTextIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Documents Detailed</div>
-                        <div className="text-xs text-white text-opacity-75">{stats.documents.total} certificates</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                  
-                  <button
-                    onClick={() => downloadCSV('patient-profiles-detailed.csv', generatePatientsCSV())}
-                    className="group flex items-center justify-between w-full py-3 px-4 bg-white bg-opacity-20 hover:bg-opacity-30 text-white rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg hover:scale-105"
-                  >
-                    <div className="flex items-center">
-                      <UserGroupIcon className="w-5 h-5 mr-3" />
-                      <div className="text-left">
-                        <div className="text-sm">Patient Detailed</div>
-                        <div className="text-xs text-white text-opacity-75">{stats.patients.total} profiles</div>
-                      </div>
-                    </div>
-                    <ArrowDownTrayIcon className="w-4 h-4 group-hover:animate-bounce" />
-                  </button>
-                </div>
-              </div>
-              
-              {/* Report Information */}
-              <div className="mt-6 p-4 bg-white bg-opacity-10 rounded-lg">
-                <h5 className="text-sm font-semibold mb-2 text-white">📋 Report Features:</h5>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-white text-opacity-90">
-                  <div className="flex items-start">
-                    <span className="mr-2">📊</span>
-                    <span>Comprehensive data tables with all metrics</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="mr-2">👥</span>
-                    <span>User type breakdown analysis</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="mr-2">📈</span>
-                    <span>Monthly activity trends data</span>
-                  </div>
-                  <div className="flex items-start">
-                    <span className="mr-2">⚡</span>
-                    <span>Real-time completion rates</span>
-                  </div>
-                </div>
-                <div className="mt-2 text-xs text-white text-opacity-75">
-                  💡 <strong>Tip:</strong> Open CSV files in Excel or Google Sheets for advanced data visualization and pivot tables.
-                </div>
-              </div>
-            </div>
-          </>
+          </div>
         )}
       </div>
 
