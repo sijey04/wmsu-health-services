@@ -3,7 +3,10 @@ Django settings for django_api project.
 """
 
 import os
-import dj_database_url
+try:
+    import dj_database_url
+except ImportError:
+    dj_database_url = None
 from pathlib import Path
 from dotenv import load_dotenv
 import pymysql
@@ -24,7 +27,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-wmsu-health-service
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True  # Force debug mode for development
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,gleaming-consideration-production-647d.up.railway.app').split(',')
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
