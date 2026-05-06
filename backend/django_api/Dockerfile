@@ -8,6 +8,5 @@ RUN pip install --upgrade pip && pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
-
-CMD gunicorn django_api.wsgi:application --bind 0.0.0.0:$PORT
+RUN chmod +x scripts/deploy.sh
+CMD ["./scripts/deploy.sh"]

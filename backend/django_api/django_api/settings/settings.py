@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -74,6 +75,8 @@ WSGI_APPLICATION = 'django_api.wsgi.application'
 
 # Database - TiDB or MySQL configuration
 TIDB_HOST = os.getenv('TIDB_HOST')
+# Railway MySQL variables
+RAILWAY_MYSQL_HOST = os.getenv('MYSQLHOST')
 
 if TIDB_HOST:
     DATABASES = {
@@ -87,6 +90,20 @@ if TIDB_HOST:
             'OPTIONS': {
                 'charset': 'utf8mb4',
                 'ssl': {'ca': os.getenv('CA_PATH')} if os.getenv('CA_PATH') else {},
+            },
+        }
+    }
+elif RAILWAY_MYSQL_HOST:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_api.db_backends.mysql_compat',
+            'NAME': os.getenv('MYSQLDATABASE', 'railway'),
+            'USER': os.getenv('MYSQLUSER', 'root'),
+            'PASSWORD': os.getenv('MYSQLPASSWORD', ''),
+            'HOST': RAILWAY_MYSQL_HOST,
+            'PORT': os.getenv('MYSQLPORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
             },
         }
     }
@@ -133,6 +150,9 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+# Enable Whitenoise for static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files (uploads)
 MEDIA_URL = '/media/'
