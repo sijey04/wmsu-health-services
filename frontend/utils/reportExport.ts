@@ -87,7 +87,10 @@ export const generateSingleFormPDF = async (
     const loadLogo = (src: string): Promise<string | null> => {
       return new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        // Only use anonymous for external domains to avoid CORS issues on same-origin
+        if (typeof window !== 'undefined' && src.startsWith('http') && !src.includes(window.location.host)) {
+          img.crossOrigin = 'anonymous';
+        }
         img.src = src;
         img.onload = () => {
           try {
@@ -97,10 +100,17 @@ export const generateSingleFormPDF = async (
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
-          } catch (e) { resolve(null); }
+          } catch (e) { 
+            console.warn(`Failed to process logo: ${src}`, e);
+            resolve(null); 
+          }
         };
-        img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 2000);
+        img.onerror = () => {
+          console.warn(`Failed to load logo: ${src}`);
+          resolve(null);
+        };
+        // Increase timeout to 5 seconds for production reliability
+        setTimeout(() => resolve(null), 5000);
       });
     };
 
@@ -278,7 +288,10 @@ export const generatePDFReport = async (
     const loadLogo = (src: string): Promise<string | null> => {
       return new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        // Only use anonymous for external domains to avoid CORS issues on same-origin
+        if (typeof window !== 'undefined' && src.startsWith('http') && !src.includes(window.location.host)) {
+          img.crossOrigin = 'anonymous';
+        }
         img.src = src;
         img.onload = () => {
           try {
@@ -288,10 +301,17 @@ export const generatePDFReport = async (
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
-          } catch (e) { resolve(null); }
+          } catch (e) { 
+            console.warn(`Failed to process logo: ${src}`, e);
+            resolve(null); 
+          }
         };
-        img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 2000);
+        img.onerror = () => {
+          console.warn(`Failed to load logo: ${src}`);
+          resolve(null);
+        };
+        // Increase timeout to 5 seconds for production reliability
+        setTimeout(() => resolve(null), 5000);
       });
     };
 
@@ -1980,7 +2000,10 @@ export const generateServiceSpecificPDFReport = async (
     const loadLogo = (src: string): Promise<string | null> => {
       return new Promise((resolve) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        // Only use anonymous for external domains to avoid CORS issues on same-origin
+        if (typeof window !== 'undefined' && src.startsWith('http') && !src.includes(window.location.host)) {
+          img.crossOrigin = 'anonymous';
+        }
         img.src = src;
         img.onload = () => {
           try {
@@ -1990,10 +2013,17 @@ export const generateServiceSpecificPDFReport = async (
             const ctx = canvas.getContext('2d');
             ctx?.drawImage(img, 0, 0);
             resolve(canvas.toDataURL('image/png'));
-          } catch (e) { resolve(null); }
+          } catch (e) { 
+            console.warn(`Failed to process logo: ${src}`, e);
+            resolve(null); 
+          }
         };
-        img.onerror = () => resolve(null);
-        setTimeout(() => resolve(null), 2000);
+        img.onerror = () => {
+          console.warn(`Failed to load logo: ${src}`);
+          resolve(null);
+        };
+        // Increase timeout to 5 seconds for production reliability
+        setTimeout(() => resolve(null), 5000);
       });
     };
 

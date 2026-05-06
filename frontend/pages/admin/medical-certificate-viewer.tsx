@@ -228,7 +228,7 @@ function MedicalCertificateViewer() {
                     {staffDetails.signature && (
                       <div className="mb-4">
                         <img 
-                          src={staffDetails.signature} 
+                          src={staffDetails.signature.startsWith('http') ? staffDetails.signature : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${staffDetails.signature}`} 
                           alt="Signature" 
                           className="h-16 mx-auto"
                         />

@@ -803,7 +803,7 @@ export default function AdminPatientProfile() {
                                 <div className="flex-shrink-0 h-12 w-12">
                                   {patient.photo ? (
                                     <Image 
-                                      src={patient.photo} 
+                                      src={patient.photo.startsWith('http') ? patient.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${patient.photo}`} 
                                       alt={patient.name} 
                                       width={48}
                                       height={48}

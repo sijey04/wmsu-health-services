@@ -543,7 +543,7 @@ export default function AdminContentManagement() {
                     {recentActivities.map(activity => (
                       <div key={activity.id} className="bg-white p-3 rounded border">
                         <div className="aspect-video bg-gray-200 rounded mb-2 flex items-center justify-center text-gray-400 text-sm">
-                          {activity.image ? <img src={activity.image} alt={activity.caption} className="w-full h-full object-cover rounded" /> : 'No Image'}
+                          {activity.image ? <img src={activity.image.startsWith('http') ? activity.image : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${activity.image}`} alt={activity.caption} className="w-full h-full object-cover rounded" /> : 'No Image'}
                         </div>
                         <p className="text-sm font-medium mb-2">{activity.caption}</p>
                         <button onClick={() => deleteActivity(activity.id)} className="text-red-600 hover:text-red-800 text-sm">Delete</button>

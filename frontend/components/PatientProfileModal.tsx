@@ -378,7 +378,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               <div className="w-24 h-32 border border-gray-400 bg-gray-50 flex items-center justify-center">
                 {profile.photo ? (
                   <img 
-                    src={profile.photo} 
+                    src={profile.photo.startsWith('http') ? profile.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${profile.photo}`} 
                     alt="Patient" 
                     className="w-full h-full object-cover" 
                   />

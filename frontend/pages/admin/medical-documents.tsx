@@ -446,7 +446,7 @@ function AdminMedicalDocuments() {
       .map(f => ({
         key: f.key,
         label: f.label,
-        url: doc[f.key]
+        url: doc[f.key]?.startsWith('http') ? doc[f.key] : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${doc[f.key]}`
       }));
   };
 
@@ -2143,7 +2143,7 @@ function AdminMedicalDocuments() {
                                 }}
                               >
                                 <img 
-                                  src={selectedDocument[currentDoc.key]} 
+                                  src={selectedDocument[currentDoc.key]?.startsWith('http') ? selectedDocument[currentDoc.key] : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${selectedDocument[currentDoc.key]}`} 
                                   alt={currentDoc.label} 
                                   className="w-full h-96 object-contain rounded-lg border border-gray-200 group-hover:opacity-95 transition-opacity duration-200 bg-white shadow-sm"
                                 />
@@ -2242,7 +2242,7 @@ function AdminMedicalDocuments() {
                             
                             return photoUrl ? (
                               <img 
-                                src={photoUrl} 
+                                src={photoUrl.startsWith('http') ? photoUrl : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`} 
                                 alt={selectedDocument.patient_display || selectedDocument.patient_name || 'Patient'}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {

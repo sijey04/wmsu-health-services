@@ -2582,7 +2582,14 @@ export default function PatientProfileSetupPage() {
                     </div>
                   ) : (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0 && profile.photo !== 'null' && profile.photo !== 'undefined') ? (
                     <div className="relative w-full h-full">
-                      <img src={profile.photo} alt="Current Photo" className="object-cover w-full h-full rounded-md" key={profile.photo} />
+                      <img 
+                        src={profile.photo.startsWith('http') || profile.photo.startsWith('blob:') || profile.photo.startsWith('data:') 
+                          ? profile.photo 
+                          : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${profile.photo}`} 
+                        alt="Current Photo" 
+                        className="object-cover w-full h-full rounded-md" 
+                        key={profile.photo} 
+                      />
                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-opacity duration-200 rounded-md flex items-center justify-center">
                         <span className="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           Tap to change

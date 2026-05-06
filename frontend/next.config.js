@@ -17,10 +17,10 @@ const nextConfig = {
         pathname: '/media/**',
       },
       {
-        protocol: 'http',
-        hostname: 'localhost',
+        protocol: 'https',
+        hostname: 'gleaming-consideration-production-647d.up.railway.app',
         port: '',
-        pathname: '**',
+        pathname: '/media/**',
       },
       {
         protocol: 'https',
@@ -34,10 +34,11 @@ const nextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api',
   },
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api';
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8000/api/:path*',
+        destination: `${apiUrl}/:path*`,
       },
     ];
   },

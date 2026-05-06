@@ -391,7 +391,7 @@ export default function Profile() {
                 <div className="h-24 w-24 rounded-full bg-[#800000] flex items-center justify-center text-white text-2xl font-bold">
                   {patientProfile?.photo ? (
                     <img 
-                      src={patientProfile.photo} 
+                      src={patientProfile.photo.startsWith('http') ? patientProfile.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${patientProfile.photo}`} 
                       alt="Profile" 
                       className="h-24 w-24 rounded-full object-cover"
                     />

@@ -25,7 +25,7 @@ export default function PatientProfileDetails() {
               <p className="text-sm text-gray-700">Tel. No. (062) 991-8739 | Email: healthservices@wmsu.edu.ph</p>
             </div>
             {/* Placeholder for WMSU Logo */}
-            <img src="/path/to/wmsu-logo.png" alt="WMSU Logo" className="h-16 w-16" />
+            <img src="/WMSU-HealthLogo.png" alt="WMSU Logo" className="h-16 w-16" />
           </div>
           <div className="bg-[#800000] text-white text-center py-2 rounded-md">
             <h3 className="text-lg font-semibold">PATIENT HEALTH PROFILE & CONSULTATIONS RECORD</h3>
