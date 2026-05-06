@@ -659,7 +659,7 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-[10px] text-gray-500 italic">"Excellence in Health Service"</p>
+                <p className="text-[10px] text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
                 <p className="text-xs text-[#800000] font-bold">{appointmentType.toUpperCase()} CONSULTATION</p>
               </div>
               <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-14 h-14 object-contain" />
