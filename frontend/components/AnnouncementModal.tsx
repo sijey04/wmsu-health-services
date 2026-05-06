@@ -35,7 +35,7 @@ export default function AnnouncementModal({ isOpen, onClose }: AnnouncementModal
         return;
       }
 
-      const response = await fetch('http://localhost:8000/api/announcements/unviewed/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/unviewed/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ export default function AnnouncementModal({ isOpen, onClose }: AnnouncementModal
       const token = localStorage.getItem('access_token');
       if (!token) return;
 
-      await fetch(`http://localhost:8000/api/announcements/${announcementId}/mark_viewed/`, {
+      await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/${announcementId}/mark_viewed/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

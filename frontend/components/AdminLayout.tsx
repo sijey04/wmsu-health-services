@@ -66,7 +66,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const getAvatar = () => {
     // Use uploaded profile photo if available
     if (user?.photo) {
-      const photoUrl = user.photo.startsWith('http') ? user.photo : `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000'}${user.photo}`;
+      const photoUrl = user.photo.startsWith('http') ? user.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${user.photo}`;
       return <Image className="w-8 h-8 rounded-full object-cover" src={photoUrl} alt="Profile" width={32} height={32} />;
     }
     if (user?.profile_picture) {

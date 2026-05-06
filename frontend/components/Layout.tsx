@@ -151,7 +151,7 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     // Use uploaded profile photo if available
     if (user?.photo) {
       // If the photo is a relative path, prepend the backend URL if needed
-      const photoUrl = user.photo.startsWith('http') ? user.photo : `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000'}${user.photo}`;
+      const photoUrl = user.photo.startsWith('http') ? user.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${user.photo}`;
       return <Image className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" width={32} height={32} />;
     }
     if (user?.profile_picture) {

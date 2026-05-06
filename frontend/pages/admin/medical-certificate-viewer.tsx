@@ -74,7 +74,7 @@ function MedicalCertificateViewer() {
       // Handle both relative and absolute URLs
       const fileUrl = medicalDoc.medical_certificate.startsWith('http') 
         ? medicalDoc.medical_certificate 
-        : `http://localhost:8000${medicalDoc.medical_certificate}`;
+        : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${medicalDoc.medical_certificate}`;
       
       linkElement.href = fileUrl;
       linkElement.download = `medical_certificate_${medicalDoc.patient_student_id}.pdf`;

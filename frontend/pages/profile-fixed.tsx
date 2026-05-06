@@ -140,7 +140,7 @@ export default function Profile() {
 
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:8000/api/patients/my-profile/', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/patients/my-profile/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',

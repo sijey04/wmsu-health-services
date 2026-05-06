@@ -140,7 +140,7 @@ export default function Profile() {
 
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:8000/api/patients/my-profile/', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/patients/my-profile/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -172,7 +172,7 @@ export default function Profile() {
 
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:8000/api/medical-documents/my-documents/', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/medical-documents/my-documents/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -200,7 +200,7 @@ export default function Profile() {
 
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:8000/api/appointments/', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/appointments/`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -244,7 +244,7 @@ export default function Profile() {
 
     try {
       const token = localStorage.getItem('access_token');
-      const response = await fetch('http://localhost:8000/api/auth/change-password/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/auth/change-password/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -894,7 +894,7 @@ export default function Profile() {
                                 // Handle both relative and absolute URLs
                                 const downloadUrl = certificateUrl.startsWith('http') 
                                   ? certificateUrl 
-                                  : `http://localhost:8000${certificateUrl.startsWith('/') ? '' : '/'}${certificateUrl}`;
+                                  : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${certificateUrl.startsWith('/') ? '' : '/'}${certificateUrl}`;
                                 
                                 const link = document.createElement('a');
                                 link.href = downloadUrl;

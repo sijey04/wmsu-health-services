@@ -19,7 +19,7 @@ const ResendVerificationPage = () => {
     setMessage('');
 
     try {
-      const response = await fetch('http://localhost:8000/api/auth/resend_verification/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/auth/resend_verification/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

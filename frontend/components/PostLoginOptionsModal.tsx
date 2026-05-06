@@ -22,7 +22,7 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
       setLoadingOptions(true);
       try {
         const token = localStorage.getItem('access_token');
-        const response = await fetch('http://localhost:8000/api/content-management/post_login_options/', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/content-management/post_login_options/`, {
           headers: token ? {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
@@ -78,7 +78,7 @@ export default function PostLoginOptionsModal({ isOpen, onClose, userGradeLevel,
       if (!token) return;
 
       // Check for any medical document records across all academic years
-      const response = await fetch('http://localhost:8000/api/medical-documents/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/medical-documents/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

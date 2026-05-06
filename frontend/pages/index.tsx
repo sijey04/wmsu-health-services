@@ -35,7 +35,7 @@ export default function Home() {  // Authentication state
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const response = await fetch('http://localhost:8000/api/content-management/get_content/');
+        const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/content-management/get_content/`);
         if (response.ok) {
           const data = await response.json();
           setContent(data);
@@ -166,7 +166,7 @@ export default function Home() {  // Authentication state
       const token = localStorage.getItem('access_token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:8000/api/announcements/unviewed/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/unviewed/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',

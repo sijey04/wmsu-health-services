@@ -4956,11 +4956,11 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'comorbid_illnesses': source_profile.comorbid_illnesses or [],
                 'comorbid_illness_details': source_profile.comorbid_illness_details or {},
                 'past_medical_history': source_profile.past_medical_history or [],
-                'vaccinations': source_profile.vaccinations or [],
-                'medications': source_profile.medications or [],
-                'allergies': source_profile.allergies or [],
-                'hospital_admission_or_surgery': source_profile.hospital_admission_or_surgery if source_profile.hospital_admission_or_surgery is not None else '',
-                'surgical_operations': source_profile.surgical_operations or '',
+                'vaccination_history': source_profile.vaccination_history or {},
+                'maintenance_medications': source_profile.maintenance_medications or [],
+                'allergies': source_profile.allergies or '',
+                'hospital_admission_or_surgery': source_profile.hospital_admission_or_surgery if source_profile.hospital_admission_or_surgery is not None else False,
+                'hospital_admission_details': source_profile.hospital_admission_details or '',
                 
                 # Family History
                 'family_medical_history': source_profile.family_medical_history or [],

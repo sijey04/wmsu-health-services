@@ -85,7 +85,7 @@ export default function AdminContentManagement() {
       const token = localStorage.getItem('access_token');
       if (!token) return;
       
-      const response = await fetch('http://localhost:8000/api/announcements/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -103,7 +103,7 @@ export default function AdminContentManagement() {
 
   const fetchContent = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/content-management/get_content/');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/content-management/get_content/`);
       if (response.ok) {
         const data = await response.json();
         
@@ -176,7 +176,7 @@ export default function AdminContentManagement() {
         post_login_options: postLoginOptions,
       };
 
-      const response = await fetch('http://localhost:8000/api/content-management/update_content/', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/content-management/update_content/`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -336,8 +336,8 @@ export default function AdminContentManagement() {
       };
 
       const url = editingAnnouncement
-        ? `http://localhost:8000/api/announcements/${editingAnnouncement.id}/`
-        : 'http://localhost:8000/api/announcements/';
+        ? `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/${editingAnnouncement.id}/`
+        : `${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/`;
       
       const method = editingAnnouncement ? 'PUT' : 'POST';
 
