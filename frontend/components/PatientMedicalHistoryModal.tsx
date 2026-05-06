@@ -102,7 +102,7 @@ const PatientMedicalHistoryModal: React.FC<PatientMedicalHistoryModalProps> = ({
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
-    const primaryColor = [128, 0, 0]; // Maroon
+    const primaryColor: [number, number, number] = [128, 0, 0]; // Maroon
     
     // Add University Header
     doc.addImage('/WMSU-Logo.jpg', 'JPEG', 20, 10, 25, 25);

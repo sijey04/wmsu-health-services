@@ -172,7 +172,6 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
           examinerLicense: autoFillData?.examiner_license || autoFillData?.license_number || prevData.examinerLicense,
           dateOfExamination: autoFillData?.date || prevData.dateOfExamination,
           followUpDate: autoFillData?.follow_up_date || prevData.followUpDate,
-          followUpInstructions: autoFillData?.follow_up_instructions || prevData.followUpInstructions,
           chiefComplaint: autoFillData?.chief_complaint || prevData.chiefComplaint || appointmentData?.purpose || appointmentData?.concern || '',
           historyOfPresentIllness: autoFillData?.present_illness || prevData.historyOfPresentIllness || appointmentData?.notes || '',
           // New auto-filled fields
@@ -934,37 +933,6 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
           </button>
         </div>
 
-        <style jsx global>{`
-          @media print {
-            .no-print {
-              display: none !important;
-            }
-            body {
-              padding: 0 !important;
-              background: white !important;
-            }
-            .max-w-4xl {
-              max-width: 100% !important;
-              padding: 0 !important;
-            }
-            input, textarea, select {
-              border: none !important;
-              padding: 0 !important;
-              appearance: none !important;
-              -moz-appearance: none !important;
-              -webkit-appearance: none !important;
-            }
-            .bg-white {
-              border: none !important;
-              padding: 10px 0 !important;
-            }
-            h1, h2, h3, h4 {
-              color: black !important;
-              margin-top: 20px !important;
-              border-bottom: 1px solid #ccc !important;
-            }
-          }
-        `}</style>
       </form>
 
       <FeedbackModal
@@ -995,6 +963,8 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
         }
         .bg-white {
           background-color: transparent !important;
+          border: none !important;
+          padding: 10px 0 !important;
         }
         .shadow-sm, .shadow-md, .shadow-lg {
           box-shadow: none !important;
@@ -1024,6 +994,11 @@ const MedicalForm: React.FC<MedicalFormProps> = ({ appointmentId, patientId: pat
         }
         .text-gray-700, .text-gray-600 {
           color: #333 !important;
+        }
+        h1, h2, h3, h4 {
+          color: black !important;
+          margin-top: 20px !important;
+          border-bottom: 1px solid #ccc !important;
         }
         h2.text-xl {
           color: black !important;
