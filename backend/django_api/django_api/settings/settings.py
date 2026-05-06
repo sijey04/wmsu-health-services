@@ -72,21 +72,39 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'django_api.wsgi.application'
 
-# Database - MySQL configuration for XAMPP with version compatibility bypass
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_api.db_backends.mysql_compat',
-        'NAME': os.getenv('DATABASE_NAME', 'wmsu_health_db'),
-        'USER': os.getenv('DATABASE_USER', 'root'),
-        'PASSWORD': os.getenv('DATABASE_PASSWORD', ''),
-        'HOST': os.getenv('DATABASE_HOST', 'localhost'),
-        'PORT': os.getenv('DATABASE_PORT', '3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-            'init_command': "SET sql_mode='TRADITIONAL'",
-        },
+# Database - TiDB or MySQL configuration
+TIDB_HOST = os.getenv('TIDB_HOST')
+
+if TIDB_HOST:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_api.db_backends.mysql_compat',
+            'NAME': os.getenv('TIDB_DB_NAME', 'wmsu_health_db'),
+            'USER': os.getenv('TIDB_USER', 'root'),
+            'PASSWORD': os.getenv('TIDB_PASSWORD', ''),
+            'HOST': TIDB_HOST,
+            'PORT': os.getenv('TIDB_PORT', '4000'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'ssl': {'ca': os.getenv('CA_PATH')} if os.getenv('CA_PATH') else {},
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_api.db_backends.mysql_compat',
+            'NAME': os.getenv('DATABASE_NAME', 'wmsu_health_db'),
+            'USER': os.getenv('DATABASE_USER', 'root'),
+            'PASSWORD': os.getenv('DATABASE_PASSWORD', ''),
+            'HOST': os.getenv('DATABASE_HOST', 'localhost'),
+            'PORT': os.getenv('DATABASE_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+                'init_command': "SET sql_mode='TRADITIONAL'",
+            },
+        }
+    }
 
 # Custom User Model
 AUTH_USER_MODEL = 'api.CustomUser'
