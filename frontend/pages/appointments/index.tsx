@@ -204,7 +204,15 @@ const AppointmentsPage = () => {
       });
 
       // Refresh appointments
-      const res = await appointmentsAPI.getAll();
+      const userData = localStorage.getItem('user');
+      let params = {};
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        if (parsedUser.id) {
+          params = { user_id: parsedUser.id };
+        }
+      }
+      const res = await appointmentsAPI.getAll(params);
       setAppointments(res.data || []);
 
       setShowCancelModal(false);
@@ -240,7 +248,15 @@ const AppointmentsPage = () => {
       });
 
       // Refresh appointments
-      const res = await appointmentsAPI.getAll();
+      const userData = localStorage.getItem('user');
+      let params = {};
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        if (parsedUser.id) {
+          params = { user_id: parsedUser.id };
+        }
+      }
+      const res = await appointmentsAPI.getAll(params);
       setAppointments(res.data || []);
 
       setShowRescheduleModal(false);

@@ -213,7 +213,7 @@ function AdminDentalConsultations() {
   const fetchDentalAppointments = (searchTerm = '', sort = 'none', semester = 'all') => {
     setLoadingAppointments(true);
     setAppointmentsError(null);
-    const params = {
+    const params: any = {
       type: 'dental',
       status: 'pending,confirmed,scheduled,completed', // Include completed appointments
       ordering: sort === 'none' ? '-appointment_date' : sort,
@@ -223,6 +223,16 @@ function AdminDentalConsultations() {
     // Add semester filter using semester record ID
     if (semester !== 'all') {
       params['school_year'] = semester;
+    }
+
+    // Defensive check: if user is not staff/admin, force filter to their own records
+    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (userData) {
+      const user = JSON.parse(userData);
+      const isStaff = user.is_staff || user.is_superuser || user.user_type === 'admin' || user.user_type === 'staff';
+      if (!isStaff && user.id) {
+        params['user_id'] = user.id;
+      }
     }
 
     appointmentsAPI.getAll(params)
@@ -239,7 +249,7 @@ function AdminDentalConsultations() {
   const fetchDentalHistory = (searchTerm = '', filter = 'all', semester = 'all') => {
     setLoadingHistory(true);
     setHistoryError(null);
-    const params = {
+    const params: any = {
       type: 'dental',
       status: filter === 'all' ? 'completed,cancelled' : `${filter},cancelled`,
       search: searchTerm,
@@ -248,6 +258,16 @@ function AdminDentalConsultations() {
     // Add semester filter using semester record ID
     if (semester !== 'all') {
       params['school_year'] = semester;
+    }
+
+    // Defensive check: if user is not staff/admin, force filter to their own records
+    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (userData) {
+      const user = JSON.parse(userData);
+      const isStaff = user.is_staff || user.is_superuser || user.user_type === 'admin' || user.user_type === 'staff';
+      if (!isStaff && user.id) {
+        params['user_id'] = user.id;
+      }
     }
 
     appointmentsAPI.getAll(params)
@@ -277,7 +297,7 @@ function AdminDentalConsultations() {
       endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
     }
 
-    const params = {
+    const params: any = {
       type: 'dental',
       status: 'confirmed',
       appointment_date_after: startDate?.toISOString().split('T')[0],
@@ -288,6 +308,16 @@ function AdminDentalConsultations() {
     // Add semester filter using semester record ID
     if (semester !== 'all') {
       params['school_year'] = semester;
+    }
+
+    // Defensive check: if user is not staff/admin, force filter to their own records
+    const userData = typeof window !== 'undefined' ? localStorage.getItem('user') : null;
+    if (userData) {
+      const user = JSON.parse(userData);
+      const isStaff = user.is_staff || user.is_superuser || user.user_type === 'admin' || user.user_type === 'staff';
+      if (!isStaff && user.id) {
+        params['user_id'] = user.id;
+      }
     }
 
     appointmentsAPI.getAll(params)
