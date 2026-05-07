@@ -81,8 +81,8 @@ export default function SignupForm({ onSignup, isOpen, onClose, onSwitchToLogin 
             email,
             password,
             confirm_password: confirmPassword,
-            user_type: gradeLevel === 'Employee' ? 'staff' : 'student', // Employee = staff, others = student
-            grade_level: gradeLevel, // Store detailed type in grade_level
+            user_type: 'student', // All signups are normal users (patients)
+            grade_level: gradeLevel, // Store detailed type in grade_level (Kindergarten, Elementary, College, Employee)
             username: email, // Use email as username
           }),
         });

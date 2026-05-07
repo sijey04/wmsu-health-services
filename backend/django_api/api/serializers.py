@@ -48,9 +48,9 @@ class SignupSerializer(serializers.ModelSerializer):
         validated_data.pop('confirm_password')
         middle_name = validated_data.pop('middle_name', None)
         
-        # Set is_staff for staff/admin users
-        if validated_data.get('user_type') in ['staff', 'admin']:
-            validated_data['is_staff'] = True
+        # All signups from this endpoint are normal users (patients)
+        validated_data['user_type'] = 'student'
+        validated_data['is_staff'] = False
 
         user = CustomUser.objects.create_user(**validated_data)
         if middle_name is not None:
