@@ -953,7 +953,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
             # Filter by patient ID (if staff is looking at one patient)
             patient_id = self.request.query_params.get('patient_id')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and patient_id:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and patient_id:
                 try:
                     queryset = queryset.filter(patient_id=int(patient_id))
                 except (ValueError, TypeError):
@@ -961,7 +961,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 
             # Filter by user ID (to see appointments across all patient profiles/years)
             user_id = self.request.query_params.get('user_id')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and user_id:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and user_id:
                 try:
                     queryset = queryset.filter(patient__user_id=int(user_id))
                 except (ValueError, TypeError):
@@ -985,7 +985,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
             # Search by patient name (for admin)
             search_query = self.request.query_params.get('search')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and search_query:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and search_query:
                 queryset = queryset.filter(patient__name__icontains=search_query)
 
             # Filter by school year
@@ -3405,16 +3405,22 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = MedicalDocument.objects.all()
         
-        # If user is a patient, only show their own documents
-        if not (user.is_staff or user.user_type in ['staff', 'admin']):
+        # Check if user is administrative or clinical staff
+        is_admin = user.is_superuser or user.user_type == 'admin'
+        is_clinician = hasattr(user, 'staff_details')
+        
+        if not (is_admin or (user.user_type == 'staff' and is_clinician)):
             patient_profiles = user.patient_profiles.all()
             queryset = queryset.filter(patient__in=patient_profiles)
         
         # Staff can see all documents, with optional filtering
+        user_id = self.request.query_params.get('user_id')
         patient_id = self.request.query_params.get('patient_id')
         status_param = self.request.query_params.get('status')
         academic_year = self.request.query_params.get('academic_year')
         
+        if user_id:
+            queryset = queryset.filter(patient__user_id=user_id)
         if patient_id:
             queryset = queryset.filter(patient_id=patient_id)
         if status_param:
@@ -3861,7 +3867,11 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
         user = self.request.user
         
         try:
-            if user.is_staff or user.user_type in ['staff', 'admin']:
+            # Distinguish between clinical staff and regular employees
+            is_admin = user.is_superuser or user.user_type == 'admin'
+            is_clinician = hasattr(user, 'staff_details')
+            
+            if is_admin or (user.user_type == 'staff' and is_clinician):
                 # Staff can see appointments based on their campus assignment
                 queryset = Appointment.objects.select_related('patient', 'doctor').all()
                 
@@ -5006,8 +5016,12 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         try:
-            if user.is_staff or user.user_type in ['staff', 'admin']:
-                # Staff can see appointments based on their campus assignment
+            # Distinguish between clinical staff and regular employees (who are also 'staff' type)
+            is_admin = user.is_superuser or user.user_type == 'admin'
+            is_clinician = hasattr(user, 'staff_details')
+            
+            if is_admin or (user.user_type == 'staff' and is_clinician):
+                # Staff/Clinicians can see appointments based on their campus assignment
                 queryset = Appointment.objects.select_related('patient', 'doctor').all()
                 
                 # Filter by staff's assigned campus
@@ -5047,7 +5061,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 
             # Filter by patient ID (if staff is looking at one patient)
             patient_id = self.request.query_params.get('patient_id')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and patient_id:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and patient_id:
                 try:
                     queryset = queryset.filter(patient_id=int(patient_id))
                 except (ValueError, TypeError):
@@ -5055,7 +5069,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             
             # Filter by user ID (alternative to patient ID)
             user_id = self.request.query_params.get('user_id')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and user_id:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and user_id:
                 try:
                     queryset = queryset.filter(patient__user_id=int(user_id))
                 except (ValueError, TypeError):
@@ -5078,7 +5092,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
             # Search by patient name (for admin)
             search_query = self.request.query_params.get('search')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and search_query:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and search_query:
                 queryset = queryset.filter(patient__name__icontains=search_query)
 
             # Filter by school year
@@ -8304,16 +8318,22 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         queryset = MedicalDocument.objects.all()
         
-        # If user is a patient, only show their own documents
-        if not (user.is_staff or user.user_type in ['staff', 'admin']):
+        # Check if user is administrative or clinical staff
+        is_admin = user.is_superuser or user.user_type == 'admin'
+        is_clinician = hasattr(user, 'staff_details')
+        
+        if not (is_admin or (user.user_type == 'staff' and is_clinician)):
             patient_profiles = user.patient_profiles.all()
             queryset = queryset.filter(patient__in=patient_profiles)
         
         # Staff can see all documents, with optional filtering
+        user_id = self.request.query_params.get('user_id')
         patient_id = self.request.query_params.get('patient_id')
         status_param = self.request.query_params.get('status')
         academic_year = self.request.query_params.get('academic_year')
         
+        if user_id:
+            queryset = queryset.filter(patient__user_id=user_id)
         if patient_id:
             queryset = queryset.filter(patient_id=patient_id)
         if status_param:
@@ -8769,7 +8789,11 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
         user = self.request.user
         
         try:
-            if user.is_staff or user.user_type in ['staff', 'admin']:
+            # Distinguish between clinical staff and regular employees
+            is_admin = user.is_superuser or user.user_type == 'admin'
+            is_clinician = hasattr(user, 'staff_details')
+            
+            if is_admin or (user.user_type == 'staff' and is_clinician):
                 # Staff can see appointments based on their campus assignment
                 queryset = Appointment.objects.select_related('patient', 'doctor').all()
                 
@@ -8809,7 +8833,7 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
 
             # Filter by patient ID (if staff is looking at one patient)
             patient_id = self.request.query_params.get('patient_id')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and patient_id:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and patient_id:
                 try:
                     queryset = queryset.filter(patient_id=int(patient_id))
                 except (ValueError, TypeError):
@@ -8833,7 +8857,7 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
 
             # Search by patient name (for admin)
             search_query = self.request.query_params.get('search')
-            if (user.is_staff or user.user_type in ['staff', 'admin']) and search_query:
+            if (is_admin or (user.user_type == 'staff' and is_clinician)) and search_query:
                 queryset = queryset.filter(patient__name__icontains=search_query)
 
             # Filter by school year

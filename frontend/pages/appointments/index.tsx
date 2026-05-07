@@ -66,7 +66,17 @@ const AppointmentsPage = () => {
     const fetchAppointments = async () => {
       try {
         setLoading(true);
-        const res = await appointmentsAPI.getAll(); // Uses the secured endpoint
+        // Get user from localStorage to get their ID
+        const userData = localStorage.getItem('user');
+        let params = {};
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          if (parsedUser.id) {
+            params = { user_id: parsedUser.id };
+          }
+        }
+        
+        const res = await appointmentsAPI.getAll(params); // Uses the secured endpoint with optional user_id filter
         setAppointments(res.data || []);
         setError(null);
       } catch (err: any) {
@@ -80,8 +90,18 @@ const AppointmentsPage = () => {
     const fetchMedicalCertificates = async () => {
       try {
         setCertificatesLoading(true);
-        // Fetch all medical documents for current user to get status
-        const response = await medicalDocumentsAPI.getAll();
+        // Get user from localStorage to get their ID
+        const userData = localStorage.getItem('user');
+        let params = {};
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          if (parsedUser.id) {
+            params = { user_id: parsedUser.id };
+          }
+        }
+
+        // Fetch medical documents for current user using filtered endpoint
+        const response = await medicalDocumentsAPI.getAll(params);
 
         // Get the most recent medical document for status
         const userDocuments = response.data || [];
