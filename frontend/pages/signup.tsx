@@ -15,7 +15,7 @@ const SignupPage = () => {
     <div className="min-h-screen flex bg-gray-50 font-sans">
       {/* Left side: Branding */}
       <div className="hidden lg:flex w-1/2 bg-[#800000] text-white flex-col items-center justify-center p-12 text-center">
-        <Image src="/logo.png" alt="WMSU Logo" width={150} height={150} />
+        <Image src="/WMSU-HealthLogo.png" alt="WMSU Logo" width={150} height={150} />
         <h1 className="mt-6 text-4xl font-bold">WMSU Health Services</h1>
         <p className="mt-2 text-pink-100">Create an account to access our services.</p>
       </div>
@@ -25,7 +25,7 @@ const SignupPage = () => {
         <div className="w-full max-w-md">
           {/* Mobile Logo */}
           <div className="lg:hidden text-center mb-8">
-            <Image src="/logo.png" alt="WMSU Logo" width={100} height={100} className="mx-auto" />
+            <Image src="/WMSU-HealthLogo.png" alt="WMSU Logo" width={100} height={100} className="mx-auto" />
           </div>
 
           <div className="bg-white p-8 rounded-xl shadow-lg w-full">

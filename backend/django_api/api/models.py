@@ -76,8 +76,10 @@ class CustomUser(AbstractUser):
             self.save(update_fields=['email_verification_sent_at'])
             
         except Exception as e:
-            # In production, you might want to log this error
-            raise e
+            # Log this error but don't crash the signup process
+            print(f"ERROR: Failed to send verification email to {self.email}: {str(e)}")
+            import traceback
+            traceback.print_exc()
     
     def verify_email(self, token):
         """Verify email with token"""

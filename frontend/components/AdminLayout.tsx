@@ -293,7 +293,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       >
         {/* Header - Sticky at top */}
         <div className="flex flex-col items-center p-4 pb-4 border-b border-gray-100">
-          <Image src="/logo.png" alt="WMSU Logo" width={isSidebarCollapsed && !isMobileMenuOpen ? 48 : 80} height={isSidebarCollapsed && !isMobileMenuOpen ? 48 : 80} className="mb-2" />
+          <Image src="/WMSU-HealthLogo.png" alt="WMSU Logo" width={isSidebarCollapsed && !isMobileMenuOpen ? 48 : 80} height={isSidebarCollapsed && !isMobileMenuOpen ? 48 : 80} className="mb-2" />
           <h2 className={`text-xl font-bold text-center transition-all duration-200 ${isSidebarCollapsed && !isMobileMenuOpen ? 'hidden' : ''}`}>WMSU Health Admin</h2>
         </div>
 

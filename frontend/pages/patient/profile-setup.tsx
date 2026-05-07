@@ -223,6 +223,13 @@ export default function PatientProfileSetupPage() {
     return true;
   };
 
+  // Check if user is an employee (Staff, Faculty, Admin, etc.)
+  const isEmployeeType = (type: string | undefined | null) => {
+    if (!type) return false;
+    const t = type.toLowerCase();
+    return t.includes('employee') || t.includes('staff') || t.includes('faculty') || t.includes('admin') || t.includes('teacher');
+  };
+
   // Show notification about admin-controlled fields
   const showAdminControlledNotification = () => {
     const hasUserTypeConfig = currentUserTypeConfig && currentUserTypeConfig.required_fields && currentUserTypeConfig.required_fields.length > 0;
@@ -306,7 +313,9 @@ export default function PatientProfileSetupPage() {
         if (!profileData.nationality) profileData.nationality = 'Filipino';
         
         // Add user type information
-        if (!profileData.user_type && user.grade_level) profileData.user_type = user.grade_level;
+        if (!profileData.user_type) {
+          profileData.user_type = user.grade_level || user.user_type || 'College';
+        }
         
         // Handle backward compatibility for address field
         if (profileData.address && !profileData.city_municipality && !profileData.barangay && !profileData.street) {
@@ -608,7 +617,11 @@ export default function PatientProfileSetupPage() {
             if (user.middle_name) defaultProfile.middle_name = user.middle_name;
             if (user.suffix) defaultProfile.suffix = user.suffix;
             if (user.email) defaultProfile.email = user.email;
-            if (user.grade_level) defaultProfile.user_type = user.grade_level;
+            if (user.grade_level || user.user_type) {
+              defaultProfile.user_type = user.grade_level || user.user_type;
+            } else {
+              defaultProfile.user_type = 'College';
+            }
           }
           
           // Store as original profile for fallback profiles too
@@ -846,7 +859,7 @@ export default function PatientProfileSetupPage() {
       }
 
       // Conditional validation based on user type
-      if (['Employee', 'staff'].includes(profile?.user_type)) {
+      if (isEmployeeType(profile?.user_type)) {
         if (!profile?.employee_id || profile.employee_id.trim() === '') {
           errors.employee_id = 'Employee ID is required.';
         }
@@ -1188,7 +1201,10 @@ export default function PatientProfileSetupPage() {
           const user = JSON.parse(userStr);
           const userTypeConfig = response.data.find((uti: any) => 
             uti.name === user.user_type || 
-            uti.name.toLowerCase() === user.user_type?.toLowerCase()
+            uti.name.toLowerCase() === user.user_type?.toLowerCase() ||
+            uti.name === user.grade_level ||
+            uti.name.toLowerCase() === user.grade_level?.toLowerCase() ||
+            uti.name.toLowerCase() === profile?.user_type?.toLowerCase()
           );
           if (userTypeConfig && userTypeConfig.enabled) {
             setCurrentUserTypeConfig(userTypeConfig);
@@ -2747,7 +2763,7 @@ export default function PatientProfileSetupPage() {
                   </div>
                   
                   {/* Employee Fields */}
-                  {['Employee', 'staff'].includes(profile?.user_type) && (
+                  {isEmployeeType(profile?.user_type) && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID *</label>
@@ -4715,7 +4731,7 @@ export default function PatientProfileSetupPage() {
                   <p className="text-gray-900 font-semibold">{profile?.user_type || 'Not specified'}</p>
                 </div>
                 
-                {['Employee', 'staff'].includes(profile?.user_type) && (
+                {isEmployeeType(profile?.user_type) && (
                   <>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Employee ID</p>
