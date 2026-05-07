@@ -25,9 +25,11 @@ load_dotenv(dotenv_path=env_file, override=True)
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-wmsu-health-services-secret-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True  # Force debug mode for development
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+if '*' not in ALLOWED_HOSTS and os.getenv('RAILWAY_STATIC_URL'):
+    ALLOWED_HOSTS.append(os.getenv('RAILWAY_STATIC_URL'))
 
 # Application definition
 INSTALLED_APPS = [
@@ -185,24 +187,32 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Frontend URL for verification links
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
+
 # CORS settings
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:3001",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:3001",
     "https://wmsuhealthservices.netlify.app",
-    "https://gleaming-consideration-production-647d.up.railway.app",
 ]
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:3001",
     "https://wmsuhealthservices.netlify.app",
     "https://gleaming-consideration-production-647d.up.railway.app",
 ]
+
+# Security headers for production
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_HTTPONLY = True
+    CSRF_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SAMESITE = 'None'
+
 CORS_ALLOW_CREDENTIALS = True
 
 # REST Framework settings

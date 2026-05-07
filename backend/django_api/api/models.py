@@ -46,8 +46,10 @@ class CustomUser(AbstractUser):
         """Send email verification link to user"""
         subject = 'Verify Your Email - WMSU Health Services'
         
-        # Create verification URL (corrected to frontend port 3000)
-        verification_url = f"http://localhost:3000/verify-email?token={self.email_verification_token}"
+        # Create verification URL
+        # Use frontend URL from settings
+        frontend_url = settings.FRONTEND_URL
+        verification_url = f"{frontend_url}/verify-email?token={self.email_verification_token}"
         
         # HTML message
         html_message = render_to_string('email_verification.html', {

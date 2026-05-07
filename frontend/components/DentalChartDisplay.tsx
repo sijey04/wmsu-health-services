@@ -13,7 +13,9 @@ const DentalChartDisplay: React.FC<DentalChartDisplayProps> = ({
   const healthyStroke = '#6b7280';
 
   const getToothStatus = (toothNumber: number) => {
-    return permanentTeethStatus[toothNumber] || temporaryTeethStatus[toothNumber] || {};
+    const pStatus = permanentTeethStatus || {};
+    const tStatus = temporaryTeethStatus || {};
+    return pStatus[toothNumber] || tStatus[toothNumber] || {};
   };
 
   const getToothColor = (toothNumber: number) => {

@@ -846,7 +846,7 @@ export default function PatientProfileSetupPage() {
       }
 
       // Conditional validation based on user type
-      if (profile?.user_type === 'Employee') {
+      if (['Employee', 'staff'].includes(profile?.user_type)) {
         if (!profile?.employee_id || profile.employee_id.trim() === '') {
           errors.employee_id = 'Employee ID is required.';
         }
@@ -2747,7 +2747,7 @@ export default function PatientProfileSetupPage() {
                   </div>
                   
                   {/* Employee Fields */}
-                  {profile?.user_type === 'Employee' && (
+                  {['Employee', 'staff'].includes(profile?.user_type) && (
                     <>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID *</label>
@@ -4715,7 +4715,7 @@ export default function PatientProfileSetupPage() {
                   <p className="text-gray-900 font-semibold">{profile?.user_type || 'Not specified'}</p>
                 </div>
                 
-                {profile?.user_type === 'Employee' && (
+                {['Employee', 'staff'].includes(profile?.user_type) && (
                   <>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Employee ID</p>

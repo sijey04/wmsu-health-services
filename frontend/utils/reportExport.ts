@@ -197,25 +197,35 @@ export const generateSingleFormPDF = async (
       // Detailed Tooth Status (Permanent)
       if (formData.permanent_teeth_status) {
         try {
-          const data = typeof formData.permanent_teeth_status === 'string' ? JSON.parse(formData.permanent_teeth_status) : formData.permanent_teeth_status;
-          const teeth = Object.entries(data)
-            .filter(([_, t]: [string, any]) => t && (t.status || t.treatment))
-            .map(([num, t]: [string, any]) => `${num}(${t.status || ''}${t.treatment ? '/' + t.treatment : ''})`)
-            .join(', ');
-          if (teeth) detailsBody.push(['Permanent Teeth Status', teeth]);
-        } catch (e) {}
+          const rawData = formData.permanent_teeth_status;
+          const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+          if (data && typeof data === 'object') {
+            const teeth = Object.entries(data)
+              .filter(([_, t]: [string, any]) => t && (t.status || t.treatment))
+              .map(([num, t]: [string, any]) => `${num}(${t.status || ''}${t.treatment ? '/' + t.treatment : ''})`)
+              .join(', ');
+            if (teeth) detailsBody.push(['Permanent Teeth Status', teeth]);
+          }
+        } catch (e) {
+          console.warn('Error parsing permanent teeth status', e);
+        }
       }
 
       // Detailed Tooth Status (Temporary)
       if (formData.temporary_teeth_status) {
         try {
-          const data = typeof formData.temporary_teeth_status === 'string' ? JSON.parse(formData.temporary_teeth_status) : formData.temporary_teeth_status;
-          const teeth = Object.entries(data)
-            .filter(([_, t]: [string, any]) => t && (t.status || t.treatment))
-            .map(([num, t]: [string, any]) => `${num}(${t.status || ''}${t.treatment ? '/' + t.treatment : ''})`)
-            .join(', ');
-          if (teeth) detailsBody.push(['Temporary Teeth Status', teeth]);
-        } catch (e) {}
+          const rawData = formData.temporary_teeth_status;
+          const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
+          if (data && typeof data === 'object') {
+            const teeth = Object.entries(data)
+              .filter(([_, t]: [string, any]) => t && (t.status || t.treatment))
+              .map(([num, t]: [string, any]) => `${num}(${t.status || ''}${t.treatment ? '/' + t.treatment : ''})`)
+              .join(', ');
+            if (teeth) detailsBody.push(['Temporary Teeth Status', teeth]);
+          }
+        } catch (e) {
+          console.warn('Error parsing temporary teeth status', e);
+        }
       }
     }
 

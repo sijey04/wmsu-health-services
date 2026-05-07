@@ -909,8 +909,12 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         user = self.request.user
         
         try:
-            if user.is_staff or user.user_type in ['staff', 'admin']:
-                # Staff can see appointments based on their campus assignment
+            # Distinguish between clinical staff and regular employees (who are also 'staff' type)
+            is_admin = user.is_superuser or user.user_type == 'admin'
+            is_clinician = hasattr(user, 'staff_details')
+            
+            if is_admin or (user.user_type == 'staff' and is_clinician):
+                # Staff/Clinicians can see appointments based on their campus assignment
                 queryset = Appointment.objects.select_related('patient', 'doctor').all()
                 
                 # Filter by staff's assigned campus

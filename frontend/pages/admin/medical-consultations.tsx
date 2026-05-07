@@ -437,8 +437,8 @@ function AdminMedicalConsultations() {
       // Fetch the actual form data instead of just calling the download endpoint
       const response = await medicalFormAPI.checkFormExists(appointment.id);
       
-      if (response.data) {
-        await generateSingleFormPDF(response.data, 'medical', appointment.patient_name || 'Patient');
+      if (response.data && response.data.length > 0) {
+        await generateSingleFormPDF(response.data[0], 'medical', appointment.patient_name || 'Patient');
       } else {
         setFeedbackModal({ open: true, message: 'No medical form data found for this appointment.' });
       }
