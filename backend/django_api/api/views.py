@@ -7759,6 +7759,23 @@ class UserTypeInformationViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         """Return all user type information, ordered by name"""
         return UserTypeInformation.objects.all().order_by('name')
+
+    @action(detail=False, methods=['get'])
+    def staff_roles(self, request):
+        """Get positions from Employee user type for staff roles dropdowns"""
+        try:
+            # Look for "Employee" or "Staff" user type configurations
+            employee_type = UserTypeInformation.objects.filter(name__icontains='Employee').first()
+            if not employee_type:
+                employee_type = UserTypeInformation.objects.filter(name__icontains='Staff').first()
+                
+            if employee_type and hasattr(employee_type, 'position_types') and employee_type.position_types:
+                return Response(employee_type.position_types)
+            
+            # Fallback to defaults if no configuration found
+            return Response(["Teaching", "Non-Teaching", "Medical Staff", "Dental Staff", "Administrator"])
+        except Exception as e:
+            return Response(["Teaching", "Non-Teaching", "Medical Staff", "Dental Staff", "Administrator"])
     
     def perform_create(self, serializer):
         """Set the created_by field when creating a new user type"""

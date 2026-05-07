@@ -369,15 +369,15 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700">Decayed Teeth</label>
-              <p className="text-sm text-gray-900">{formData.decayed_teeth || 'None'}</p>
+              <p className="text-sm text-gray-900">{formData.decayed_teeth || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Missing Teeth</label>
-              <p className="text-sm text-gray-900">{formData.missing_teeth || 'None'}</p>
+              <p className="text-sm text-gray-900">{formData.missing_teeth || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Filled Teeth</label>
-              <p className="text-sm text-gray-900">{formData.filled_teeth || 'None'}</p>
+              <p className="text-sm text-gray-900">{formData.filled_teeth || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Oral Hygiene</label>

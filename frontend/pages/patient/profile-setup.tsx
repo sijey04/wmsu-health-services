@@ -150,7 +150,6 @@ export default function PatientProfileSetupPage() {
 
       img.onload = async () => {
         try {
-          // Create canvas
           const canvas = document.createElement('canvas');
           canvas.width = img.width;
           canvas.height = img.height;
@@ -161,10 +160,23 @@ export default function PatientProfileSetupPage() {
             return;
           }
 
-          // Draw image
           ctx.drawImage(img, 0, 0);
 
-          // Convert to AVIF blob (with quality 0.85 for good balance)
+          // Test for AVIF support, fallback to WebP, then JPEG
+          const formats = ['image/avif', 'image/webp', 'image/jpeg'];
+          let supportedFormat = 'image/jpeg';
+          
+          for (const format of formats) {
+            try {
+              if (canvas.toDataURL(format).startsWith(`data:${format}`)) {
+                supportedFormat = format;
+                break;
+              }
+            } catch (e) {
+              // Ignore dataURL errors
+            }
+          }
+
           canvas.toBlob(
             (blob) => {
               if (!blob) {
@@ -172,17 +184,17 @@ export default function PatientProfileSetupPage() {
                 return;
               }
 
-              // Create new file with .avif extension
+              const extension = supportedFormat.split('/')[1];
               const originalName = file.name.replace(/\.[^/.]+$/, '');
-              const avifFile = new File([blob], `${originalName}.avif`, {
-                type: 'image/avif',
+              const convertedFile = new File([blob], `${originalName}.${extension}`, {
+                type: blob.type || supportedFormat,
                 lastModified: Date.now(),
               });
 
-              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${avifFile.name} (${(avifFile.size / 1024).toFixed(2)}KB)`);
-              resolve(avifFile);
+              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${convertedFile.name} (${(convertedFile.size / 1024).toFixed(2)}KB) as ${supportedFormat}`);
+              resolve(convertedFile);
             },
-            'image/avif',
+            supportedFormat,
             0.85
           );
         } catch (error) {
@@ -1832,9 +1844,7 @@ export default function PatientProfileSetupPage() {
             continue;
           }
           
-          if (key === 'photo' && enhancedProfile[key] instanceof File) {
-            formData.append('photo', enhancedProfile[key]);
-          } else if (typeof enhancedProfile[key] === 'object' && !(enhancedProfile[key] instanceof File)) {
+          if (typeof enhancedProfile[key] === 'object' && !(enhancedProfile[key] instanceof File)) {
             formData.append(key, JSON.stringify(enhancedProfile[key]));
           } else if (key !== 'photo') {
             formData.append(key, enhancedProfile[key]);
@@ -4822,9 +4832,11 @@ export default function PatientProfileSetupPage() {
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Current Health Conditions</p>
                   <div className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.length > 0 ? (
+                    {((Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.length > 0) || 
+                      profile?.food_allergy_specify || 
+                      profile?.other_comorbid_specify) ? (
                       <div className="space-y-2">
-                        {profile.comorbid_illnesses.map((condition: string, index: number) => {
+                        {Array.isArray(profile?.comorbid_illnesses) && profile.comorbid_illnesses.map((condition: string, index: number) => {
                           const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
                           const subOptions = profile?.[`comorbid_${conditionKey}_sub`];
                           const specification = profile?.[`comorbid_${conditionKey}_spec`];
@@ -4847,36 +4859,94 @@ export default function PatientProfileSetupPage() {
                             </div>
                           );
                         })}
+                        {/* Backward compatibility for existing fields */}
+                        {profile?.food_allergy_specify && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Food Allergies</span>
+                            <div className="ml-4 mt-1">
+                              <span className="text-xs text-gray-600">Details: </span>
+                              <span className="text-xs text-gray-800">{profile.food_allergy_specify}</span>
+                            </div>
+                          </div>
+                        )}
+                        {profile?.other_comorbid_specify && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Other Condition</span>
+                            <div className="ml-4 mt-1">
+                              <span className="text-xs text-gray-600">Details: </span>
+                              <span className="text-xs text-gray-800">{profile.other_comorbid_specify}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span>None specified</span>
                     )}
                   </div>
-                  {/* Backward compatibility for existing fields */}
-                  {profile?.food_allergy_specify && (
-                    <p className="text-gray-700 mt-1 text-xs">Food Allergies: {profile.food_allergy_specify}</p>
-                  )}
-                  {profile?.other_comorbid_specify && (
-                    <p className="text-gray-700 mt-1 text-xs">Other: {profile.other_comorbid_specify}</p>
-                  )}
                 </div>
 
                 {/* Medications */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs mb-2">Maintenance Medications</p>
-                  <p className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0
-                      ? profile.maintenance_medications.map(med => `${med.drug} ${med.dose}${med.unit} - ${med.frequency} (${med.duration || 'Duration not specified'})`).join(', ')
-                      : 'None specified'}
-                  </p>
+                  <div className="text-gray-900 font-semibold">
+                    {Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0 ? (
+                      <div className="space-y-1">
+                        {profile.maintenance_medications.map((med: any, index: number) => {
+                          const drugName = (med.drug === 'Others' || med.drug_type === 'Others') ? (med.custom_drug || 'Other Medication') : (med.drug || med.drug_type || 'Unknown Medication');
+                          const frequency = med.frequency_type === 'specify' ? (med.custom_frequency || 'Specified Frequency') : (med.frequency || med.frequency_type || 'Frequency not specified');
+                          const duration = med.duration_type === 'specify' ? (med.custom_duration || 'Specified Duration') : (med.duration || med.duration_type || 'Duration not specified');
+                          
+                          return (
+                            <div key={index} className="text-sm flex flex-wrap items-center gap-1 py-1 border-b border-gray-100 last:border-0">
+                              <span className="font-bold text-[#800000]">{drugName}</span>
+                              <span className="text-gray-700">{med.dose || ''}{med.unit || ''}</span>
+                              <span className="text-gray-400 mx-1">•</span>
+                              <span className="text-gray-700">{frequency}</span>
+                              <span className="text-gray-400 mx-1">•</span>
+                              <span className="text-gray-600 italic">({duration})</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <span>None specified</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Vaccination Status */}
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Vaccination Status</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {profile?.vaccination_history && Object.entries(profile.vaccination_history).map(([vaccine, status]) => (
-                      <div key={vaccine} className="flex justify-between">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
+                    {vaccinations.map(vaccine => {
+                      const status = profile?.vaccination_history?.[vaccine.name] || 'lapsed';
+                      const statusLabels: { [key: string]: string } = {
+                        'fully_vaccinated': 'Fully Vaccinated',
+                        'partially_vaccinated': 'Partially Vaccinated',
+                        'unvaccinated': 'Unvaccinated',
+                        'boosted': 'Boosted',
+                        'lapsed': 'Lapsed/None'
+                      };
+                      
+                      const statusColors: { [key: string]: string } = {
+                        'fully_vaccinated': 'text-green-700 bg-green-50 px-2 rounded',
+                        'boosted': 'text-blue-700 bg-blue-50 px-2 rounded',
+                        'partially_vaccinated': 'text-yellow-700 bg-yellow-50 px-2 rounded',
+                        'unvaccinated': 'text-red-700 bg-red-50 px-2 rounded',
+                        'lapsed': 'text-gray-500 bg-gray-50 px-2 rounded'
+                      };
+
+                      return (
+                        <div key={vaccine.id} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                          <span className="text-gray-700 font-medium">{vaccine.name}:</span>
+                          <span className={`font-bold ${statusColors[status] || 'text-gray-600'}`}>
+                            {statusLabels[status] || status.charAt(0).toUpperCase() + status.slice(1)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    {/* Fallback if no vaccinations are loaded yet */}
+                    {vaccinations.length === 0 && profile?.vaccination_history && Object.entries(profile.vaccination_history).map(([vaccine, status]) => (
+                      <div key={vaccine} className="flex justify-between py-1 border-b border-gray-100">
                         <span className="text-gray-700">{vaccine}:</span>
                         <span className="font-semibold text-gray-900">
                           {status?.toString().charAt(0).toUpperCase() + status?.toString().slice(1) || 'Lapsed'}
@@ -4900,9 +4970,10 @@ export default function PatientProfileSetupPage() {
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Past Medical History</p>
                   <div className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.past_medical_history) && profile.past_medical_history.length > 0 ? (
+                    {((Array.isArray(profile?.past_medical_history) && profile.past_medical_history.length > 0) || 
+                      profile?.past_medical_history_other) ? (
                       <div className="space-y-2">
-                        {profile.past_medical_history.map((condition: string, index: number) => {
+                        {Array.isArray(profile?.past_medical_history) && profile.past_medical_history.map((condition: string, index: number) => {
                           const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
                           const subOptions = profile?.[`past_medical_history_${conditionKey}_sub`];
                           const specification = profile?.[`past_medical_history_${conditionKey}_spec`];
@@ -4925,17 +4996,20 @@ export default function PatientProfileSetupPage() {
                             </div>
                           );
                         })}
+                        {profile?.past_medical_history_other && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Other Condition</span>
+                            <div className="ml-4 mt-1">
+                              <span className="text-xs text-gray-600">Details: </span>
+                              <span className="text-xs text-gray-800">{profile.past_medical_history_other}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span>None specified</span>
                     )}
                   </div>
-                  {profile?.past_medical_history_other && (
-                    <div className="text-gray-700 mt-2 text-xs">
-                      <span className="font-medium">Other: </span>
-                      <span>{profile.past_medical_history_other}</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Hospital Admission/Surgery */}
@@ -5010,9 +5084,11 @@ export default function PatientProfileSetupPage() {
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Family Medical History</p>
                   <div className="text-gray-900 font-semibold">
-                    {Array.isArray(profile?.family_medical_history) && profile.family_medical_history.length > 0 ? (
+                    {((Array.isArray(profile?.family_medical_history) && profile.family_medical_history.length > 0) || 
+                      profile?.family_medical_history_other || 
+                      profile?.family_medical_history_allergies) ? (
                       <div className="space-y-2">
-                        {profile.family_medical_history.map((condition: string, index: number) => {
+                        {Array.isArray(profile?.family_medical_history) && profile.family_medical_history.map((condition: string, index: number) => {
                           const conditionKey = condition.toLowerCase().replace(/\s+/g, '_');
                           const subOptions = profile?.[`family_medical_history_${conditionKey}_sub`];
                           const specification = profile?.[`family_medical_history_${conditionKey}_spec`];
@@ -5035,23 +5111,29 @@ export default function PatientProfileSetupPage() {
                             </div>
                           );
                         })}
+                        {profile?.family_medical_history_other && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Other Condition</span>
+                            <div className="ml-4 mt-1">
+                              <span className="text-xs text-gray-600">Details: </span>
+                              <span className="text-xs text-gray-800">{profile.family_medical_history_other}</span>
+                            </div>
+                          </div>
+                        )}
+                        {profile?.family_medical_history_allergies && (
+                          <div className="text-sm">
+                            <span className="font-semibold">Family Allergies</span>
+                            <div className="ml-4 mt-1">
+                              <span className="text-xs text-gray-600">Details: </span>
+                              <span className="text-xs text-gray-800">{profile.family_medical_history_allergies}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span>None specified</span>
                     )}
                   </div>
-                  {profile?.family_medical_history_other && (
-                    <div className="text-gray-700 mt-2 text-xs">
-                      <span className="font-medium">Other: </span>
-                      <span>{profile.family_medical_history_other}</span>
-                    </div>
-                  )}
-                  {profile?.family_medical_history_allergies && (
-                    <div className="text-gray-700 mt-2 text-xs">
-                      <span className="font-medium">Allergies: </span>
-                      <span>{profile.family_medical_history_allergies}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

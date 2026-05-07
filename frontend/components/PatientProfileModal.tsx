@@ -48,8 +48,22 @@ interface Patient {
   psychiatric_illnesses?: string[] | null;
   food_allergy_specify?: string;
   other_comorbid_specify?: string;
-  maintenance_medications?: (string | { drug?: string; name?: string; dose?: string; dosage?: string; unit?: string; frequency?: string })[] | null;
-  vaccination_history?: any | null; // Changed to any to support object structure
+  maintenance_medications?: (string | { 
+    drug?: string; 
+    drug_type?: string;
+    custom_drug?: string;
+    name?: string; 
+    dose?: string; 
+    dosage?: string; 
+    unit?: string; 
+    frequency?: string;
+    frequency_type?: string;
+    custom_frequency?: string;
+    duration?: string;
+    duration_type?: string;
+    custom_duration?: string;
+  })[] | null;
+  vaccination_history?: any | null;
   past_medical_history?: (string | object)[] | null;
   past_medical_history_other?: string;
   hospital_admission_or_surgery?: boolean;
@@ -58,6 +72,8 @@ interface Patient {
   family_medical_history_other?: string;
   family_medical_history_allergies?: string;
   allergies?: string;
+  food_allergy_specify?: string;
+  other_comorbid_specify?: string;
   
   // User account information
   user_email?: string;
@@ -262,10 +278,10 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
         return item;
       } else if (typeof item === 'object' && item !== null) {
         if (field === 'maintenance_medications') {
-          const drug = item.drug || item.name || 'Unknown';
+          const drug = (item.drug === 'Others' || item.drug_type === 'Others') ? item.custom_drug : (item.drug || item.drug_type || item.name || 'Unknown');
           const dose = item.dose || item.dosage || '';
           const unit = item.unit || '';
-          const frequency = item.frequency || '';
+          const frequency = item.frequency_type === 'specify' ? item.custom_frequency : (item.frequency || item.frequency_type || '');
           return `${drug}${dose ? ` ${dose}${unit}` : ''}${frequency ? ` - ${frequency}` : ''}`;
         } else if (field === 'vaccination_history') {
           if ((item as any).vaccine && (item as any).date) {
@@ -303,20 +319,25 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 
     return (
       <div className="space-y-2">
-        {medications.map((med, index) => (
-          <div key={index} className="p-3 border-b border-gray-200 last:border-b-0">
-            <div className="font-medium text-sm">
-              {med.drug || med.name || 'Unknown medication'}
-            </div>
-            {(med.dose || med.dosage || med.unit || med.frequency) && (
+        {medications.map((med, index) => {
+          const drugName = (med.drug === 'Others' || med.drug_type === 'Others') ? med.custom_drug : (med.drug || med.drug_type || med.name || 'Unknown medication');
+          const frequency = med.frequency_type === 'specify' ? med.custom_frequency : (med.frequency || med.frequency_type || '');
+          const duration = med.duration_type === 'specify' ? med.custom_duration : (med.duration || med.duration_type || '');
+          
+          return (
+            <div key={index} className="p-3 border-b border-gray-200 last:border-b-0">
+              <div className="font-medium text-sm">
+                {drugName}
+              </div>
               <div className="text-xs text-gray-600 mt-1">
                 {med.dose || med.dosage ? `${med.dose || med.dosage}${med.unit ? ` ${med.unit}` : ''}` : ''}
-                {(med.dose || med.dosage) && med.frequency ? ' - ' : ''}
-                {med.frequency || ''}
+                {(med.dose || med.dosage) && frequency ? ' - ' : ''}
+                {frequency}
+                {duration ? ` (${duration})` : ''}
               </div>
-            )}
-          </div>
-        ))}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -616,7 +637,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                   });
                   
                   const hasAnyConditions = foodAllergies.length > 0 || psychiatricConditions.length > 0 || 
-                                          respiratoryConditions.length > 0 || otherConditions.length > 0;
+                                          respiratoryConditions.length > 0 || otherConditions.length > 0 ||
+                                          profile.food_allergy_specify || profile.other_comorbid_specify;
                   
                   if (!hasAnyConditions) {
                     return <div className="text-gray-500">None reported</div>;
@@ -625,12 +647,17 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                   return (
                     <>
                       {/* Food Allergies */}
-                      {foodAllergies.length > 0 && (
+                      {(foodAllergies.length > 0 || profile.food_allergy_specify) && (
                         <div>
                           <div className="font-medium text-xs text-gray-700 mb-1 flex items-center">
                             <span className="mr-2">🍽️</span> Food Allergies:
                           </div>
-                          <div className="text-sm pl-5">{renderArrayData(foodAllergies, 'comorbid_illnesses')}</div>
+                          <div className="text-sm pl-5">
+                            {renderArrayData(foodAllergies, 'comorbid_illnesses')}
+                            {profile.food_allergy_specify && (
+                              <span>{foodAllergies.length > 0 ? ', ' : ''}{profile.food_allergy_specify}</span>
+                            )}
+                          </div>
                         </div>
                       )}
                       
@@ -655,12 +682,17 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                       )}
                       
                       {/* Other Medical Conditions */}
-                      {otherConditions.length > 0 && (
+                      {(otherConditions.length > 0 || profile.other_comorbid_specify) && (
                         <div>
                           <div className="font-medium text-xs text-gray-700 mb-1 flex items-center">
                             <span className="mr-2">🏥</span> Other Medical Conditions:
                           </div>
-                          <div className="text-sm pl-5">{renderArrayData(otherConditions, 'comorbid_illnesses')}</div>
+                          <div className="text-sm pl-5">
+                            {renderArrayData(otherConditions, 'comorbid_illnesses')}
+                            {profile.other_comorbid_specify && (
+                              <span>{otherConditions.length > 0 ? ', ' : ''}{profile.other_comorbid_specify}</span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </>
@@ -691,22 +723,28 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {profile.maintenance_medications.map((med, index) => (
-                        <tr key={index}>
-                          <td className="border border-gray-400 p-2">
-                            {typeof med === 'string' ? med : med.drug || med.name || 'Unknown'}
-                          </td>
-                          <td className="border border-gray-400 p-2">
-                            {typeof med === 'object' ? 
-                              `${med.dose || med.dosage || ''}${med.unit ? ` ${med.unit}` : ''}`.trim() || '-' : 
-                              '-'
-                            }
-                          </td>
-                          <td className="border border-gray-400 p-2">
-                            {typeof med === 'object' ? med.frequency || '-' : '-'}
-                          </td>
-                        </tr>
-                      ))}
+                      {profile.maintenance_medications.map((med: any, index: number) => {
+                        const drugName = (med.drug === 'Others' || med.drug_type === 'Others') ? med.custom_drug : (med.drug || med.drug_type || med.name || 'Unknown');
+                        const frequency = med.frequency_type === 'specify' ? med.custom_frequency : (med.frequency || med.frequency_type || '-');
+                        const duration = med.duration_type === 'specify' ? med.custom_duration : (med.duration || med.duration_type || '-');
+                        
+                        return (
+                          <tr key={index}>
+                            <td className="border border-gray-400 p-2">
+                              {drugName}
+                            </td>
+                            <td className="border border-gray-400 p-2">
+                              {typeof med === 'object' ? 
+                                `${med.dose || med.dosage || ''}${med.unit ? ` ${med.unit}` : ''}`.trim() || '-' : 
+                                '-'
+                              }
+                            </td>
+                            <td className="border border-gray-400 p-2">
+                              {frequency} {duration !== '-' ? `(${duration})` : ''}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 ) : (

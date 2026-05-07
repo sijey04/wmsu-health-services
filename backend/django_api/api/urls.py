@@ -63,6 +63,7 @@ admin_controls_router.register(r'admin-controls/user-type-information', UserType
 admin_controls_router.register(r'admin-controls/courses', CourseViewSet, basename='admin-controls-courses')
 admin_controls_router.register(r'admin-controls/campus_schedules', CampusScheduleViewSet, basename='admin-controls-campus-schedules')
 admin_controls_router.register(r'admin-controls/dentist_schedules', DentistScheduleViewSet, basename='admin-controls-dentist-schedules')
+# staff-roles endpoint is handled by UserTypeInformationViewSet.staff_roles action
 
 urlpatterns = [
     # Profile setup specific endpoints that use views.py for better autofill and previous year fetching
@@ -74,6 +75,9 @@ urlpatterns = [
     path('patients/create_my_profile/', ProfilePatientViewSet.as_view({'post': 'create_my_profile'}), name='profile-setup-create-my-profile'),
     path('patients/update_my_profile/', ProfilePatientViewSet.as_view({'put': 'update_my_profile', 'patch': 'update_my_profile'}), name='profile-setup-update-my-profile'),
     path('patients/create_or_update_profile/', ProfilePatientViewSet.as_view({'post': 'create_or_update_profile'}), name='profile-setup-create-or-update-profile'),
+    
+    # Staff roles endpoint (alias for UserTypeInformationViewSet.staff_roles)
+    path('admin-controls/staff-roles/', UserTypeInformationViewSet.as_view({'get': 'staff_roles'}), name='admin-controls-staff-roles'),
     
     # Semester specific endpoints
     path('current-semester/', AcademicSemesterViewSet.as_view({'get': 'current'}), name='current-semester'),

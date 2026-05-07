@@ -17,7 +17,8 @@ export default function AdminAccountSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [profilePic, setProfilePic] = useState(null);
+  const [profilePic, setProfilePic] = useState<File | null>(null);
+  const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
   
   // Staff details states
   const [staffDetails, setStaffDetails] = useState({
@@ -98,6 +99,14 @@ export default function AdminAccountSettings() {
     }
   };
 
+  const getFullImageUrl = (path: string | null) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    // Prepend base URL if it's a relative path
+    const baseUrl = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+    return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
+  };
+
   const fetchUserData = async () => {
     setLoading(true);
     try {
@@ -113,13 +122,20 @@ export default function AdminAccountSettings() {
       
       setName(fullName);
       setEmail(userData.email || 'admin@wmsuhealth.com');
+      
+      const photoUrl = userData.photo || userData.profile_picture;
+      if (photoUrl) {
+        setCurrentProfilePic(getFullImageUrl(photoUrl));
+      }
 
       console.log('User data loaded:', {
         id: userData.id,
         email: userData.email,
         fullName: fullName,
         isStaff: userData.is_staff,
-        userType: userData.user_type
+        userType: userData.user_type,
+        photo: userData.photo,
+        profile_picture: userData.profile_picture
       });
 
       // Fetch staff details if user is staff
@@ -150,7 +166,7 @@ export default function AdminAccountSettings() {
             blocked_dates: staffData.blocked_dates || [],
             daily_appointment_limit: staffData.daily_appointment_limit || 10
           });
-          setCurrentSignature(staffData.signature || '');
+          setCurrentSignature(getFullImageUrl(staffData.signature));
           
         } catch (staffError: any) {
           console.log('Staff details fetch error:', staffError);
@@ -394,6 +410,8 @@ export default function AdminAccountSettings() {
               <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-4xl text-gray-400 font-bold overflow-hidden">
                 {profilePic ? (
                   <Image src={URL.createObjectURL(profilePic)} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
+                ) : currentProfilePic ? (
+                  <Image src={currentProfilePic} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
                 ) : (
                   <span>{name.split(' ').map(n => n[0]).join('').toUpperCase()}</span>
                 )}
