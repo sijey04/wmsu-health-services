@@ -6,6 +6,7 @@ from django.utils.html import strip_tags
 from django.conf import settings
 from django.utils import timezone
 import uuid
+import threading
 from datetime import datetime, timedelta
 
 
@@ -43,43 +44,54 @@ class CustomUser(AbstractUser):
         return self.email
     
     def send_verification_email(self):
-        """Send email verification link to user"""
+        """Send email verification link to user in a background thread"""
+        def send_email_thread(user_id, subject, plain_message, html_message, from_email, recipient_list):
+            try:
+                # We need to get the user object again in the thread if we use different connections,
+                # but here we just use the parameters passed to avoid issues with lazy objects
+                send_mail(
+                    subject=subject,
+                    message=plain_message,
+                    from_email=from_email,
+                    recipient_list=recipient_list,
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                # Note: We don't update self here because it's a separate thread/object
+                # If we need to update, we should fetch by id
+                from api.models import CustomUser
+                user = CustomUser.objects.get(pk=user_id)
+                user.email_verification_sent_at = timezone.now()
+                user.save(update_fields=['email_verification_sent_at'])
+                print(f"DEBUG: Verification email sent successfully to {recipient_list[0]}")
+            except Exception as e:
+                print(f"ERROR: Failed to send verification email to {recipient_list[0]}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+
         subject = 'Verify Your Email - WMSU Health Services'
-        
-        # Create verification URL
-        # Use frontend URL from settings
         frontend_url = settings.FRONTEND_URL
         verification_url = f"{frontend_url}/verify-email?token={self.email_verification_token}"
         
-        # HTML message
         html_message = render_to_string('email_verification.html', {
             'user': self,
             'verification_url': verification_url,
         })
-        
-        # Plain text message
         plain_message = strip_tags(html_message)
         
-        try:
-            # Send email
-            send_mail(
-                subject=subject,
-                message=plain_message,
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[self.email],
-                html_message=html_message,
-                fail_silently=False,
+        # Start the background thread
+        thread = threading.Thread(
+            target=send_email_thread,
+            args=(
+                self.pk,
+                subject,
+                plain_message,
+                html_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [self.email]
             )
-            
-            # Update sent timestamp
-            self.email_verification_sent_at = timezone.now()
-            self.save(update_fields=['email_verification_sent_at'])
-            
-        except Exception as e:
-            # Log this error but don't crash the signup process
-            print(f"ERROR: Failed to send verification email to {self.email}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+        )
+        thread.start()
     
     def verify_email(self, token):
         """Verify email with token"""
