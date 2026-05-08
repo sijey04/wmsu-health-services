@@ -2635,9 +2635,10 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
 
     // Patient Photo if available
     if (patient.photo) {
+      const backendUrl = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
       const photoSrc = patient.photo.startsWith('http')
         ? patient.photo
-        : `${(typeof window !== 'undefined' ? window.location.origin : '')}${patient.photo}`;
+        : `${backendUrl}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`;
 
       const photo = await loadLogo(photoSrc);
       if (photo) {
@@ -2709,20 +2710,54 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
       return data.map(item => typeof item === 'string' ? item : (item.name || item.condition || 'Unknown')).join(', ') || 'None reported';
     };
 
+    // Helper to format vaccination history
+    const formatVaccinationHistory = (history: any) => {
+      if (!history || typeof history !== 'object' || Object.keys(history).length === 0) return 'None recorded';
+      
+      const labels: Record<string, string> = {
+        'fully_vaccinated': 'Fully Vaccinated',
+        'partially_vaccinated': 'Partially Vaccinated',
+        'unvaccinated': 'Unvaccinated',
+        'boosted': 'Boosted',
+        'lapsed': 'Lapsed'
+      };
+
+      return Object.entries(history)
+        .map(([name, status]) => `${name}: ${labels[status as string] || status}`)
+        .join('\n');
+    };
+
+    // Helper to format maintenance medications
+    const formatMedications = (meds: any[]) => {
+      if (!meds || !Array.isArray(meds) || meds.length === 0) return 'None reported';
+      
+      return meds.map((med, idx) => {
+        const drug = med.custom_drug || med.drug || med.drug_type || 'Unknown Drug';
+        const dose = med.dose || '';
+        const unit = med.unit || '';
+        const freq = med.custom_frequency || med.frequency || med.frequency_type || '';
+        const dur = med.custom_duration || med.duration || med.duration_type || '';
+        
+        return `${idx + 1}. ${drug} ${dose}${unit}${freq ? ` • ${freq}` : ''}${dur ? ` • ${dur}` : ''}`;
+      }).join('\n');
+    };
+
     autoTable(doc, {
       startY: currentY,
       margin: { left: 20 },
-      head: [['MEDICAL HISTORY', 'DETAILS']],
+      head: [['HEALTH INFORMATION & HISTORY', 'DETAILS']],
       body: [
         ['Blood Type:', patient.blood_type || 'N/A'],
         ['Allergies:', patient.allergies || 'None reported'],
         ['Comorbid Illnesses:', cleanArrayData(patient.comorbid_illnesses)],
         ['Past Medical History:', cleanArrayData(patient.past_medical_history)],
-        ['Family Medical History:', cleanArrayData(patient.family_medical_history)]
+        ['Family Medical History:', cleanArrayData(patient.family_medical_history)],
+        ['Vaccination Status:', formatVaccinationHistory(patient.vaccination_history)],
+        ['Maintenance Meds:', formatMedications(patient.maintenance_medications)]
       ],
       theme: 'grid',
       headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
-      styles: { fontSize: 8, cellPadding: 1.5 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 }, 1: { cellWidth: 'auto' } }
     });
 

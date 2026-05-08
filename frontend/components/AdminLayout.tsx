@@ -295,18 +295,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Header - Sticky at top */}
         <div className="flex flex-col items-center p-4 pb-4 border-b border-gray-100">
           <div className="flex items-center justify-center space-x-2 mb-2">
-            <img 
+            <Image 
               src="/WMSU-Logo.jpg" 
               alt="WMSU Logo" 
-              className={`${isSidebarCollapsed && !isMobileMenuOpen ? 'w-8 h-8' : 'w-12 h-12'} object-contain`}
+              width={32}
+              height={32}
+              className="object-contain"
             />
-            <img 
+            <Image 
               src="/WMSU-HealthLogo.png" 
               alt="Health Services Logo" 
-              className={`${isSidebarCollapsed && !isMobileMenuOpen ? 'w-8 h-8' : 'w-12 h-12'} object-contain`}
+              width={32}
+              height={32}
+              className="object-contain"
             />
+            <div className={`ml-3 transition-all duration-300 ${isSidebarCollapsed && 'hidden'}`}>
+              <h1 className="text-[#800000] font-bold text-sm leading-tight uppercase">Western Mindanao</h1>
+              <p className="text-gray-500 text-[10px] font-medium uppercase tracking-tighter">State University</p>
+            </div>
           </div>
-          <h2 className={`text-xl font-bold text-center transition-all duration-200 ${isSidebarCollapsed && !isMobileMenuOpen ? 'hidden' : ''}`}>WMSU Health Admin</h2>
         </div>
 
         {/* Navigation - Scrollable */}

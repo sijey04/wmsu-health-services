@@ -7,15 +7,8 @@ import { djangoApiClient, patientsAPI, academicSemestersAPI } from '../../utils/
 import PatientProfileModal from '../../components/PatientProfileModal';
 import PatientProfileEditor from '../../components/PatientProfileEditor';
 import PatientAppointmentHistory from '../../components/PatientAppointmentHistory';
-import { 
-  AcademicCapIcon,
-  CalendarDaysIcon,
-  FunnelIcon,
-  ArrowDownTrayIcon,
-  UserGroupIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon
-} from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, UserGroupIcon, ChevronLeftIcon, ChevronRightIcon, AcademicCapIcon, CalendarDaysIcon, FunnelIcon } from '@heroicons/react/24/outline';
+import { exportPatientProfilePDF } from '../../utils/reportExport';
 import { FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 
 export default function AdminPatientProfile() {
@@ -484,7 +477,11 @@ export default function AdminPatientProfile() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
                   <div className="w-full sm:w-auto">
-                    <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-2">Patient Profiles</h1>
+                    <div className="flex items-center gap-3 mb-2">
+                      <Image src="/WMSU-Logo.jpg" alt="WMSU Logo" width={40} height={40} className="object-contain" />
+                      <Image src="/WMSU-HealthLogo.png" alt="Health Logo" width={40} height={40} className="object-contain" />
+                      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Patient Profiles</h1>
+                    </div>
                     <p className="text-sm sm:text-base text-gray-600">
                       Manage and organize patient records by academic semester
                       {semesters.length === 0 && (
@@ -927,6 +924,12 @@ export default function AdminPatientProfile() {
                                   className="inline-flex items-center px-3 py-1 border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 rounded-md text-xs font-medium transition-colors duration-200"
                                 >
                                   📋 History
+                                </button>
+                                <button
+                                  onClick={() => exportPatientProfilePDF(patient)}
+                                  className="inline-flex items-center px-3 py-1 border border-red-300 text-red-700 bg-red-50 hover:bg-red-100 rounded-md text-xs font-medium transition-colors duration-200"
+                                >
+                                  📄 Export
                                 </button>
                               </div>
                             </td>

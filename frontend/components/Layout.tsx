@@ -180,13 +180,25 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
               <div className="flex-shrink-0 flex items-center group">
                 <Link href="/" className="flex items-center space-x-2 sm:space-x-3 hover:scale-105 transition-transform duration-300">
                   <div className="flex items-center space-x-2 sm:space-x-3">
-                    <div className="relative">
-                      <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-[#800000] to-[#a83232] rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
-                        <svg className="w-6 h-6 sm:w-7 sm:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
+                        <Image 
+                          src="/WMSU-Logo.jpg" 
+                          alt="WMSU Logo" 
+                          width={48}
+                          height={48}
+                          className="object-contain"
+                        />
                       </div>
-                      <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-3 h-3 sm:w-4 sm:h-4 bg-yellow-400 rounded-full border-2 border-white animate-pulse"></div>
+                      <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
+                        <Image 
+                          src="/WMSU-HealthLogo.png" 
+                          alt="Health Services Logo" 
+                          width={48}
+                          height={48}
+                          className="object-contain"
+                        />
+                      </div>
                     </div>
                     <div className="hidden sm:block">
                       <h1 className="font-bold text-lg sm:text-xl bg-gradient-to-r from-[#800000] to-[#a83232] bg-clip-text text-transparent">

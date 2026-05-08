@@ -1138,9 +1138,9 @@ export default function PatientProfileSetupPage() {
         }
       });
       
-      // Include all medication validation errors for step 2
+      // Include all medication and vaccination validation errors for step 2
       Object.keys(errors).forEach(errorKey => {
-        if (errorKey.startsWith('medication_')) {
+        if (errorKey.startsWith('medication_') || errorKey.startsWith('vaccine_')) {
           stepSpecificErrors[errorKey] = errors[errorKey];
         }
       });
@@ -1373,19 +1373,25 @@ export default function PatientProfileSetupPage() {
             console.log('Raw vaccinations from API:', vaccinationResponse.data);
             const enabledVaccinations = vaccinationResponse.data.filter(vaccination => vaccination.is_enabled);
             
-            // Standard defaults to ensure they are always present
+            // Standard defaults to ensure they are always present, matching seeder
             const defaultVaccines = [
               { id: 1, name: 'COVID-19', is_enabled: true },
-              { id: 2, name: 'Influenza (Flu)', is_enabled: true },
-              { id: 3, name: 'Hepatitis B', is_enabled: true },
-              { id: 4, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true },
-              { id: 5, name: 'Tetanus', is_enabled: true }
+              { id: 2, name: 'Hepatitis B', is_enabled: true },
+              { id: 3, name: 'Influenza', is_enabled: true },
+              { id: 4, name: 'Tetanus', is_enabled: true },
+              { id: 5, name: 'HPV', is_enabled: true },
+              { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
             ];
 
             const mergedVaccines = [...enabledVaccinations];
             defaultVaccines.forEach(defVax => {
-              if (!mergedVaccines.some(v => v.name.toLowerCase() === defVax.name.toLowerCase())) {
-                mergedVaccines.push(defVax);
+              if (!mergedVaccines.some(v => v && v.name && v.name.toLowerCase() === defVax.name.toLowerCase())) {
+                // Ensure no ID collision with existing vaccines
+                let newId = defVax.id;
+                while (mergedVaccines.some(v => v && v.id === newId)) {
+                  newId += 100; // Offset to avoid collision
+                }
+                mergedVaccines.push({ ...defVax, id: newId });
               }
             });
             
@@ -1393,27 +1399,16 @@ export default function PatientProfileSetupPage() {
           }
         } catch (error) {
           console.log('Vaccinations API not available, using fallback data');
-          // Default list of standard vaccines
+          // Default list of standard vaccines matching system seeder
           const defaultVaccines = [
             { id: 1, name: 'COVID-19', is_enabled: true },
-            { id: 2, name: 'Influenza (Flu)', is_enabled: true },
-            { id: 3, name: 'Hepatitis B', is_enabled: true },
-            { id: 4, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true },
-            { id: 5, name: 'Tetanus', is_enabled: true }
+            { id: 2, name: 'Hepatitis B', is_enabled: true },
+            { id: 3, name: 'Influenza', is_enabled: true },
+            { id: 4, name: 'Tetanus', is_enabled: true },
+            { id: 5, name: 'HPV', is_enabled: true },
+            { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
           ];
-
-          // Merge autofill vaccines with defaults, ensuring no duplicates by name
-          if (Array.isArray(autofill.vaccines) && autofill.vaccines.length > 0) {
-            const mergedVaccines = [...autofill.vaccines];
-            defaultVaccines.forEach(defVax => {
-              if (!mergedVaccines.some(v => v.name.toLowerCase() === defVax.name.toLowerCase())) {
-                mergedVaccines.push(defVax);
-              }
-            });
-            setVaccinations(mergedVaccines);
-          } else {
-            setVaccinations(defaultVaccines);
-          }
+          setVaccinations(defaultVaccines);
         }
 
         // Load past medical histories
@@ -1470,12 +1465,22 @@ export default function PatientProfileSetupPage() {
     const loadCourses = async () => {
       try {
         const response = await djangoApiClient.get('/admin-controls/courses/');
-        if (response.data) {
+        if (response.data && Array.isArray(response.data)) {
           const activeCourses = response.data.filter((course: any) => course.is_active);
           setAvailableCourses(activeCourses);
           console.log('Courses loaded from API:', activeCourses.length);
           // Save to localStorage for future use
           localStorage.setItem('wmsu_courses_data', JSON.stringify(response.data));
+        } else {
+          console.warn('Courses API returned non-array data:', response.data);
+          // Try to load from localStorage as fallback
+          const savedData = localStorage.getItem('wmsu_courses_data');
+          if (savedData) {
+            const parsed = JSON.parse(savedData);
+            if (Array.isArray(parsed)) {
+              setAvailableCourses(parsed.filter(c => c.is_active));
+            }
+          }
         }
       } catch (error) {
         console.warn('Courses API not available, checking localStorage');
@@ -4942,7 +4947,8 @@ export default function PatientProfileSetupPage() {
                           const clean = (val: any) => {
                             if (val === undefined || val === null) return null;
                             const s = String(val).trim().toLowerCase();
-                            if (s === 'undefined' || s === 'null' || s === '') return null;
+                            // Expanded restricted list to include common placeholders
+                            if (s === 'undefined' || s === 'null' || s === '' || s === 'frequency' || s === 'duration' || s === 'n/a') return null;
                             return val;
                           };
                           
