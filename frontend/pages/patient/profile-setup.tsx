@@ -1906,8 +1906,8 @@ export default function PatientProfileSetupPage() {
         // This gives users full control over whether to update current record or create new version
         setPendingSaveData(formData);
         setShowSaveConfirmation(true);
-        setLoading(false); // Stop loading while waiting for user decision
-        return 'pending'; // Return 'pending' to indicate waiting for user confirmation
+        setLoading(false);
+        return 'pending';
       }
 
       // Function execution happens in performSave or after user confirmation
@@ -2059,10 +2059,8 @@ export default function PatientProfileSetupPage() {
                 query: router.query
               });
             } else {
-              // Redirect back to the first step instead of dashboard
-              setCurrentStep(1);
-              setFeedbackMessage('Profile saved successfully! You can now update it or proceed with other actions.');
-              setFeedbackOpen(true);
+              // Redirect to dashboard instead of resetting to step 1
+              router.push('/dashboard');
             }
           }, 2000);
         }
@@ -2208,13 +2206,14 @@ export default function PatientProfileSetupPage() {
 
       let finalFile = file;
       
-      // Convert to AVIF
-      if (file.type !== 'image/avif') {
+      // Convert to WebP if it's an image
+      if (file.type.startsWith('image/') && file.type !== 'image/webp') {
         try {
           setPhotoConverting(true);
-          finalFile = await convertImageToAVIF(file);
+          finalFile = await convertImageForUpload(file);
         } catch (error) {
-          console.error('Error converting photo to AVIF:', error);
+          console.error('Error converting photo:', error);
+          // Fallback to original file
           finalFile = file;
         } finally {
           setPhotoConverting(false);
@@ -4891,8 +4890,15 @@ export default function PatientProfileSetupPage() {
                     {Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0 ? (
                       <div className="space-y-1">
                         {profile.maintenance_medications.map((med: any, index: number) => {
-                          if (!med) return null;
-                          const clean = (val: any) => (val === undefined || val === null || val === 'undefined' || val === 'null' || val === '') ? null : val;
+                          if (!med || (typeof med === 'object' && Object.keys(med).length === 0)) return null;
+                          
+                          // Robust cleaner for "undefined" or "null" strings/values
+                          const clean = (val: any) => {
+                            if (val === undefined || val === null) return null;
+                            const s = String(val).trim().toLowerCase();
+                            if (s === 'undefined' || s === 'null' || s === '') return null;
+                            return val;
+                          };
                           
                           const drug = clean(med.drug);
                           const drugType = clean(med.drug_type);
@@ -4907,6 +4913,10 @@ export default function PatientProfileSetupPage() {
                           const customDuration = clean(med.custom_duration);
 
                           const drugNameStr = (drug === 'Others' || drugType === 'Others') ? (customDrug || 'Other Medication') : (drug || drugType || 'Unknown Medication');
+                          
+                          // Only render if we have at least a drug name that isn't "Unknown"
+                          if (drugNameStr === 'Unknown Medication' && !dose && !unit) return null;
+
                           const freqStr = frequencyType === 'specify' ? (customFrequency || 'Specified Frequency') : (frequency || frequencyType || 'Frequency not specified');
                           const durStr = durationType === 'specify' ? (customDuration || 'Specified Duration') : (duration || durationType || 'Duration not specified');
                           
@@ -5314,7 +5324,7 @@ export default function PatientProfileSetupPage() {
               query: router.query
             });
           } else {
-            setCurrentStep(1);
+            router.push('/dashboard');
           }
         }, 2000);
       }
