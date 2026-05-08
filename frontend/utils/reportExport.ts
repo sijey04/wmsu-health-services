@@ -2928,3 +2928,5 @@ export const exportDentalPatientRecordPDF = async (record: any, patient: any): P
     console.error('Failed to generate dental PDF:', error);
   }
 };
+
+

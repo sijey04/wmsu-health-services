@@ -42,6 +42,82 @@ export default function PatientProfileSetupPage() {
     return val;
   };
 
+  const applyLegacyAddressFallbacks = (data: any) => {
+    if (!data) return data;
+
+    if (data.address && !data.city_municipality && !data.barangay && !data.street) {
+      const addressParts = String(data.address)
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean);
+      if (addressParts.length >= 3) {
+        data.street = addressParts[0];
+        data.barangay = addressParts[1];
+        data.city_municipality = addressParts[2];
+      } else if (addressParts.length === 2) {
+        data.barangay = addressParts[0];
+        data.city_municipality = addressParts[1];
+      } else if (addressParts.length === 1) {
+        data.city_municipality = addressParts[0];
+      }
+    }
+
+    if (data.emergency_contact_address && !data.emergency_contact_barangay && !data.emergency_contact_street) {
+      let emergencyAddress = String(data.emergency_contact_address).trim();
+      if (emergencyAddress.toLowerCase().endsWith(', zamboanga city')) {
+        emergencyAddress = emergencyAddress.slice(0, -15).trim();
+      } else if (emergencyAddress.toLowerCase().endsWith('zamboanga city')) {
+        emergencyAddress = emergencyAddress.slice(0, -13).trim();
+      }
+
+      const emergencyAddressParts = emergencyAddress
+        .split(',')
+        .map(part => part.trim())
+        .filter(Boolean);
+
+      if (emergencyAddressParts.length >= 2) {
+        data.emergency_contact_street = emergencyAddressParts[0];
+        data.emergency_contact_barangay = emergencyAddressParts[1];
+      } else if (emergencyAddressParts.length === 1 && emergencyAddressParts[0]) {
+        data.emergency_contact_barangay = emergencyAddressParts[0];
+      }
+    }
+
+    return data;
+  };
+
+  const normalizeCivilStatus = (data: any) => {
+    if (data && typeof data.civil_status === 'string') {
+      data.civil_status = data.civil_status.toLowerCase();
+    }
+  };
+
+  const applyAddressDefaults = (data: any) => {
+    if (!data) return;
+    if (!data.city_municipality) data.city_municipality = 'Zamboanga City';
+    if (!data.barangay) data.barangay = '';
+    if (!data.street) data.street = '';
+    if (!data.emergency_contact_barangay) data.emergency_contact_barangay = '';
+    if (!data.emergency_contact_street) data.emergency_contact_street = '';
+  };
+
+  const applyPhotoPreview = (data: any) => {
+    if (!data || !data.photo || typeof data.photo !== 'string' || data.photo.length === 0) return;
+
+    const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+    let fullPhotoUrl = data.photo;
+
+    if (!fullPhotoUrl.startsWith('http') && !fullPhotoUrl.startsWith('blob:') && !fullPhotoUrl.startsWith('data:')) {
+      fullPhotoUrl = `${base}${fullPhotoUrl.startsWith('/') ? '' : '/'}${fullPhotoUrl}`;
+    }
+
+    const separator = fullPhotoUrl.includes('?') ? '&' : '?';
+    fullPhotoUrl = `${fullPhotoUrl}${separator}t=${Date.now()}`;
+
+    data.photo = fullPhotoUrl;
+    setPhotoPreview(fullPhotoUrl);
+  };
+
   // Medical lists state
   const [comorbidIllnesses, setComorbidIllnesses] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
@@ -338,47 +414,8 @@ export default function PatientProfileSetupPage() {
           profileData.user_type = user.grade_level || user.user_type || 'College';
         }
         
-        // Handle backward compatibility for address field
-        if (profileData.address && !profileData.city_municipality && !profileData.barangay && !profileData.street) {
-          // Try to parse the old address format
-          const addressParts = profileData.address.split(',').map(part => part.trim());
-          if (addressParts.length >= 3) {
-            profileData.street = addressParts[0];
-            profileData.barangay = addressParts[1];
-            profileData.city_municipality = addressParts[2];
-          } else if (addressParts.length === 2) {
-            profileData.barangay = addressParts[0];
-            profileData.city_municipality = addressParts[1];
-          } else if (addressParts.length === 1) {
-            profileData.city_municipality = addressParts[0];
-          }
-        }
-        
-        // Handle backward compatibility for emergency contact address field
-        if (profileData.emergency_contact_address && !profileData.emergency_contact_barangay && !profileData.emergency_contact_street) {
-          // Try to parse the old emergency contact address format
-          let emergencyAddress = profileData.emergency_contact_address.trim();
-          
-          // Remove "Zamboanga City" from the end if present
-          if (emergencyAddress.toLowerCase().endsWith(', zamboanga city')) {
-            emergencyAddress = emergencyAddress.slice(0, -15).trim();
-          } else if (emergencyAddress.toLowerCase().endsWith('zamboanga city')) {
-            emergencyAddress = emergencyAddress.slice(0, -13).trim();
-          }
-          
-          const emergencyAddressParts = emergencyAddress.split(',').map(part => part.trim());
-          if (emergencyAddressParts.length >= 2) {
-            profileData.emergency_contact_street = emergencyAddressParts[0];
-            profileData.emergency_contact_barangay = emergencyAddressParts[1];
-          } else if (emergencyAddressParts.length === 1 && emergencyAddressParts[0]) {
-            profileData.emergency_contact_barangay = emergencyAddressParts[0];
-          }
-        }
-        
-        // Set default address components if still empty
-        if (!profileData.city_municipality) profileData.city_municipality = 'Zamboanga City';
-        if (!profileData.barangay) profileData.barangay = '';
-        if (!profileData.street) profileData.street = '';
+        applyLegacyAddressFallbacks(profileData);
+        normalizeCivilStatus(profileData);
       }
       
       // Process enhanced ComorbidIllness details if available
@@ -436,10 +473,15 @@ export default function PatientProfileSetupPage() {
         setIsEditMode(false); // Start in view mode for existing profiles
         setIsNewProfile(false); // This is an existing profile
         
-        // If the profile seems "minimal" (e.g., no health history), try to autofill missing fields
-        const isMinimal = !profileData.comorbid_illnesses || profileData.comorbid_illnesses.length === 0;
+        // If the profile seems "minimal" (e.g., missing essential info), try to autofill from previous copies
+        const isMinimal = !profileData.comorbid_illnesses || 
+                         profileData.comorbid_illnesses.length === 0 || 
+                         !profileData.city_municipality || 
+                         !profileData.emergency_contact_surname ||
+                         !profileData.blood_type;
+                         
         if (isMinimal) {
-          console.log('Profile found but seems minimal. Attempting to autofill from latest copy...');
+          console.log('Profile found but seems incomplete. Attempting to autofill from latest previous copy...');
           try {
             const autofillParams: any = {};
             if (currentSchoolYear?.id) autofillParams.school_year = currentSchoolYear.id;
@@ -449,13 +491,20 @@ export default function PatientProfileSetupPage() {
             const autofillData = autofillResponse.data;
             
             if (autofillData.has_previous_data) {
-              console.log('Merging current minimal profile with latest previous copy');
+              console.log('Merging incomplete profile with latest previous data');
               // Merge autofill data into profileData, but keep current values if they exist
               Object.keys(autofillData).forEach(key => {
                 if (key !== 'id' && !['has_existing_profile', 'current_school_year', 'has_previous_data'].includes(key)) {
                   if (profileData[key] === undefined || profileData[key] === null || profileData[key] === '' || 
                       (Array.isArray(profileData[key]) && profileData[key].length === 0)) {
-                    profileData[key] = autofillData[key];
+                    
+                    let value = autofillData[key];
+                    // Normalize civil status for select component
+                    if (key === 'civil_status' && typeof value === 'string') {
+                      value = value.toLowerCase();
+                    }
+                    
+                    profileData[key] = value;
                   }
                 }
               });
@@ -475,17 +524,10 @@ export default function PatientProfileSetupPage() {
         setIsNewProfile(true); // This is a new profile
       }
       
-      // Process photo URL after loading/merging - Apply to both existing and autofilled/merged profiles
-      if (profileData.photo && typeof profileData.photo === 'string' && profileData.photo.length > 0) {
-        // Append timestamp to force browser to fetch new image
-        const separator = profileData.photo.includes('?') ? '&' : '?';
-        profileData.photo = `${profileData.photo}${separator}t=${Date.now()}`;
-        
-        // Also set photo preview if in edit mode or new profile
-        if (isEditMode || !profileData.id) {
-          setPhotoPreview(profileData.photo);
-        }
-      }
+      applyLegacyAddressFallbacks(profileData);
+      normalizeCivilStatus(profileData);
+      applyAddressDefaults(profileData);
+      applyPhotoPreview(profileData);
       
       // Store updated profile data
       setProfile(profileData);
@@ -546,7 +588,11 @@ export default function PatientProfileSetupPage() {
             if (autofillData[key] !== undefined && autofillData[key] !== null && 
                 !['has_existing_profile', 'current_school_year', 'current_school_year_name', 
                   'has_previous_data', 'autofilled_from_year', 'profile_completion_status'].includes(key)) {
-              defaultProfile[key] = autofillData[key];
+              let value = autofillData[key];
+              if (key === 'civil_status' && typeof value === 'string') {
+                value = value.toLowerCase();
+              }
+              defaultProfile[key] = value;
             }
           });
           
@@ -593,6 +639,11 @@ export default function PatientProfileSetupPage() {
             
             console.log('Auto-filled profile from:', autofillData.autofilled_from_year, autofillData.autofilled_from_semester);
           }
+
+          applyLegacyAddressFallbacks(defaultProfile);
+          normalizeCivilStatus(defaultProfile);
+          applyAddressDefaults(defaultProfile);
+          applyPhotoPreview(defaultProfile);
           
           // Store as original profile for new autofilled profiles
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
@@ -648,6 +699,11 @@ export default function PatientProfileSetupPage() {
               defaultProfile.user_type = 'College';
             }
           }
+
+          applyLegacyAddressFallbacks(defaultProfile);
+          normalizeCivilStatus(defaultProfile);
+          applyAddressDefaults(defaultProfile);
+          applyPhotoPreview(defaultProfile);
           
           // Store as original profile for fallback profiles too
           setOriginalProfile(JSON.parse(JSON.stringify(defaultProfile)));
@@ -2021,6 +2077,8 @@ export default function PatientProfileSetupPage() {
         }
       };
 
+      let savedProfile: any = null;
+
       if (createNewVersion) {
         // Create a new profile version
         // Remove the id to force creation of a new record
@@ -2034,6 +2092,7 @@ export default function PatientProfileSetupPage() {
         }
         
         const response = await patientProfileAPI.create(formData);
+        savedProfile = response?.data || null;
         const semesterDisplay = getSemesterDisplayName(semester);
         
         if (profile?.id && !isNewProfile) {
@@ -2054,7 +2113,8 @@ export default function PatientProfileSetupPage() {
         setIsNewProfile(false); // After saving, it's no longer a new profile
       } else {
         // Update the existing profile (only for profiles created in this session or user chose "Edit")
-        await patientProfileAPI.update(formData);
+        const response = await patientProfileAPI.update(formData);
+        savedProfile = response?.data || null;
         const semesterDisplay = getSemesterDisplayName(semester);
         setFeedbackMessage(`Profile updated for ${semesterDisplay}, ${schoolYear.academic_year}!`);
         
@@ -2072,21 +2132,22 @@ export default function PatientProfileSetupPage() {
         const userStr = localStorage.getItem('user');
         if (userStr) {
           const userData = JSON.parse(userStr);
+          const profileForStorage = savedProfile || profile;
           // Update user data with profile information
           // Note: profile.name is the surname/last name in the database
-          userData.first_name = profile.first_name || userData.first_name;
-          userData.middle_name = profile.middle_name || userData.middle_name;
-          userData.last_name = profile.name || userData.last_name;
+          userData.first_name = profileForStorage.first_name || userData.first_name;
+          userData.middle_name = profileForStorage.middle_name || userData.middle_name;
+          userData.last_name = profileForStorage.name || userData.last_name;
           
           // Sync account details
-          if (profile.email) userData.email = profile.email;
-          if (profile.year_level) userData.grade_level = profile.year_level;
-          else if (profile.department) userData.grade_level = profile.department;
+          if (profileForStorage.email) userData.email = profileForStorage.email;
+          if (profileForStorage.year_level) userData.grade_level = profileForStorage.year_level;
+          else if (profileForStorage.department) userData.grade_level = profileForStorage.department;
           
           // Update photo if it was updated
-          if (profile.photo) {
-            userData.photo = profile.photo;
-            userData.profile_picture = profile.photo;
+          if (profileForStorage.photo) {
+            userData.photo = profileForStorage.photo;
+            userData.profile_picture = profileForStorage.photo;
           }
           
           localStorage.setItem('user', JSON.stringify(userData));
@@ -2137,28 +2198,9 @@ export default function PatientProfileSetupPage() {
         
         // After save, trigger redirect if we're on the final step
         if (currentStep === steps.length) {
-          setTimeout(() => {
-            if (option === 'Request Medical Certificate') {
-              router.push({
-                pathname: '/patient/upload-documents',
-                query: router.query
-              });
-            } else if (option === 'Book Dental Consultation') {
-              router.push({
-                pathname: '/patient/dental-information-record',
-                query: { ...router.query, option: 'Book Dental Consultation' }
-              });
-            } else if (option === 'Book Medical Consultation') {
-              router.push({
-                pathname: '/appointments/medical',
-                query: router.query
-              });
-            } else {
-              // Stay on profile setup page as requested by user
-              // router.push('/dashboard');
-              setSuccess(true);
-            }
-          }, 2000);
+          // Stay on profile setup page as requested by user
+          setSuccess(true);
+          setFeedbackOpen(true);
         }
       }
     } catch (err) {
@@ -2569,9 +2611,8 @@ export default function PatientProfileSetupPage() {
 
   const handleSaveChanges = async () => {
     // Validate current step before saving
-    if (!validateStep(currentStep)) {
-      return;
-    }
+    const { isValid } = validateStep(currentStep);
+    if (!isValid) return;
     await handleProfileSave();
   };
 
@@ -5437,28 +5478,9 @@ export default function PatientProfileSetupPage() {
       // Only redirect if save is complete (not waiting for confirmation)
       if (currentStep === steps.length) {
         // Redundant success message removed as performSave already handles feedback
-        setTimeout(() => {
-          if (option === 'Request Medical Certificate') {
-            router.push({
-              pathname: '/patient/upload-documents',
-              query: router.query
-            });
-          } else if (option === 'Book Dental Consultation') {
-            router.push({
-              pathname: '/patient/dental-information-record',
-              query: { ...router.query, option: 'Book Dental Consultation' }
-            });
-          } else if (option === 'Book Medical Consultation') {
-            router.push({
-              pathname: '/appointments/medical',
-              query: router.query
-            });
-          } else {
-            // Stay on profile setup page as requested by user
-            // router.push('/dashboard');
-            setSuccess(true);
-          }
-        }, 2000);
+        // Stay on profile setup page as requested by user
+        setSuccess(true);
+        setFeedbackOpen(true);
       }
     }
   };

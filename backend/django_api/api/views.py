@@ -4920,6 +4920,49 @@ class PatientViewSet(viewsets.ModelViewSet):
         
         # If we have a source profile (current or previous), include comprehensive autofill data
         if source_profile:
+            address_city = source_profile.city_municipality or ''
+            address_barangay = source_profile.barangay or ''
+            address_street = source_profile.street or ''
+
+            if source_profile.address and not (address_city and address_barangay and address_street):
+                parts = [part.strip() for part in source_profile.address.split(',') if part.strip()]
+                if len(parts) >= 3:
+                    if not address_street:
+                        address_street = parts[0]
+                    if not address_barangay:
+                        address_barangay = parts[1]
+                    if not address_city:
+                        address_city = parts[2]
+                elif len(parts) == 2:
+                    if not address_barangay:
+                        address_barangay = parts[0]
+                    if not address_city:
+                        address_city = parts[1]
+                elif len(parts) == 1:
+                    if not address_city:
+                        address_city = parts[0]
+
+            emergency_barangay = source_profile.emergency_contact_barangay or ''
+            emergency_street = source_profile.emergency_contact_street or ''
+
+            if source_profile.emergency_contact_address and not (emergency_barangay and emergency_street):
+                emergency_address = source_profile.emergency_contact_address.strip()
+                lower_address = emergency_address.lower()
+                if lower_address.endswith(', zamboanga city'):
+                    emergency_address = emergency_address[:-15].strip()
+                elif lower_address.endswith('zamboanga city'):
+                    emergency_address = emergency_address[:-13].strip()
+
+                emergency_parts = [part.strip() for part in emergency_address.split(',') if part.strip()]
+                if len(emergency_parts) >= 2:
+                    if not emergency_street:
+                        emergency_street = emergency_parts[0]
+                    if not emergency_barangay:
+                        emergency_barangay = emergency_parts[1]
+                elif len(emergency_parts) == 1:
+                    if not emergency_barangay:
+                        emergency_barangay = emergency_parts[0]
+
             # Basic personal information
             profile_data = {
                 'existing_profile_id': source_profile.id if existing_profile else None,
@@ -4934,6 +4977,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'date_of_birth': source_profile.date_of_birth.isoformat() if source_profile.date_of_birth else '',
                 'age': source_profile.age or '',
                 'gender': source_profile.gender or '',
+                'photo': source_profile.photo.url if source_profile.photo else '',
                 'blood_type': source_profile.blood_type or '',
                 'religion': source_profile.religion or '',
                 'nationality': source_profile.nationality or '',
@@ -4953,9 +4997,9 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'contact_number': source_profile.contact_number or '',
                 
                 # Address Information
-                'city_municipality': source_profile.city_municipality or '',
-                'barangay': source_profile.barangay or '',
-                'street': source_profile.street or '',
+                'city_municipality': address_city,
+                'barangay': address_barangay,
+                'street': address_street,
                 
                 # Emergency Contact
                 'emergency_contact_surname': source_profile.emergency_contact_surname or '',
@@ -4963,8 +5007,8 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'emergency_contact_middle_name': source_profile.emergency_contact_middle_name or '',
                 'emergency_contact_number': source_profile.emergency_contact_number or '',
                 'emergency_contact_relationship': source_profile.emergency_contact_relationship or '',
-                'emergency_contact_barangay': source_profile.emergency_contact_barangay or '',
-                'emergency_contact_street': source_profile.emergency_contact_street or '',
+                'emergency_contact_barangay': emergency_barangay,
+                'emergency_contact_street': emergency_street,
                 
                 # Health History
                 'comorbid_illnesses': source_profile.comorbid_illnesses or [],

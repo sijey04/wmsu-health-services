@@ -20,6 +20,10 @@ export default function AnnouncementModal({ isOpen, onClose }: AnnouncementModal
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
 
+  const getAuthToken = () => {
+    return localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
+  };
+
   useEffect(() => {
     if (isOpen) {
       fetchUnviewedAnnouncements();
@@ -29,7 +33,7 @@ export default function AnnouncementModal({ isOpen, onClose }: AnnouncementModal
   const fetchUnviewedAnnouncements = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
+      const token = getAuthToken();
       if (!token) {
         setLoading(false);
         return;
@@ -55,7 +59,7 @@ export default function AnnouncementModal({ isOpen, onClose }: AnnouncementModal
 
   const markAsViewed = async (announcementId: number) => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = getAuthToken();
       if (!token) return;
 
       await fetch(`${process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api'}/announcements/${announcementId}/mark_viewed/`, {
