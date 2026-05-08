@@ -475,7 +475,7 @@ export default function PatientProfileSetupPage() {
         setIsNewProfile(true); // This is a new profile
       }
       
-      // Process photo URL after loading/merging
+      // Process photo URL after loading/merging - Apply to both existing and autofilled/merged profiles
       if (profileData.photo && typeof profileData.photo === 'string' && profileData.photo.length > 0) {
         // Append timestamp to force browser to fetch new image
         const separator = profileData.photo.includes('?') ? '&' : '?';
@@ -533,6 +533,10 @@ export default function PatientProfileSetupPage() {
             city_municipality: autofillData.city_municipality || 'Zamboanga City',
             barangay: autofillData.barangay || '',
             street: autofillData.street || '',
+            civil_status: autofillData.civil_status || '',
+            emergency_contact_surname: autofillData.emergency_contact_surname || '',
+            emergency_contact_first_name: autofillData.emergency_contact_first_name || '',
+            emergency_contact_middle_name: autofillData.emergency_contact_middle_name || '',
             emergency_contact_barangay: autofillData.emergency_contact_barangay || '',
             emergency_contact_street: autofillData.emergency_contact_street || '',
           };
@@ -1895,11 +1899,14 @@ export default function PatientProfileSetupPage() {
       
       // Whitelist of fields allowed to be sent to the backend
       const allowedFields = [
-        'first_name', 'last_name', 'middle_name', 'student_id', 'employee_id', 'user_type',
+        'name', 'first_name', 'last_name', 'middle_name', 'suffix', 'student_id', 'employee_id', 'user_type',
         'course', 'year_level', 'strand', 'department', 'position_type',
         'gender', 'date_of_birth', 'age', 'blood_type', 'contact_number', 'email',
-        'religion', 'nationality', 'religion_specify', 'nationality_specify',
-        'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship',
+        'religion', 'nationality', 'religion_specify', 'nationality_specify', 'civil_status',
+        'city_municipality', 'barangay', 'street',
+        'emergency_contact_name', 'emergency_contact_surname', 'emergency_contact_first_name', 'emergency_contact_middle_name',
+        'emergency_contact_number', 'emergency_contact_relationship',
+        'emergency_contact_barangay', 'emergency_contact_street',
         'home_address', 'boarding_house_address',
         'past_medical_history', 'past_medical_history_other',
         'family_medical_history', 'family_medical_history_other',
@@ -2130,8 +2137,9 @@ export default function PatientProfileSetupPage() {
                 query: router.query
               });
             } else {
-              // Redirect to dashboard instead of resetting to step 1
-              router.push('/dashboard');
+              // Stay on profile setup page as requested by user
+              // router.push('/dashboard');
+              setSuccess(true);
             }
           }, 2000);
         }
@@ -5425,7 +5433,9 @@ export default function PatientProfileSetupPage() {
               query: router.query
             });
           } else {
-            router.push('/dashboard');
+            // Stay on profile setup page as requested by user
+            // router.push('/dashboard');
+            setSuccess(true);
           }
         }, 2000);
       }

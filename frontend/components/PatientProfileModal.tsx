@@ -438,7 +438,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               <div className="w-24 h-32 border border-gray-400 bg-gray-50 flex items-center justify-center">
                 {profile.photo ? (
                   <img 
-                    src={profile.photo.startsWith('http') ? profile.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${profile.photo}`} 
+                    src={profile.photo.startsWith('http') ? profile.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${profile.photo.startsWith('/') ? '' : '/'}${profile.photo}`} 
                     alt="Patient" 
                     className="w-full h-full object-cover" 
                   />
@@ -1047,13 +1047,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               {/* Institutional Header for Waiver */}
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-4">
-                  <Image src="/WMSU-Logo.jpg" alt="WMSU Logo" width={64} height={64} className="object-contain" />
+                  <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
                   <div>
                     <h2 className="text-[#8B0000] text-sm font-bold uppercase">Western Mindanao State University</h2>
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest">University Health Services Center</p>
                   </div>
                 </div>
-                <Image src="/WMSU-HealthLogo.png" alt="Health Logo" width={64} height={64} className="object-contain" />
+                <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-16 h-16 object-contain" />
               </div>
 
               <div className="flex justify-between items-center mb-6 print:hidden">

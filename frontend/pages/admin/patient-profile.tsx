@@ -814,11 +814,9 @@ export default function AdminPatientProfile() {
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-12 w-12">
                                   {patient.photo ? (
-                                    <Image 
-                                      src={patient.photo.startsWith('http') ? patient.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${patient.photo}`} 
+                                    <img 
+                                      src={patient.photo.startsWith('http') ? patient.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`} 
                                       alt={patient.name} 
-                                      width={48}
-                                      height={48}
                                       className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
                                     />
                                   ) : (
