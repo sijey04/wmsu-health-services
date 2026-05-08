@@ -19,6 +19,7 @@ export default function AdminAccountSettings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [profilePic, setProfilePic] = useState<File | null>(null);
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
+  const [currentUserType, setCurrentUserType] = useState('');
   
   // Staff details states
   const [staffDetails, setStaffDetails] = useState({
@@ -73,6 +74,27 @@ export default function AdminAccountSettings() {
     }
   }, [activeTab]);
 
+  const toTitleCase = (value: string) =>
+    value
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+      .trim();
+
+  const normalizeRoleLabel = (role: any) => {
+    if (typeof role === 'string') return role.trim();
+    if (role && typeof role === 'object') {
+      const label = role.label || role.name;
+      if (label) return String(label).trim();
+      if (role.value) return toTitleCase(String(role.value));
+    }
+    return '';
+  };
+
+  const isTeachingRole = (role: string) => {
+    const normalized = role.toLowerCase().replace(/[\s-]/g, '');
+    return normalized === 'teaching' || normalized === 'nonteaching';
+  };
+
   const fetchPositionOptions = async () => {
     setLoadingPositions(true);
     try {
@@ -80,13 +102,7 @@ export default function AdminAccountSettings() {
       const response = await djangoApiClient.get('/admin-controls/staff-roles/');
       if (response.data && Array.isArray(response.data)) {
         const normalized = response.data
-          .map((role: any) => {
-            if (typeof role === 'string') return role;
-            if (role && typeof role === 'object') {
-              return role.label || role.name || role.value || '';
-            }
-            return '';
-          })
+          .map((role: any) => normalizeRoleLabel(role))
           .map((role: string) => role.trim())
           .filter(Boolean);
 
@@ -139,6 +155,7 @@ export default function AdminAccountSettings() {
       // Fetch user data
       const userResponse = await djangoApiClient.get('/users/me/');
       const userData = userResponse.data;
+      setCurrentUserType(userData.user_type || '');
       
       // Auto-fill account information
       const fullName = userData.get_full_name || 
@@ -388,6 +405,10 @@ export default function AdminAccountSettings() {
     }
   };
 
+  const filteredPositionOptions = currentUserType === 'admin'
+    ? positionOptions.filter((position) => !isTeachingRole(position))
+    : positionOptions;
+
   return (
     <AdminLayout>
       <FeedbackModal
@@ -560,7 +581,7 @@ export default function AdminAccountSettings() {
                   disabled={loadingPositions}
                 >
                   <option value="">{loadingPositions ? 'Loading positions...' : 'Select Position'}</option>
-                  {positionOptions.map(position => (
+                  {filteredPositionOptions.map(position => (
                     <option key={position} value={position}>{position}</option>
                   ))}
                 </select>

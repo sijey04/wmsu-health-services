@@ -213,7 +213,9 @@ const PatientDentalHistoryModal: React.FC<PatientDentalHistoryModalProps> = ({
                       <div className="text-sm text-gray-600 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
                         <p><span className="font-medium text-gray-500">Time:</span> {appointment.appointment_time}</p>
                         <p><span className="font-medium text-gray-500">Purpose:</span> {appointment.purpose}</p>
-                        <p className="md:col-span-2"><span className="font-medium text-gray-500">Dentist:</span> {appointment.doctor_name || 'Not assigned'}</p>
+                        {appointment.doctor_name && (
+                          <p className="md:col-span-2"><span className="font-medium text-gray-500">Dentist:</span> {appointment.doctor_name}</p>
+                        )}
                       </div>
                     </div>
                     

@@ -86,16 +86,56 @@ function AdminStaffManagement() {
     { value: 'c', label: 'Campus C' }
   ];
 
+  const toTitleCase = (value: string) =>
+    value
+      .replace(/[_-]+/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase())
+      .trim();
+
+  const isTeachingRole = (label: string) => {
+    const normalized = label.toLowerCase().replace(/[\s-]/g, '');
+    return normalized === 'teaching' || normalized === 'nonteaching';
+  };
+
+  const normalizeRoleOption = (role: any) => {
+    if (typeof role === 'string') {
+      const label = role.trim();
+      if (!label) return null;
+      return {
+        value: label.toLowerCase().replace(/\s+/g, '_'),
+        label
+      };
+    }
+
+    if (role && typeof role === 'object') {
+      const label = role.label || role.name || (role.value ? toTitleCase(String(role.value)) : '');
+      if (!label) return null;
+      const rawValue = role.value || role.name || label;
+      const value = String(rawValue).toLowerCase().replace(/\s+/g, '_');
+      return { value, label: String(label).trim() };
+    }
+
+    return null;
+  };
+
   const fetchStaffRoles = async () => {
     setLoadingRoles(true);
     try {
       // Fetch staff roles from medical staff schedules or dedicated endpoint
       const response = await djangoApiClient.get('/admin-controls/staff-roles/');
       if (response.data && Array.isArray(response.data)) {
-        setRoleOptions(response.data.map((role: any) => ({
-          value: role.value || role.name.toLowerCase().replace(/\s+/g, '_'),
-          label: role.label || role.name
-        })));
+        const normalizedRoles = response.data
+          .map((role: any) => normalizeRoleOption(role))
+          .filter((role: { value: string; label: string } | null): role is { value: string; label: string } => Boolean(role))
+          .filter((role) => !isTeachingRole(role.label));
+
+        const uniqueRoles = Array.from(
+          new Map(normalizedRoles.map((role) => [role.value, role])).values()
+        );
+
+        if (uniqueRoles.length > 0) {
+          setRoleOptions(uniqueRoles);
+        }
       }
     } catch (error: any) {
       console.warn('Failed to fetch staff roles from backend, using defaults:', error);

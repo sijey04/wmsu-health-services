@@ -115,10 +115,12 @@ const AppointmentDetailsModal: React.FC<AppointmentDetailsModalProps> = ({ open,
                 <label className="text-sm font-medium text-gray-600">Time</label>
                 <p className="text-gray-900">{formatTime(appointment.appointment_time)}</p>
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Doctor</label>
-                <p className="text-gray-900">{appointment.doctor_name || 'To be assigned'}</p>
-              </div>
+              {appointment.doctor_name && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Doctor</label>
+                  <p className="text-gray-900">{appointment.doctor_name}</p>
+                </div>
+              )}
             </div>
           </div>
 
