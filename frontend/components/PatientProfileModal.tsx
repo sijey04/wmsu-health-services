@@ -71,8 +71,6 @@ interface Patient {
   family_medical_history_other?: string;
   family_medical_history_allergies?: string;
   allergies?: string;
-  food_allergy_specify?: string;
-  other_comorbid_specify?: string;
   
   // User account information
   user_email?: string;
@@ -165,6 +163,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       fetchDentalRecord();
     }
   }, [open, patient, fetchWaiver, fetchDentalRecord]);
+
+  React.useEffect(() => {
+    console.log('=== PatientProfileModal Debug ===');
+    console.log('Patient:', patient);
+    console.log('All Patient Profiles count:', allPatientProfiles.length);
+    
+    if (open && patient && allPatientProfiles.length > 0) {
       // Use string comparison to handle both string and number user IDs
       const userProfiles = allPatientProfiles.filter(profile => 
         String(profile.user) === String(patient.user)
@@ -195,7 +200,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       fetchWaiver();
     }
     console.log('=== End PatientProfileModal Debug ===');
-  }, [patient, allPatientProfiles, fetchWaiver]);
+  }, [open, patient, allPatientProfiles, fetchWaiver]);
 
   // Filter and sort profiles - must be before early return to avoid conditional hook calls
   const sortedProfiles = React.useMemo(() => {
