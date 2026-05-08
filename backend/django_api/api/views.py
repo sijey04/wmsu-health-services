@@ -5022,6 +5022,15 @@ class PatientViewSet(viewsets.ModelViewSet):
                 'allergies': source_profile.allergies or '',
                 'hospital_admission_or_surgery': source_profile.hospital_admission_or_surgery if source_profile.hospital_admission_or_surgery is not None else False,
                 'hospital_admission_details': source_profile.hospital_admission_details or '',
+                # Menstrual & Obstetric History
+                'menstruation_age_began': source_profile.menstruation_age_began,
+                'menstruation_regular': source_profile.menstruation_regular,
+                'menstruation_irregular': source_profile.menstruation_irregular,
+                'number_of_pregnancies': source_profile.number_of_pregnancies,
+                'number_of_live_children': source_profile.number_of_live_children,
+                'menstrual_symptoms': source_profile.menstrual_symptoms or [],
+                'menstrual_symptoms_other': source_profile.menstrual_symptoms_other or '',
+                'custom_menstrual_symptoms': source_profile.custom_menstrual_symptoms or [],
                 
                 # Family History
                 'family_medical_history': source_profile.family_medical_history or [],

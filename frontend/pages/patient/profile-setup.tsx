@@ -46,6 +46,34 @@ export default function PatientProfileSetupPage() {
     return val;
   };
 
+  const normalizeGender = (value: any) => {
+    const normalized = String(value || '').trim().toLowerCase();
+    if (normalized === 'female' || normalized === 'f') return 'Female';
+    if (normalized === 'male' || normalized === 'm') return 'Male';
+    return value || '';
+  };
+
+  const isFemaleProfile = (value: any) => normalizeGender(value) === 'Female';
+
+  const normalizeMenstrualSymptoms = (data: any) => {
+    if (!data) return;
+    const normalizeArrayField = (key: string) => {
+      const rawValue = data[key];
+      if (typeof rawValue === 'string') {
+        try {
+          const parsed = JSON.parse(rawValue);
+          if (Array.isArray(parsed)) {
+            data[key] = parsed;
+          }
+        } catch (error) {
+          // Leave non-JSON strings as-is.
+        }
+      }
+    };
+    normalizeArrayField('menstrual_symptoms');
+    normalizeArrayField('custom_menstrual_symptoms');
+  };
+
   const applyLegacyAddressFallbacks = (data: any) => {
     if (!data) return data;
 
@@ -573,6 +601,8 @@ export default function PatientProfileSetupPage() {
       
       applyLegacyAddressFallbacks(profileData);
       normalizeCivilStatus(profileData);
+      profileData.gender = normalizeGender(profileData.gender);
+      normalizeMenstrualSymptoms(profileData);
       applyAddressDefaults(profileData);
       applyPhotoPreview(profileData);
       
@@ -689,6 +719,8 @@ export default function PatientProfileSetupPage() {
 
           applyLegacyAddressFallbacks(defaultProfile);
           normalizeCivilStatus(defaultProfile);
+          defaultProfile.gender = normalizeGender(defaultProfile.gender);
+          normalizeMenstrualSymptoms(defaultProfile);
           applyAddressDefaults(defaultProfile);
           applyPhotoPreview(defaultProfile);
           
@@ -4265,7 +4297,7 @@ export default function PatientProfileSetupPage() {
             )}
 
             {/* Women's Health Section */}
-            {profile?.gender === 'Female' && (
+            {isFemaleProfile(profile?.gender) && (
               <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                   <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
@@ -4576,7 +4608,7 @@ export default function PatientProfileSetupPage() {
             </div>
 
             {/* Menstrual & Obstetric History (for females only) */}
-            {profile?.gender === 'Female' && (
+            {isFemaleProfile(profile?.gender) && (
               <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                   <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
@@ -5358,7 +5390,7 @@ export default function PatientProfileSetupPage() {
                 </div>
 
                 {/* Menstrual & Obstetric History (for females only) */}
-                {profile?.gender === 'Female' && (
+                {isFemaleProfile(profile?.gender) && (
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                     <p className="font-medium text-gray-600 text-xs mb-2">Menstrual & Obstetric History</p>
                     <div className="space-y-2 text-sm">
