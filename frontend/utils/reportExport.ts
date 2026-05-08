@@ -2739,6 +2739,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     });
 
     let currentY = (doc as any).lastAutoTable?.finalY || 150;
+    currentY += 8;
 
     // Emergency Contact
     autoTable(doc, {
@@ -2762,6 +2763,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+    currentY += 8;
 
     const cleanArrayData = (data: any[]) => {
       if (!data || !Array.isArray(data)) return 'None reported';
@@ -2826,24 +2828,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
-
-    autoTable(doc, {
-      startY: currentY,
-      margin: { left: 20 },
-      head: [['RECORD INFO', ''] ],
-      body: [
-        ['Student ID:', resolveText(patient.student_id, patient.employee_id)],
-        ['Profile Created:', formatDate(patient.created_at)],
-        ['Last Updated:', formatDate(patient.updated_at)],
-        ['Semester:', formatSemester(patient.school_year)]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
-      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 'auto' } }
-    });
-
-    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+    currentY += 8;
 
     autoTable(doc, {
       startY: currentY,
@@ -2859,6 +2844,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+    currentY += 8;
 
     autoTable(doc, {
       startY: currentY,
@@ -2874,6 +2860,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+    currentY += 8;
 
     autoTable(doc, {
       startY: currentY,
@@ -2889,6 +2876,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+    currentY += 8;
 
     autoTable(doc, {
       startY: currentY,
