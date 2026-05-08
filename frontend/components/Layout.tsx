@@ -34,6 +34,22 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     return localStorage.getItem('access_token') || localStorage.getItem('token') || localStorage.getItem('accessToken');
   };
 
+  const normalizePhotoUrl = (photoUrl: string) => {
+    let url = photoUrl;
+    if (!url) return url;
+
+    if (!url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+      url = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+    }
+
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+      url = url.replace('http://', 'https://');
+    }
+
+    return url;
+  };
+
   // Close notification dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -150,14 +166,11 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
   const getAvatar = () => {
     // Use uploaded profile photo if available
     if (user?.photo) {
-      // If the photo is a relative path, prepend the backend URL if needed
-      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-      const photoUrl = user.photo.startsWith('http') ? user.photo : `${base}${user.photo.startsWith('/') ? '' : '/'}${user.photo}`;
+      const photoUrl = normalizePhotoUrl(user.photo);
       return <img className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
     }
     if (user?.profile_picture) {
-      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-      const photoUrl = user.profile_picture.startsWith('http') ? user.profile_picture : `${base}${user.profile_picture.startsWith('/') ? '' : '/'}${user.profile_picture}`;
+      const photoUrl = normalizePhotoUrl(user.profile_picture);
       return <img className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
     }
     const letter = user?.first_name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?';

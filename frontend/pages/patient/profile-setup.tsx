@@ -101,15 +101,34 @@ export default function PatientProfileSetupPage() {
     if (!data.emergency_contact_street) data.emergency_contact_street = '';
   };
 
+  const getApiBase = () => {
+    const rawBase = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && rawBase.startsWith('http://')) {
+      return rawBase.replace('http://', 'https://');
+    }
+    return rawBase;
+  };
+
+  const normalizePhotoUrl = (photoUrl: string) => {
+    let url = photoUrl;
+    if (!url) return url;
+
+    if (!url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      const base = getApiBase();
+      url = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+    }
+
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+      url = url.replace('http://', 'https://');
+    }
+
+    return url;
+  };
+
   const applyPhotoPreview = (data: any) => {
     if (!data || !data.photo || typeof data.photo !== 'string' || data.photo.length === 0) return;
 
-    const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-    let fullPhotoUrl = data.photo;
-
-    if (!fullPhotoUrl.startsWith('http') && !fullPhotoUrl.startsWith('blob:') && !fullPhotoUrl.startsWith('data:')) {
-      fullPhotoUrl = `${base}${fullPhotoUrl.startsWith('/') ? '' : '/'}${fullPhotoUrl}`;
-    }
+    let fullPhotoUrl = normalizePhotoUrl(data.photo);
 
     const separator = fullPhotoUrl.includes('?') ? '&' : '?';
     fullPhotoUrl = `${fullPhotoUrl}${separator}t=${Date.now()}`;
@@ -2756,12 +2775,7 @@ export default function PatientProfileSetupPage() {
                   ) : (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0 && profile.photo !== 'null' && profile.photo !== 'undefined') ? (
                     <div className="relative w-full h-full">
                       <img 
-                        src={(() => {
-                          const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-                          return profile.photo.startsWith('http') || profile.photo.startsWith('blob:') || profile.photo.startsWith('data:') 
-                            ? profile.photo 
-                            : `${base}${profile.photo.startsWith('/') ? '' : '/'}${profile.photo}`;
-                        })()}
+                        src={normalizePhotoUrl(profile.photo)}
                         alt="Current Photo" 
                         className="object-cover w-full h-full rounded-md" 
                         key={profile.photo} 
