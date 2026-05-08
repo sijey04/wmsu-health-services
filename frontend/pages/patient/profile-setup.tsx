@@ -4269,7 +4269,7 @@ export default function PatientProfileSetupPage() {
               <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                   <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
-                  Women's Health
+                  Women&apos;s Health
                 </h3>
                 <p className="text-sm text-gray-700 mb-4">Please provide information about your menstrual and obstetric history:</p>
                 

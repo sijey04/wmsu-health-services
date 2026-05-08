@@ -421,7 +421,7 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
             {/* Women's Health Section */}
             {formData.gender === 'Female' && (
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Women's Health</h3>
+                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Women&apos;s Health</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField label="Menstruation Age Began" field="menstruation_age_began" type="number" />
                   <div className="flex space-x-4 items-center h-full pt-6">
