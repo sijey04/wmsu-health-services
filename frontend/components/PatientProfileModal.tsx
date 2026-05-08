@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserCircleIcon, AcademicCapIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
-import { waiversAPI, dentalFormAPI } from '../utils/api';
+import { waiversAPI, dentalInformationRecordsAPI } from '../utils/api';
 import { exportPatientProfilePDF, exportWaiverPDF, exportDentalPatientRecordPDF } from '../utils/reportExport';
 
 interface Patient {
@@ -144,18 +144,37 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     
     setLoadingDental(true);
     try {
-      // Find dental records matching this patient
-      const response = await dentalFormAPI.getAll();
+      const response = await dentalInformationRecordsAPI.getAll();
       const records = Array.isArray(response.data) ? response.data : (response.data?.results || []);
-      const patientRecord = records.find((r: any) => r.patient === patient.id);
-      setDentalRecord(patientRecord || null);
+
+      const userProfiles = allPatientProfiles.length > 0
+        ? allPatientProfiles.filter((profile) => String(profile.user) === String(patient.user))
+        : [patient];
+
+      const patientIds = Array.from(
+        new Set(
+          userProfiles
+            .map((profile) => profile.id)
+            .filter((id): id is number => typeof id === 'number')
+        )
+      );
+
+      const matchingRecords = records.filter((record: any) => patientIds.includes(record.patient));
+      const latestRecord = matchingRecords
+        .sort((a: any, b: any) => {
+          const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+          const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+          return timeB - timeA;
+        })[0];
+
+      setDentalRecord(latestRecord || null);
     } catch (error) {
       console.error('Failed to fetch dental record:', error);
       setDentalRecord(null);
     } finally {
       setLoadingDental(false);
     }
-  }, [patient?.id]);
+  }, [patient?.id, patient?.user, allPatientProfiles]);
 
   React.useEffect(() => {
     if (open && patient) {

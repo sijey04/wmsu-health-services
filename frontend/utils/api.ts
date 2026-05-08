@@ -151,6 +151,18 @@ export const dentalFormAPI = {
   checkFormExists: (appointmentId: string | number) => djangoApiClient.get('/dental-forms/', { params: { appointment_id: appointmentId } }),
 };
 
+export const dentalInformationRecordsAPI = {
+  getAll: (params?: any) =>
+    djangoApiClient.get('/dental-information-records/', {
+      headers: { ...getAuthHeaders() },
+      params,
+    }),
+  getById: (id: string | number) =>
+    djangoApiClient.get(`/dental-information-records/${id}/`, {
+      headers: { ...getAuthHeaders() },
+    }),
+};
+
 export const medicalFormAPI = {
   getData: (appointmentId: string) => djangoApiClient.get(`/medical-forms/get_patient_data/?appointment_id=${appointmentId}`),
   getDataByPatientId: (patientId: string | number) => djangoApiClient.get(`/medical-forms/get_patient_data/?patient_id=${patientId}`),
