@@ -131,6 +131,22 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   const [dentalRecord, setDentalRecord] = React.useState<any>(null);
   const [loadingDental, setLoadingDental] = React.useState(false);
 
+  const profileMatchesPatient = React.useCallback((profile: Patient) => {
+    const patientStudentId = patient?.student_id;
+    const profileStudentId = profile?.student_id;
+    if (patientStudentId && profileStudentId && String(profileStudentId) === String(patientStudentId)) {
+      return true;
+    }
+
+    const patientUserId = patient?.user;
+    const profileUserId = profile?.user;
+    if (patientUserId && profileUserId && String(profileUserId) === String(patientUserId)) {
+      return true;
+    }
+
+    return false;
+  }, [patient?.student_id, patient?.user]);
+
   const fetchWaiver = React.useCallback(async () => {
     if (!patient?.user) return;
     
@@ -227,10 +243,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     console.log('All Patient Profiles count:', allPatientProfiles.length);
     
     if (open && patient && allPatientProfiles.length > 0) {
-      // Use string comparison to handle both string and number user IDs
-      const userProfiles = allPatientProfiles.filter(profile => 
-        String(profile.user) === String(patient.user)
-      );
+      const matchingProfiles = allPatientProfiles.filter(profileMatchesPatient);
+      const userProfiles = matchingProfiles.length > 0 ? matchingProfiles : allPatientProfiles;
       
       console.log('Filtered User Profiles:', userProfiles);
       console.log('Filtered User Profiles count:', userProfiles.length);
@@ -257,7 +271,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       fetchWaiver();
     }
     console.log('=== End PatientProfileModal Debug ===');
-  }, [open, patient, allPatientProfiles, fetchWaiver]);
+  }, [open, patient, allPatientProfiles, fetchWaiver, profileMatchesPatient]);
 
   // Filter and sort profiles - must be before early return to avoid conditional hook calls
   const sortedProfiles = React.useMemo(() => {
@@ -266,18 +280,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     console.log('patient?.user type:', typeof patient?.user);
     console.log('allPatientProfiles.length:', allPatientProfiles.length);
     
-    if (!patient?.user || !allPatientProfiles.length) {
-      console.log('Returning empty array - no patient user or no profiles');
+    if (!patient || !allPatientProfiles.length) {
+      console.log('Returning empty array - no patient or no profiles');
       return [];
     }
-    
-    // Filter profiles to only show those belonging to the current patient's user account
-    // Use loose equality to handle both string and number types
-    const userProfiles = allPatientProfiles.filter(profile => {
-      const matches = String(profile.user) === String(patient.user);
-      console.log(`Profile ${profile.id} user: ${profile.user} (${typeof profile.user}), patient user: ${patient.user} (${typeof patient.user}), matches: ${matches}`);
-      return matches;
-    });
+
+    const matchingProfiles = allPatientProfiles.filter(profileMatchesPatient);
+    const userProfiles = matchingProfiles.length > 0 ? matchingProfiles : allPatientProfiles;
     
     console.log('User Profiles (filtered):', userProfiles);
     console.log('User Profiles count:', userProfiles.length);
@@ -294,7 +303,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     console.log('=== End sortedProfiles Debug ===');
     
     return sorted;
-  }, [patient?.user, allPatientProfiles]);
+  }, [patient, allPatientProfiles, profileMatchesPatient]);
 
   if (!open || !patient) return null;
 
