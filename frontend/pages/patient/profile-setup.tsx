@@ -137,6 +137,30 @@ export default function PatientProfileSetupPage() {
     setPhotoPreview(fullPhotoUrl);
   };
 
+  const getFlowOption = () => {
+    if (typeof option === 'string') return option;
+    if (Array.isArray(option) && option.length > 0) return option[0];
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('appointment_option') || '';
+    }
+    return '';
+  };
+
+  const redirectAfterCompletion = () => {
+    const flowOption = getFlowOption();
+    if (!flowOption) return;
+
+    const query = { ...router.query, option: flowOption };
+
+    if (flowOption === 'Book Dental Consultation') {
+      router.push({ pathname: '/patient/dental-information-record', query });
+    } else if (flowOption === 'Book Medical Consultation') {
+      router.push({ pathname: '/appointments/medical', query });
+    } else if (flowOption === 'Request Medical Certificate') {
+      router.push({ pathname: '/patient/upload-documents', query });
+    }
+  };
+
   // Medical lists state
   const [comorbidIllnesses, setComorbidIllnesses] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
@@ -2220,6 +2244,7 @@ export default function PatientProfileSetupPage() {
           // Stay on profile setup page as requested by user
           setSuccess(true);
           setFeedbackOpen(true);
+          redirectAfterCompletion();
         }
       }
     } catch (err) {
@@ -5495,6 +5520,7 @@ export default function PatientProfileSetupPage() {
         // Stay on profile setup page as requested by user
         setSuccess(true);
         setFeedbackOpen(true);
+        redirectAfterCompletion();
       }
     }
   };
