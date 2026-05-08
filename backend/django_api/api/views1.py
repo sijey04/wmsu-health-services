@@ -415,6 +415,22 @@ class DentalInformationRecordViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(school_year_id=int(school_year_param))
             except (ValueError, TypeError):
                 pass
+
+        # Filter by patient profile if specified
+        patient_param = self.request.query_params.get('patient')
+        if patient_param:
+            try:
+                queryset = queryset.filter(patient_id=int(patient_param))
+            except (ValueError, TypeError):
+                pass
+
+        # Filter by patient user if specified
+        patient_user_param = self.request.query_params.get('patient_user') or self.request.query_params.get('user_id')
+        if patient_user_param:
+            try:
+                queryset = queryset.filter(patient__user_id=int(patient_user_param))
+            except (ValueError, TypeError):
+                pass
         
         # Filter by semester if specified
         semester_param = self.request.query_params.get('semester')

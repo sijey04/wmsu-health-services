@@ -993,11 +993,13 @@ class DentalInformationRecordSerializer(serializers.ModelSerializer):
     """Serializer for dental patient information records"""
     school_year_display = serializers.CharField(source='school_year.academic_year', read_only=True)
     semester_display = serializers.CharField(source='get_semester_display', read_only=True)
+    patient_user_id = serializers.IntegerField(source='patient.user.id', read_only=True)
+    patient_student_id = serializers.CharField(source='patient.student_id', read_only=True)
     
     class Meta:
         model = DentalInformationRecord
         fields = [
-            'id', 'patient', 'school_year', 'school_year_display', 'semester', 'semester_display',
+            'id', 'patient', 'patient_user_id', 'patient_student_id', 'school_year', 'school_year_display', 'semester', 'semester_display',
             'patient_name', 'year_section', 'date',
             'name_of_previous_dentist', 'last_dental_visit', 'date_of_last_cleaning',
             'has_family_dentist', 'family_dentist_name', 'family_dentist_address', 'family_dentist_phone',

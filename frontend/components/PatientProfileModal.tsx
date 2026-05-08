@@ -144,22 +144,51 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     
     setLoadingDental(true);
     try {
-      const response = await dentalInformationRecordsAPI.getAll();
+      const params: any = {};
+      if (patient?.user) {
+        params.patient_user = patient.user;
+      }
+      const response = await dentalInformationRecordsAPI.getAll(params);
       const records = Array.isArray(response.data) ? response.data : (response.data?.results || []);
 
-      const userProfiles = allPatientProfiles.length > 0
-        ? allPatientProfiles.filter((profile) => String(profile.user) === String(patient.user))
-        : [patient];
+      let matchingRecords = records;
+      if (patient?.user) {
+        matchingRecords = records.filter((record: any) => {
+          if (record?.patient_user_id !== undefined && record?.patient_user_id !== null) {
+            return String(record.patient_user_id) === String(patient.user);
+          }
+          return false;
+        });
+      }
 
-      const patientIds = Array.from(
-        new Set(
+      if (matchingRecords.length === 0 && records.length > 0) {
+        const userProfiles = allPatientProfiles.length > 0
+          ? (patient?.user
+            ? allPatientProfiles.filter((profile) => String(profile.user) === String(patient.user))
+            : allPatientProfiles)
+          : [patient];
+
+        const patientIds = new Set(
           userProfiles
             .map((profile) => profile.id)
             .filter((id): id is number => typeof id === 'number')
-        )
-      );
+        );
 
-      const matchingRecords = records.filter((record: any) => patientIds.includes(record.patient));
+        const normalizePatientId = (value: any) => {
+          if (value === undefined || value === null) return null;
+          if (typeof value === 'object' && value.id !== undefined && value.id !== null) {
+            return Number(value.id);
+          }
+          const parsed = Number(value);
+          return Number.isNaN(parsed) ? null : parsed;
+        };
+
+        matchingRecords = records.filter((record: any) => {
+          const recordPatientId = normalizePatientId(record.patient);
+          return recordPatientId !== null && patientIds.has(recordPatientId);
+        });
+      }
+
       const latestRecord = matchingRecords
         .sort((a: any, b: any) => {
           const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
