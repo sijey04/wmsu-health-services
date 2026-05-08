@@ -2605,6 +2605,47 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
       loadLogo('/WMSU-HealthLogo.png')
     ]);
 
+    const clean = (value: any) => {
+      if (value === undefined || value === null) return '';
+      const s = String(value).trim().toLowerCase();
+      if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return '';
+      return String(value).trim();
+    };
+
+    const resolveText = (...values: any[]) => {
+      for (const value of values) {
+        const cleaned = clean(value);
+        if (cleaned) return cleaned;
+      }
+      return 'N/A';
+    };
+
+    const yesNo = (value: any) => {
+      if (value === true || value === 1 || value === '1' || value === 'true') return 'Yes';
+      if (value === false || value === 0 || value === '0' || value === 'false') return 'No';
+      return 'N/A';
+    };
+
+    const formatDate = (value: any) => {
+      if (!value) return 'N/A';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return 'N/A';
+      return parsed.toLocaleDateString('en-US');
+    };
+
+    const formatSemester = (schoolYear: any) => {
+      if (!schoolYear) return 'N/A';
+      const semMap: Record<string, string> = {
+        '1st_semester': '1st',
+        '2nd_semester': '2nd',
+        'summer': 'Summer',
+      };
+      const semRaw = schoolYear.semester_type || '';
+      const sem = semMap[semRaw] || semRaw;
+      const currentLabel = schoolYear.is_current ? ' (Current)' : '';
+      return `${schoolYear.academic_year || 'N/A'}${sem ? ` - ${sem}` : ''}${currentLabel}`;
+    };
+
     // Header
     if (wmsuLogo) doc.addImage(wmsuLogo, 'PNG', 20, 15, 20, 20);
     if (healthLogo) doc.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
@@ -2659,7 +2700,13 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     }
 
     // Personal Information Table
-    const fullName = patient.name || `${patient.first_name || ''} ${patient.middle_name || ''} ${patient.last_name || ''}`.trim() || 'Unknown Patient';
+    const fullName = resolveText(
+      patient.name,
+      `${patient.first_name || ''} ${patient.middle_name || ''} ${patient.last_name || ''}`.trim()
+    );
+    const religionValue = patient.religion === 'Other'
+      ? resolveText(patient.religion_specify)
+      : resolveText(patient.religion);
 
     autoTable(doc, {
       startY: 65,
@@ -2668,19 +2715,27 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
       head: [['PERSONAL INFORMATION', '']],
       body: [
         ['Name:', fullName],
-        ['Sex:', patient.gender || 'N/A'],
+        ['Sex:', resolveText(patient.gender)],
         ['Age:', patient.age?.toString() || 'N/A'],
-        ['Course/Dept:', patient.department || 'N/A'],
-        ['Birthday:', patient.date_of_birth || 'N/A'],
-        ['Civil Status:', patient.civil_status || 'N/A'],
-        ['Nationality:', patient.nationality === 'Foreigner' ? `Foreigner (${patient.nationality_specify})` : (patient.nationality || 'N/A')],
-        ['Email:', patient.email || 'N/A'],
-        ['Contact #:', patient.contact_number || 'N/A']
+        ['Year Level:', resolveText(patient.year_level, patient.grade_level)],
+        ['Religion:', religionValue],
+        ['Course:', resolveText(patient.course, patient.department)],
+        ['Civil Status:', resolveText(patient.civil_status)],
+        ['Birthday:', formatDate(patient.date_of_birth)],
+        ['Nationality:', patient.nationality === 'Foreigner'
+          ? `Foreigner (${resolveText(patient.nationality_specify)})`
+          : resolveText(patient.nationality)
+        ],
+        ['Email:', resolveText(patient.email)],
+        ['Contact #:', resolveText(patient.contact_number)],
+        ['City/Municipality:', resolveText(patient.city_municipality)],
+        ['Barangay:', resolveText(patient.barangay)],
+        ['Street:', resolveText(patient.street)]
       ],
       theme: 'grid',
       headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
-      styles: { fontSize: 8, cellPadding: 1.5 },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 30 } }
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 35 } }
     });
 
     let currentY = (doc as any).lastAutoTable?.finalY || 150;
@@ -2689,31 +2744,34 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     autoTable(doc, {
       startY: currentY,
       margin: { left: 20 },
-      head: [['EMERGENCY CONTACT INFORMATION', '']],
+      head: [['EMERGENCY CONTACT', ''] ],
       body: [
-        ['Contact Person:', `${patient.emergency_contact_first_name || ''} ${patient.emergency_contact_surname || ''}`.trim() || 'N/A'],
-        ['Relationship:', patient.emergency_contact_relationship || 'N/A'],
-        ['Contact Number:', patient.emergency_contact_number || 'N/A'],
-        ['Address:', `${patient.emergency_contact_street || ''} ${patient.emergency_contact_barangay || ''}`.trim() || 'N/A']
+        ['Name:', resolveText(
+          `${patient.emergency_contact_first_name || ''} ${patient.emergency_contact_middle_name || ''} ${patient.emergency_contact_surname || ''}`.trim()
+        )],
+        ['Contact #:', resolveText(patient.emergency_contact_number)],
+        ['Relationship:', resolveText(patient.emergency_contact_relationship)],
+        ['Barangay:', resolveText(patient.emergency_contact_barangay)],
+        ['Street:', resolveText(patient.emergency_contact_street)],
+        ['Address:', resolveText(patient.emergency_contact_address)]
       ],
       theme: 'grid',
       headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
-      styles: { fontSize: 8, cellPadding: 1.5 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 } }
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
 
-    // Health Info & Medical History
     const cleanArrayData = (data: any[]) => {
       if (!data || !Array.isArray(data)) return 'None reported';
-      return data.map(item => typeof item === 'string' ? item : (item.name || item.condition || 'Unknown')).join(', ') || 'None reported';
+      return data.map(item => typeof item === 'string' ? item : (item.name || item.condition || item.illness || 'Unknown'))
+        .filter(Boolean)
+        .join(', ') || 'None reported';
     };
 
-    // Helper to format vaccination history
     const formatVaccinationHistory = (history: any) => {
       if (!history || typeof history !== 'object' || Object.keys(history).length === 0) return 'None recorded';
-      
       const labels: Record<string, string> = {
         'fully_vaccinated': 'Fully Vaccinated',
         'partially_vaccinated': 'Partially Vaccinated',
@@ -2721,44 +2779,131 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
         'boosted': 'Boosted',
         'lapsed': 'Lapsed'
       };
-
       return Object.entries(history)
         .map(([name, status]) => `${name}: ${labels[status as string] || status}`)
+        .join(', ');
+    };
+
+    const formatVaccinationRecords = (history: any) => {
+      if (!history || typeof history !== 'object' || Object.keys(history).length === 0) return 'None recorded';
+      const labels: Record<string, string> = {
+        'fully_vaccinated': 'Fully Vaccinated',
+        'partially_vaccinated': 'Partially Vaccinated',
+        'unvaccinated': 'Unvaccinated',
+        'boosted': 'Boosted',
+        'lapsed': 'Lapsed'
+      };
+      return Object.entries(history)
+        .map(([name, status]) => `${name} - ${labels[status as string] || status}`)
         .join('\n');
     };
 
-    // Helper to format maintenance medications
     const formatMedications = (meds: any[]) => {
       if (!meds || !Array.isArray(meds) || meds.length === 0) return 'None reported';
-      
       return meds.map((med, idx) => {
-        const drug = med.custom_drug || med.drug || med.drug_type || 'Unknown Drug';
-        const dose = med.dose || '';
+        const drug = med.custom_drug || med.drug || med.drug_type || med.name || 'Unknown Drug';
+        const dose = med.dose || med.dosage || '';
         const unit = med.unit || '';
         const freq = med.custom_frequency || med.frequency || med.frequency_type || '';
         const dur = med.custom_duration || med.duration || med.duration_type || '';
-        
-        return `${idx + 1}. ${drug} ${dose}${unit}${freq ? ` • ${freq}` : ''}${dur ? ` • ${dur}` : ''}`;
+        return `${idx + 1}. ${drug} ${dose}${unit}${freq ? ` - ${freq}` : ''}${dur ? ` (${dur})` : ''}`.trim();
       }).join('\n');
     };
 
     autoTable(doc, {
       startY: currentY,
       margin: { left: 20 },
-      head: [['HEALTH INFORMATION & HISTORY', 'DETAILS']],
+      head: [['HEALTH INFO', ''] ],
       body: [
-        ['Blood Type:', patient.blood_type || 'N/A'],
-        ['Allergies:', patient.allergies || 'None reported'],
-        ['Comorbid Illnesses:', cleanArrayData(patient.comorbid_illnesses)],
-        ['Past Medical History:', cleanArrayData(patient.past_medical_history)],
-        ['Family Medical History:', cleanArrayData(patient.family_medical_history)],
-        ['Vaccination Status:', formatVaccinationHistory(patient.vaccination_history)],
-        ['Maintenance Meds:', formatMedications(patient.maintenance_medications)]
+        ['Blood Type:', resolveText(patient.blood_type)],
+        ['Allergies:', resolveText(patient.allergies, 'None reported')],
+        ['Vaccination History:', formatVaccinationHistory(patient.vaccination_history)]
       ],
       theme: 'grid',
       headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
       styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 40 }, 1: { cellWidth: 'auto' } }
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 'auto' } }
+    });
+
+    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['RECORD INFO', ''] ],
+      body: [
+        ['Student ID:', resolveText(patient.student_id, patient.employee_id)],
+        ['Profile Created:', formatDate(patient.created_at)],
+        ['Last Updated:', formatDate(patient.updated_at)],
+        ['Semester:', formatSemester(patient.school_year)]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 'auto' } }
+    });
+
+    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['COMORBID ILLNESSES', ''] ],
+      body: [
+        ['Reported Conditions:', cleanArrayData(patient.comorbid_illnesses)]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 'auto' } }
+    });
+
+    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['MEDICATIONS', ''] ],
+      body: [
+        ['Maintenance Medications:', formatMedications(patient.maintenance_medications)]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 'auto' } }
+    });
+
+    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['VACCINATION HISTORY', ''] ],
+      body: [
+        ['Vaccination Records:', formatVaccinationRecords(patient.vaccination_history)]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 45 }, 1: { cellWidth: 'auto' } }
+    });
+
+    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['MEDICAL HISTORY', ''] ],
+      body: [
+        ['Past Medical History:', cleanArrayData(patient.past_medical_history)],
+        ['Family Medical History:', cleanArrayData(patient.family_medical_history)],
+        ['Hospital Admission/Surgery:', yesNo(patient.hospital_admission_or_surgery)],
+        ['Hospital Details:', resolveText(patient.hospital_admission_details)]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 }, 1: { cellWidth: 'auto' } }
     });
 
     doc.save(`Profile_${fullName.replace(/\s+/g, '_')}.pdf`);
@@ -2873,55 +3018,187 @@ export const exportDentalPatientRecordPDF = async (record: any, patient: any): P
     doc.setFont('helvetica', 'bold');
     doc.text('DENTAL PATIENT INFORMATION RECORD', pageWidth / 2, 48.5, { align: 'center' });
 
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PATIENT DETAILS', 20, 60);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`Name: ${patient.name || `${patient.first_name} ${patient.last_name}`}`, 20, 67);
-    doc.text(`Student/Employee ID: ${patient.student_id || patient.employee_id || 'N/A'}`, 20, 72);
-    doc.text(`Course/Department: ${patient.course || patient.department || 'N/A'}`, 20, 77);
-    doc.text(`Date of Record: ${new Date(record.created_at).toLocaleDateString()}`, 120, 67);
+    const clean = (value: any) => {
+      if (value === undefined || value === null) return '';
+      const s = String(value).trim().toLowerCase();
+      if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return '';
+      return String(value).trim();
+    };
 
-    doc.setDrawColor(230, 230, 230);
-    doc.line(20, 82, 190, 82);
+    const resolveText = (...values: any[]) => {
+      for (const value of values) {
+        const cleaned = clean(value);
+        if (cleaned) return cleaned;
+      }
+      return 'N/A';
+    };
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('CLINICAL FINDINGS', 20, 90);
-    
-    autoTable(doc, {
-      startY: 95,
-      margin: { left: 20, right: 20 },
-      theme: 'grid',
-      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
-      styles: { fontSize: 8, cellPadding: 2 },
-      body: [
-        ['Chief Concern', record.chief_concern || 'None reported'],
-        ['History of Present Illness', record.history_of_present_illness || 'None reported'],
-        ['Extraoral Examination', record.extraoral_examination || 'None reported'],
-        ['Intraoral Examination', record.intraoral_examination || 'None reported']
-      ],
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
-    });
+    const isTrue = (value: any) => value === true || value === 1 || value === '1' || value === 'true';
+    const isFalse = (value: any) => value === false || value === 0 || value === '0' || value === 'false';
+    const yesNo = (value: any) => (isTrue(value) ? 'Yes' : isFalse(value) ? 'No' : 'N/A');
 
-    const finalY = (doc as any).lastAutoTable.finalY || 130;
+    const formatDate = (value: any) => {
+      if (!value) return 'N/A';
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) return 'N/A';
+      return parsed.toLocaleDateString('en-US');
+    };
 
-    doc.setFont('helvetica', 'bold');
-    doc.text('DIAGNOSIS & TREATMENT PLAN', 20, finalY + 15);
+    const listTrueFlags = (items: Array<{ key: string; label: string }>) => {
+      const matches = items.filter((item) => isTrue(record[item.key])).map((item) => item.label);
+      return matches.length > 0 ? matches.join(', ') : 'None reported';
+    };
 
-    autoTable(doc, {
-      startY: finalY + 20,
-      margin: { left: 20, right: 20 },
-      theme: 'grid',
-      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
-      styles: { fontSize: 8, cellPadding: 2 },
-      body: [
-        ['Diagnosis', record.diagnosis_dental || 'None specified'],
-        ['Treatment Plan', record.treatment_plan_dental || 'None specified']
-      ],
-      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
-    });
+    const resolvedSexValue = resolveText(record.sex, patient.gender);
+    const isWomanValue = record.is_woman !== undefined && record.is_woman !== null
+      ? isTrue(record.is_woman)
+      : resolvedSexValue.toLowerCase() === 'female';
+
+    const addSection = (title: string, body: Array<[string, string]>, startY: number) => {
+      autoTable(doc, {
+        startY,
+        margin: { left: 20, right: 20 },
+        head: [[title, '']],
+        body,
+        theme: 'grid',
+        headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+        styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 }, 1: { cellWidth: 'auto' } }
+      });
+      return (doc as any).lastAutoTable?.finalY || startY;
+    };
+
+    let currentY = 60;
+    const patientName = resolveText(record.patient_name, patient.name, `${patient.first_name || ''} ${patient.last_name || ''}`.trim());
+
+    currentY = addSection('PATIENT DETAILS', [
+      ['Patient Name:', patientName],
+      ['Age:', record.age ?? patient.age ?? 'N/A'],
+      ['Sex:', resolvedSexValue],
+      ['Education Level:', resolveText(record.education_level, patient.user_type)],
+      ['Year Level:', resolveText(record.year_level, patient.year_level, patient.grade_level)],
+      ['Course:', resolveText(record.course, patient.course, patient.department)],
+      ['Year/Section:', resolveText(record.year_section, patient.year_level, patient.strand, patient.grade_level)],
+      ['Date:', formatDate(record.date || record.created_at)]
+    ], currentY);
+    currentY += 6;
+
+    currentY = addSection('DENTAL HISTORY', [
+      ['Previous Dentist:', resolveText(record.name_of_previous_dentist)],
+      ['Last Dental Visit:', resolveText(record.last_dental_visit)],
+      ['Last Cleaning:', resolveText(record.date_of_last_cleaning)]
+    ], currentY);
+    currentY += 6;
+
+    currentY = addSection('FAMILY DENTIST', [
+      ['Has Family Dentist:', yesNo(record.has_family_dentist)],
+      ['Name:', resolveText(record.family_dentist_name)],
+      ['Address:', resolveText(record.family_dentist_address)],
+      ['Phone:', resolveText(record.family_dentist_phone)]
+    ], currentY);
+    currentY += 6;
+
+    currentY = addSection('MEDICAL HISTORY', [
+      ['Oral Hygiene Instructions:', yesNo(record.oral_hygiene_instructions)],
+      ['Gums Bleed Brushing:', yesNo(record.gums_bleed_brushing)],
+      ['Sensitive to Hot/Cold:', yesNo(record.teeth_sensitive_hot_cold)],
+      ['Pain in Teeth:', yesNo(record.feel_pain_teeth)],
+      ['Difficult Extractions:', yesNo(record.difficult_extractions_past)],
+      ['Orthodontic Treatment:', yesNo(record.orthodontic_treatment)],
+      ['Prolonged Bleeding:', yesNo(record.prolonged_bleeding_extractions)],
+      ['Frequent Headaches:', yesNo(record.frequent_headaches)],
+      ['Clench/Grind Teeth:', yesNo(record.clench_grind_teeth)]
+    ], currentY);
+    currentY += 6;
+
+    const allergyList = listTrueFlags([
+      { key: 'allergic_penicillin', label: 'Penicillin' },
+      { key: 'allergic_amoxicillin', label: 'Amoxicillin' },
+      { key: 'allergic_local_anesthetic', label: 'Local Anesthetic' },
+      { key: 'allergic_sulfa_drugs', label: 'Sulfa Drugs' },
+      { key: 'allergic_latex', label: 'Latex' }
+    ]);
+    const allergyDetails = record.allergic_others
+      ? `${allergyList}, Other: ${record.allergic_others}`
+      : allergyList;
+
+    currentY = addSection('ALLERGIES', [
+      ['Allergic to:', allergyDetails]
+    ], currentY);
+    currentY += 6;
+
+    const menstruationValue = isWomanValue ? yesNo(record.menstruation_today) : 'N/A';
+    const pregnantValue = isWomanValue ? yesNo(record.pregnant) : 'N/A';
+    const birthControlValue = isWomanValue ? yesNo(record.taking_birth_control) : 'N/A';
+
+    currentY = addSection('WOMEN ONLY', [
+      ['Is Woman:', yesNo(isWomanValue)],
+      ['Menstruation Today:', menstruationValue],
+      ['Pregnant:', pregnantValue],
+      ['Taking Birth Control:', birthControlValue]
+    ], currentY);
+    currentY += 6;
+
+    currentY = addSection('MEDICAL TREATMENT', [
+      ['Smoke:', yesNo(record.smoke)],
+      ['Under Medical Treatment:', yesNo(record.under_medical_treatment)],
+      ['Condition:', resolveText(record.medical_treatment_condition)],
+      ['Hospitalized:', yesNo(record.hospitalized)],
+      ['When/Why:', resolveText(record.hospitalization_when_why)],
+      ['Taking Prescription Meds:', yesNo(record.taking_prescription_medication)],
+      ['Prescription Details:', resolveText(record.prescription_medication_details)]
+    ], currentY);
+    currentY += 6;
+
+    const conditionsList = listTrueFlags([
+      { key: 'high_blood_pressure', label: 'High Blood Pressure' },
+      { key: 'low_blood_pressure', label: 'Low Blood Pressure' },
+      { key: 'epilepsy_convulsions', label: 'Epilepsy/Convulsions' },
+      { key: 'aids_hiv_positive', label: 'AIDS/HIV' },
+      { key: 'sexually_transmitted_disease', label: 'STD' },
+      { key: 'stomach_trouble_ulcers', label: 'Stomach Trouble/Ulcers' },
+      { key: 'fainting_seizure', label: 'Fainting/Seizure' },
+      { key: 'rapid_weight_loss', label: 'Rapid Weight Loss' },
+      { key: 'radiation_therapy', label: 'Radiation Therapy' },
+      { key: 'joint_replacement_implant', label: 'Joint Replacement/Implant' },
+      { key: 'heart_surgery', label: 'Heart Surgery' },
+      { key: 'heart_attack', label: 'Heart Attack' },
+      { key: 'thyroid_problem', label: 'Thyroid Problem' },
+      { key: 'heart_disease', label: 'Heart Disease' },
+      { key: 'heart_murmur', label: 'Heart Murmur' },
+      { key: 'hepatitis_liver_disease', label: 'Hepatitis/Liver Disease' },
+      { key: 'rheumatic_fever', label: 'Rheumatic Fever' },
+      { key: 'hay_fever_allergies', label: 'Hay Fever/Allergies' },
+      { key: 'respiratory_problems', label: 'Respiratory Problems' },
+      { key: 'hepatitis_jaundice', label: 'Hepatitis/Jaundice' },
+      { key: 'tuberculosis', label: 'Tuberculosis' },
+      { key: 'swollen_ankles', label: 'Swollen Ankles' },
+      { key: 'kidney_disease', label: 'Kidney Disease' },
+      { key: 'diabetes', label: 'Diabetes' },
+      { key: 'chest_pain', label: 'Chest Pain' },
+      { key: 'stroke', label: 'Stroke' },
+      { key: 'cancer_tumors', label: 'Cancer/Tumors' },
+      { key: 'anemia', label: 'Anemia' },
+      { key: 'angina', label: 'Angina' },
+      { key: 'asthma', label: 'Asthma' },
+      { key: 'emphysema', label: 'Emphysema' },
+      { key: 'blood_diseases', label: 'Blood Diseases' },
+      { key: 'head_injuries', label: 'Head Injuries' },
+      { key: 'arthritis_rheumatism', label: 'Arthritis/Rheumatism' }
+    ]);
+    const conditionsDetails = record.other_conditions
+      ? `${conditionsList}, Other: ${record.other_conditions}`
+      : conditionsList;
+
+    currentY = addSection('MEDICAL CONDITIONS', [
+      ['Reported Conditions:', conditionsDetails]
+    ], currentY);
+    currentY += 6;
+
+    addSection('SIGNATURE', [
+      ['Patient Signature:', resolveText(record.patient_signature)],
+      ['Signature Date:', formatDate(record.signature_date)]
+    ], currentY);
 
     doc.save(`Dental_Record_${patient.student_id || patient.id}.pdf`);
   } catch (error) {
