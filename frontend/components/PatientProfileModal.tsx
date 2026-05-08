@@ -1,8 +1,6 @@
 import React from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { waiversAPI } from '../utils/api';
-import WmsuLogo from './WMSU-Logo.jpg';
-import HealthLogo from './WMSU-HealthLogo.png';
 import Image from 'next/image';
 
 interface Patient {
@@ -119,7 +117,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   onClose 
 }) => {
   const [selectedProfile, setSelectedProfile] = React.useState<Patient | null>(null);
-  const [activeTab, setActiveTab] = React.useState<'current' | 'history' | 'waiver'>('current');
+  const [activeTab, setActiveTab] = React.useState<'current' | 'history' | 'waiver' | 'dental'>('current');
   const [waiver, setWaiver] = React.useState<Waiver | null>(null);
   const [loadingWaiver, setLoadingWaiver] = React.useState(false);
 
@@ -865,7 +863,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
           <div className="flex items-center gap-4 sm:gap-6 print:w-full print:justify-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative">
               <Image 
-                src={WmsuLogo} 
+                src="/WMSU-Logo.jpg" 
                 alt="WMSU Logo" 
                 width={80} 
                 height={80} 
@@ -880,7 +878,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             </div>
             <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative">
               <Image 
-                src={HealthLogo} 
+                src="/WMSU-HealthLogo.png" 
                 alt="Health Services Logo" 
                 width={80} 
                 height={80} 
@@ -916,7 +914,9 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 
       {/* Form Title */}
       <div className="bg-[#8B0000] text-white text-center py-3 text-base font-bold flex-shrink-0">
-        PATIENT HEALTH PROFILE & CONSULTATIONS RECORD
+        {activeTab === 'dental' ? 'DENTAL PATIENT INFORMATION RECORD' : 
+         activeTab === 'waiver' ? 'WAIVER AND CONSENT FORM' : 
+         'PATIENT HEALTH PROFILE & CONSULTATIONS RECORD'}
         {displayedProfile.school_year && (
           <span className="ml-4 text-sm opacity-90">
             {displayedProfile.school_year.academic_year}
@@ -961,6 +961,16 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               onClick={() => setActiveTab('waiver')}
             >
               Waiver {waiver && '✓'}
+            </button>
+            <button
+              className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                activeTab === 'dental' 
+                  ? 'border-[#8B0000] text-[#8B0000]' 
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+              onClick={() => setActiveTab('dental')}
+            >
+              Dental Information
             </button>
           </div>
         </div>
@@ -1081,6 +1091,21 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                   <p className="text-gray-500 text-sm">This patient has not yet signed a waiver for health information collection.</p>
                 </div>
               )}
+            </div>
+          ) : activeTab === 'dental' ? (
+            <div className="bg-white rounded-lg shadow-lg p-6 print:shadow-none">
+              <div className="flex justify-between items-center mb-6 print:hidden">
+                <h2 className="text-lg font-bold text-[#8B0000]">Dental Patient Information Record</h2>
+              </div>
+              <div className="text-center py-12">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
+                  <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Records Found</h3>
+                <p className="text-gray-500 text-sm">There are currently no dental patient information records for this patient.</p>
+              </div>
             </div>
           ) : (
             <div className="space-y-6">

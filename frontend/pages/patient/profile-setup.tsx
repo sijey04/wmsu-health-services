@@ -138,8 +138,8 @@ export default function PatientProfileSetupPage() {
     return configField ? configField.description : null;
   };
 
-  // Convert image to AVIF format to save storage
-  const convertImageToAVIF = async (file: File): Promise<File> => {
+  // Convert image to WebP format to save storage and ensure compatibility
+  const convertImageForUpload = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const reader = new FileReader();
@@ -162,8 +162,8 @@ export default function PatientProfileSetupPage() {
 
           ctx.drawImage(img, 0, 0);
 
-          // Test for AVIF support, fallback to WebP, then JPEG
-          const formats = ['image/avif', 'image/webp', 'image/jpeg'];
+          // Use WebP instead of AVIF as the backend doesn't support AVIF
+          const formats = ['image/webp', 'image/jpeg'];
           let supportedFormat = 'image/jpeg';
           
           for (const format of formats) {
@@ -1665,7 +1665,7 @@ export default function PatientProfileSetupPage() {
     });
   };
 
-  const handleProfileSave = async (): Promise<boolean> => {
+  const handleProfileSave = async (): Promise<'success' | 'pending' | 'error'> => {
     setLoading(true);
     setError('');
     setSuccess(false);
@@ -1900,17 +1900,17 @@ export default function PatientProfileSetupPage() {
       if (!profile?.id) {
         // No ID means it's a completely new profile - create it directly
         await performSave(formData, true, currentSchoolYear, currentSemester);
+        return 'success';
       } else {
         // This is an existing profile (with ID) being edited - ALWAYS ask user for their preference
         // This gives users full control over whether to update current record or create new version
         setPendingSaveData(formData);
         setShowSaveConfirmation(true);
         setLoading(false); // Stop loading while waiting for user decision
-        return true; // Return true to indicate waiting for user confirmation
+        return 'pending'; // Return 'pending' to indicate waiting for user confirmation
       }
 
       // Function execution happens in performSave or after user confirmation
-      return false; // Return false to indicate save completed
     } catch (err: any) {
       let msg = 'Failed to update profile.';
       if (err.response && err.response.data) {
@@ -1923,7 +1923,7 @@ export default function PatientProfileSetupPage() {
       setError(msg);
       setFeedbackMessage(msg);
       setFeedbackOpen(true);
-      return false; // Return false on error
+      return 'error'; // Return 'error' on error
     } finally {
       setLoading(false);
     }
@@ -2080,13 +2080,13 @@ export default function PatientProfileSetupPage() {
     if (file) {
       let finalFile = file;
       
-      // Convert to AVIF if it's an image
-      if (file.type.startsWith('image/') && file.type !== 'image/avif') {
+      // Convert to WebP if it's an image
+      if (file.type.startsWith('image/') && file.type !== 'image/webp') {
         try {
           setPhotoConverting(true);
-          finalFile = await convertImageToAVIF(file);
+          finalFile = await convertImageForUpload(file);
         } catch (error) {
-          console.error('Error converting photo to AVIF:', error);
+          console.error('Error converting photo:', error);
           // Fallback to original file
           finalFile = file;
         } finally {
@@ -4891,18 +4891,33 @@ export default function PatientProfileSetupPage() {
                     {Array.isArray(profile?.maintenance_medications) && profile.maintenance_medications.length > 0 ? (
                       <div className="space-y-1">
                         {profile.maintenance_medications.map((med: any, index: number) => {
-                          const drugName = (med.drug === 'Others' || med.drug_type === 'Others') ? (med.custom_drug || 'Other Medication') : (med.drug || med.drug_type || 'Unknown Medication');
-                          const frequency = med.frequency_type === 'specify' ? (med.custom_frequency || 'Specified Frequency') : (med.frequency || med.frequency_type || 'Frequency not specified');
-                          const duration = med.duration_type === 'specify' ? (med.custom_duration || 'Specified Duration') : (med.duration || med.duration_type || 'Duration not specified');
+                          if (!med) return null;
+                          const clean = (val: any) => (val === undefined || val === null || val === 'undefined' || val === 'null' || val === '') ? null : val;
+                          
+                          const drug = clean(med.drug);
+                          const drugType = clean(med.drug_type);
+                          const customDrug = clean(med.custom_drug);
+                          const dose = clean(med.dose);
+                          const unit = clean(med.unit);
+                          const frequency = clean(med.frequency);
+                          const frequencyType = clean(med.frequency_type);
+                          const customFrequency = clean(med.custom_frequency);
+                          const duration = clean(med.duration);
+                          const durationType = clean(med.duration_type);
+                          const customDuration = clean(med.custom_duration);
+
+                          const drugNameStr = (drug === 'Others' || drugType === 'Others') ? (customDrug || 'Other Medication') : (drug || drugType || 'Unknown Medication');
+                          const freqStr = frequencyType === 'specify' ? (customFrequency || 'Specified Frequency') : (frequency || frequencyType || 'Frequency not specified');
+                          const durStr = durationType === 'specify' ? (customDuration || 'Specified Duration') : (duration || durationType || 'Duration not specified');
                           
                           return (
                             <div key={index} className="text-sm flex flex-wrap items-center gap-1 py-1 border-b border-gray-100 last:border-0">
-                              <span className="font-bold text-[#800000]">{drugName}</span>
-                              <span className="text-gray-700">{med.dose || ''}{med.unit || ''}</span>
+                              <span className="font-bold text-[#800000]">{drugNameStr}</span>
+                              {(dose || unit) && <span className="text-gray-700">{dose || ''}{unit || ''}</span>}
                               <span className="text-gray-400 mx-1">•</span>
-                              <span className="text-gray-700">{frequency}</span>
+                              <span className="text-gray-700">{freqStr}</span>
                               <span className="text-gray-400 mx-1">•</span>
-                              <span className="text-gray-600 italic">({duration})</span>
+                              <span className="text-gray-600 italic">({durStr})</span>
                             </div>
                           );
                         })}
@@ -4917,9 +4932,8 @@ export default function PatientProfileSetupPage() {
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs mb-2">Vaccination Status</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs">
-                    {vaccinations.map(vaccine => {
-                      const status = profile?.vaccination_history?.[vaccine.name] || 'lapsed';
-                      const statusLabels: { [key: string]: string } = {
+                    {(() => {
+                      const statusLabels: Record<string, string> = {
                         'fully_vaccinated': 'Fully Vaccinated',
                         'partially_vaccinated': 'Partially Vaccinated',
                         'unvaccinated': 'Unvaccinated',
@@ -4927,7 +4941,7 @@ export default function PatientProfileSetupPage() {
                         'lapsed': 'Lapsed/None'
                       };
                       
-                      const statusColors: { [key: string]: string } = {
+                      const statusColors: Record<string, string> = {
                         'fully_vaccinated': 'text-green-700 bg-green-50 px-2 rounded',
                         'boosted': 'text-blue-700 bg-blue-50 px-2 rounded',
                         'partially_vaccinated': 'text-yellow-700 bg-yellow-50 px-2 rounded',
@@ -4935,24 +4949,29 @@ export default function PatientProfileSetupPage() {
                         'lapsed': 'text-gray-500 bg-gray-50 px-2 rounded'
                       };
 
-                      return (
-                        <div key={vaccine.id} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
-                          <span className="text-gray-700 font-medium">{vaccine.name}:</span>
-                          <span className={`font-bold ${statusColors[status] || 'text-gray-600'}`}>
-                            {statusLabels[status] || status.charAt(0).toUpperCase() + status.slice(1)}
+                      // Get unique vaccines from both master list and profile history
+                      const masterVaccineNames = vaccinations.map(v => v.name);
+                      const historyEntries = Object.entries(profile?.vaccination_history || {});
+                      const extraVaccines = historyEntries.filter(([name]) => !masterVaccineNames.includes(name));
+
+                      const allToDisplay = [
+                        ...vaccinations.map(v => ({ name: v.name, status: profile?.vaccination_history?.[v.name] || 'lapsed' })),
+                        ...extraVaccines.map(([name, status]) => ({ name, status: (status as string) || 'lapsed' }))
+                      ];
+
+                      if (allToDisplay.length === 0) {
+                        return <p className="text-gray-500 italic col-span-2">No vaccination records available.</p>;
+                      }
+
+                      return allToDisplay.map((vax, idx) => (
+                        <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                          <span className="text-gray-700 font-medium">{vax.name}:</span>
+                          <span className={`font-bold ${statusColors[vax.status] || 'text-gray-600'}`}>
+                            {statusLabels[vax.status] || (typeof vax.status === 'string' ? vax.status.charAt(0).toUpperCase() + vax.status.slice(1) : vax.status)}
                           </span>
                         </div>
-                      );
-                    })}
-                    {/* Fallback if no vaccinations are loaded yet */}
-                    {vaccinations.length === 0 && profile?.vaccination_history && Object.entries(profile.vaccination_history).map(([vaccine, status]) => (
-                      <div key={vaccine} className="flex justify-between py-1 border-b border-gray-100">
-                        <span className="text-gray-700">{vaccine}:</span>
-                        <span className="font-semibold text-gray-900">
-                          {status?.toString().charAt(0).toUpperCase() + status?.toString().slice(1) || 'Lapsed'}
-                        </span>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               </div>
@@ -5262,39 +5281,43 @@ export default function PatientProfileSetupPage() {
     } else {
       // Final submission - save if in edit mode or if there are changes
       if (isEditMode || hasUnsavedChanges) {
-        const waitingForConfirmation = await handleProfileSave();
+        const saveResult = await handleProfileSave();
         
         // If waiting for user confirmation, don't redirect yet
-        // The redirect will happen in handleSaveConfirmation after user makes their choice
-        if (waitingForConfirmation) {
+        if (saveResult === 'pending') {
           return; // Wait for user's decision via modal
+        }
+        
+        // If save failed, don't show success and redirect
+        if (saveResult === 'error') {
+          return;
         }
       }
       
       // Only redirect if save is complete (not waiting for confirmation)
-      setTimeout(() => {
-        if (option === 'Request Medical Certificate') {
-          router.push({
-            pathname: '/patient/upload-documents',
-            query: router.query
-          });
-        } else if (option === 'Book Dental Consultation') {
-          router.push({
-            pathname: '/patient/dental-information-record',
-            query: { ...router.query, option: 'Book Dental Consultation' }
-          });
-        } else if (option === 'Book Medical Consultation') {
-          router.push({
-            pathname: '/appointments/medical',
-            query: router.query
-          });
-        } else {
-          // Redirect back to the first step instead of dashboard
-          setCurrentStep(1);
-          setFeedbackMessage('Profile saved successfully! You can now update it or proceed with other actions.');
-          setFeedbackOpen(true);
-        }
-      }, 2000);
+      if (currentStep === steps.length) {
+        // Redundant success message removed as performSave already handles feedback
+        setTimeout(() => {
+          if (option === 'Request Medical Certificate') {
+            router.push({
+              pathname: '/patient/upload-documents',
+              query: router.query
+            });
+          } else if (option === 'Book Dental Consultation') {
+            router.push({
+              pathname: '/patient/dental-information-record',
+              query: { ...router.query, option: 'Book Dental Consultation' }
+            });
+          } else if (option === 'Book Medical Consultation') {
+            router.push({
+              pathname: '/appointments/medical',
+              query: router.query
+            });
+          } else {
+            setCurrentStep(1);
+          }
+        }, 2000);
+      }
     }
   };
 
