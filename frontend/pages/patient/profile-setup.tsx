@@ -37,6 +37,10 @@ export default function PatientProfileSetupPage() {
   // Robust cleaner for "undefined" or "null" strings/values
   const cleanValue = (val: any) => {
     if (val === undefined || val === null) return null;
+    
+    // Allow empty arrays (e.g., for symptoms)
+    if (Array.isArray(val)) return val;
+    
     const s = String(val).trim().toLowerCase();
     if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return null;
     return val;
@@ -2012,6 +2016,8 @@ export default function PatientProfileSetupPage() {
         'past_medical_history', 'past_medical_history_other',
         'family_medical_history', 'family_medical_history_other',
         'vaccination_history', 'maintenance_medications', 'comorbid_illness_details',
+        'menstruation_age_began', 'menstruation_regular', 'menstruation_irregular',
+        'number_of_pregnancies', 'number_of_live_children', 'menstrual_symptoms', 'menstrual_symptoms_other',
         'custom_drug_names', 'custom_nationalities', 'custom_religions',
         'custom_comorbid_illnesses', 'custom_comorbid_specifications', 'custom_menstrual_symptoms'
       ];
@@ -4256,6 +4262,93 @@ export default function PatientProfileSetupPage() {
                 ))}
               </div>
             </div>
+            )}
+
+            {/* Women's Health Section */}
+            {profile?.gender === 'Female' && (
+              <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+                <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
+                  <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">4</span>
+                  Women's Health
+                </h3>
+                <p className="text-sm text-gray-700 mb-4">Please provide information about your menstrual and obstetric history:</p>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Menstruation Age Began</label>
+                    <input 
+                      type="number"
+                      className="w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
+                      value={profile?.menstruation_age_began || ''}
+                      onChange={e => handleProfileChange('menstruation_age_began', e.target.value)}
+                    />
+                  </div>
+                  <div className="flex space-x-4 items-center h-full pt-6">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                        checked={!!profile?.menstruation_regular}
+                        onChange={e => handleProfileChange('menstruation_regular', e.target.checked)}
+                      />
+                      <span className="text-sm text-gray-700">Regular</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                        checked={!!profile?.menstruation_irregular}
+                        onChange={e => handleProfileChange('menstruation_irregular', e.target.checked)}
+                      />
+                      <span className="text-sm text-gray-700">Irregular</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Number of Pregnancies</label>
+                    <input 
+                      type="number"
+                      className="w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
+                      value={profile?.number_of_pregnancies || ''}
+                      onChange={e => handleProfileChange('number_of_pregnancies', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Number of Live Children</label>
+                    <input 
+                      type="number"
+                      className="w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
+                      value={profile?.number_of_live_children || ''}
+                      onChange={e => handleProfileChange('number_of_live_children', e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Menstrual Symptoms</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                    {['Dysmenorrhea', 'Nausea', 'Vomiting', 'Dizziness', 'Headache', 'Other'].map(symptom => (
+                      <label key={symptom} className="flex items-center space-x-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-300 text-gray-600 focus:ring-gray-500"
+                          checked={Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes(symptom)}
+                          onChange={e => handleCheckboxArrayChange('menstrual_symptoms', symptom, e.target.checked)}
+                        />
+                        <span className="text-sm text-gray-700">{symptom}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {Array.isArray(profile?.menstrual_symptoms) && profile.menstrual_symptoms.includes('Other') && (
+                    <input 
+                      type="text"
+                      placeholder="Specify other symptoms"
+                      className="w-full border rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-1 focus:ring-gray-500 focus:border-gray-500 border-gray-300"
+                      value={profile?.menstrual_symptoms_other || ''}
+                      onChange={e => handleProfileChange('menstrual_symptoms_other', e.target.value)}
+                    />
+                  )}
+                </div>
+              </div>
             )}
           </div>
         );

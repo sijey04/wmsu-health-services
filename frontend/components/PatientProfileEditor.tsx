@@ -40,6 +40,13 @@ interface Patient {
   hospital_admission_or_surgery?: boolean;
   family_medical_history?: (string | object)[] | null;
   allergies?: string;
+  menstruation_age_began?: string | number;
+  menstruation_regular?: boolean;
+  menstruation_irregular?: boolean;
+  number_of_pregnancies?: number;
+  number_of_live_children?: number;
+  menstrual_symptoms?: (string | object)[] | string | null;
+  menstrual_symptoms_other?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -97,6 +104,13 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
     hospital_admission_or_surgery: false,
     family_medical_history: [],
     allergies: '',
+    menstruation_age_began: '',
+    menstruation_regular: false,
+    menstruation_irregular: false,
+    number_of_pregnancies: 0,
+    number_of_live_children: 0,
+    menstrual_symptoms: [],
+    menstrual_symptoms_other: '',
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<any>({});
@@ -403,6 +417,46 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
               <ArrayField label="Family Medical History" field="family_medical_history" />
               <FormField label="Allergies" field="allergies" type="textarea" />
             </div>
+
+            {/* Women's Health Section */}
+            {formData.gender === 'Female' && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 border-b pb-2">Women's Health</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField label="Menstruation Age Began" field="menstruation_age_began" type="number" />
+                  <div className="flex space-x-4 items-center h-full pt-6">
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.menstruation_regular || false}
+                        onChange={(e) => handleInputChange('menstruation_regular', e.target.checked)}
+                        disabled={mode === 'view'}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 text-sm text-gray-700">Regular</label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={formData.menstruation_irregular || false}
+                        onChange={(e) => handleInputChange('menstruation_irregular', e.target.checked)}
+                        disabled={mode === 'view'}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                      <label className="ml-2 text-sm text-gray-700">Irregular</label>
+                    </div>
+                  </div>
+                  <FormField label="Number of Pregnancies" field="number_of_pregnancies" type="number" />
+                  <FormField label="Number of Live Children" field="number_of_live_children" type="number" />
+                  <div className="col-span-full">
+                    <ArrayField label="Menstrual Symptoms" field="menstrual_symptoms" />
+                  </div>
+                  <div className="col-span-full">
+                    <FormField label="Other Menstrual Symptoms" field="menstrual_symptoms_other" />
+                  </div>
+                </div>
+              </div>
+            )}
           </form>
         </div>
 

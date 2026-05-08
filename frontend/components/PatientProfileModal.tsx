@@ -301,6 +301,16 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   // Robust cleaner for "undefined" or "null" strings/values
   const clean = (val: any) => {
     if (val === undefined || val === null) return '';
+    
+    // Handle arrays (e.g., menstrual_symptoms)
+    if (Array.isArray(val)) {
+      if (val.length === 0) return '';
+      return val.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join(', ');
+    }
+    
+    // Handle numbers
+    if (typeof val === 'number') return String(val);
+    
     const s = String(val).trim().toLowerCase();
     if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return '';
     return String(val).trim();
@@ -309,7 +319,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   const resolveText = (...values: any[]) => {
     for (const value of values) {
       const cleaned = clean(value);
-      if (cleaned) return cleaned;
+      if (cleaned !== '') return cleaned;
     }
     return 'N/A';
   };

@@ -23,6 +23,13 @@ interface PatientProfile {
   year_level: string;
   guardian_name: string;
   guardian_phone: string;
+  menstruation_age_began?: string | number;
+  menstruation_regular?: boolean;
+  menstruation_irregular?: boolean;
+  number_of_pregnancies?: number;
+  number_of_live_children?: number;
+  menstrual_symptoms?: string[] | string;
+  menstrual_symptoms_other?: string;
 }
 
 export default function PatientProfile() {
@@ -440,6 +447,87 @@ export default function PatientProfile() {
                     </div>
                   </div>
                 </div>
+
+                {/* Women's Health Section */}
+                {formData.gender === 'female' && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">Women's Health</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Menstruation Age Began
+                        </label>
+                        <input
+                          type="number"
+                          name="menstruation_age_began"
+                          value={formData.menstruation_age_began || ''}
+                          onChange={handleInputChange}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-red-800 focus:border-red-800"
+                        />
+                      </div>
+                      <div className="flex space-x-4 items-center h-full pt-6">
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            name="menstruation_regular"
+                            checked={!!formData.menstruation_regular}
+                            onChange={(e) => setFormData(prev => ({ ...prev, menstruation_regular: e.target.checked }))}
+                            className="h-4 w-4 text-red-800 focus:ring-red-800 border-gray-300 rounded"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">Regular</span>
+                        </label>
+                        <label className="flex items-center">
+                          <input
+                            type="checkbox"
+                            name="menstruation_irregular"
+                            checked={!!formData.menstruation_irregular}
+                            onChange={(e) => setFormData(prev => ({ ...prev, menstruation_irregular: e.target.checked }))}
+                            className="h-4 w-4 text-red-800 focus:ring-red-800 border-gray-300 rounded"
+                          />
+                          <span className="ml-2 text-sm text-gray-700">Irregular</span>
+                        </label>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Number of Pregnancies
+                        </label>
+                        <input
+                          type="number"
+                          name="number_of_pregnancies"
+                          value={formData.number_of_pregnancies || ''}
+                          onChange={handleInputChange}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-red-800 focus:border-red-800"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Number of Live Children
+                        </label>
+                        <input
+                          type="number"
+                          name="number_of_live_children"
+                          value={formData.number_of_live_children || ''}
+                          onChange={handleInputChange}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-red-800 focus:border-red-800"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Menstrual Symptoms
+                        </label>
+                        <textarea
+                          name="menstrual_symptoms_other"
+                          value={formData.menstrual_symptoms_other || ''}
+                          onChange={handleInputChange}
+                          rows={2}
+                          placeholder="Describe any symptoms or concerns"
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-red-800 focus:border-red-800"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
 
                 {/* Action Buttons */}
                 <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
