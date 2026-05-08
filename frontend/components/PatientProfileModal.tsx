@@ -12,6 +12,7 @@ interface Patient {
   name: string;
   first_name?: string;
   middle_name?: string;
+  surname?: string;
   suffix?: string;
   photo?: string;
   

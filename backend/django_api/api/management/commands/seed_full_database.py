@@ -46,6 +46,16 @@ SEED_USERS = [
         "last_name": "Admin",
     },
     {
+        "label": "Second Admin",
+        "email": "sijey@wmsu.test",
+        "password": "WmsuAdmin456!",
+        "user_type": "admin",
+        "is_staff": True,
+        "is_superuser": True,
+        "first_name": "Sijey",
+        "last_name": "Admin",
+    },
+    {
         "label": "Staff",
         "email": "staff@wmsu.test",
         "password": "WmsuStaff123!",
