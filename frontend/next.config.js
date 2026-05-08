@@ -9,6 +9,7 @@ const nextConfig = {
     '@mui/utils',
   ],
   images: {
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: 'http',

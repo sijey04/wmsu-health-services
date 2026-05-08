@@ -167,19 +167,27 @@ function MedicalCertificateViewer() {
           <div className="p-8 print:p-4">
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="flex items-center justify-center mb-4">
-                <img src="/logo.png" alt="WMSU Logo" className="w-20 h-20 mr-4" />
-                <div>
-                  <h1 className="text-2xl font-bold text-red-600">
-                    WESTERN MINDANAO STATE UNIVERSITY
-                  </h1>
-                  <p className="text-lg text-gray-600">ZAMBOANGA CITY</p>
-                  <p className="text-base text-gray-600 font-semibold">
-                    UNIVERSITY HEALTH SERVICES CENTER
-                  </p>
+              <div className="flex flex-col md:flex-row justify-between items-center border-b-2 border-red-600 pb-6 mb-6">
+                <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                  <div className="relative w-20 h-20">
+                    <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-full h-full object-contain" />
+                  </div>
+                  <div className="text-center md:text-left">
+                    <h1 className="text-xl font-bold text-red-600">WESTERN MINDANAO STATE UNIVERSITY</h1>
+                    <p className="text-sm text-gray-600 font-medium">UNIVERSITY HEALTH SERVICES CENTER</p>
+                    <p className="text-xs text-gray-500">Zamboanga City, Philippines</p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="text-right hidden md:block">
+                    <p className="text-xs text-gray-500 italic">"Excellence in Health Service"</p>
+                    <p className="text-xs text-red-600 font-semibold">Medical Certificate Portal</p>
+                  </div>
+                  <div className="relative w-20 h-20">
+                    <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-full h-full object-contain" />
+                  </div>
                 </div>
               </div>
-              <div className="border-b-2 border-red-600 w-full"></div>
             </div>
 
             {/* Certificate Title */}

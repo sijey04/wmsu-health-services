@@ -476,21 +476,35 @@ export default function AdminPatientProfile() {
             <div className="mb-4 sm:mb-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
-                  <div className="w-full sm:w-auto">
-                    <div className="flex items-center gap-3 mb-2">
-                      <Image src="/WMSU-Logo.jpg" alt="WMSU Logo" width={40} height={40} className="object-contain" />
-                      <Image src="/WMSU-HealthLogo.png" alt="Health Logo" width={40} height={40} className="object-contain" />
-                      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Patient Profiles</h1>
+                <div className="flex flex-col md:flex-row justify-between items-center border-b border-maroon-100 pb-6 mb-6 w-full">
+                  <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                      <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-full h-full object-contain" />
                     </div>
-                    <p className="text-sm sm:text-base text-gray-600">
-                      Manage and organize patient records by academic semester
-                      {semesters.length === 0 && (
-                        <span className="text-orange-600 ml-2">
-                          • Semester tracking will be available when configured
-                        </span>
-                      )}
-                    </p>
+                    <div className="text-center md:text-left">
+                      <h1 className="text-lg sm:text-xl font-bold text-[#800000] uppercase">Western Mindanao State University</h1>
+                      <p className="text-xs sm:text-sm text-gray-600 font-medium">UNIVERSITY HEALTH SERVICES CENTER</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">Zamboanga City, Philippines</p>
+                    </div>
                   </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right hidden md:block">
+                      <p className="text-[10px] sm:text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
+                      <p className="text-[10px] sm:text-xs text-[#800000] font-semibold">Patient Records Management</p>
+                    </div>
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
+                      <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-full h-full object-contain" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm sm:text-base text-gray-600 mb-4 px-2">
+                  Manage and organize patient records by academic semester
+                  {semesters.length === 0 && (
+                    <span className="text-orange-600 ml-2">
+                      • Semester tracking will be available when configured
+                    </span>
+                  )}
+                </p>
 
                   {/* Current Semester Info */}
                   {currentSemester && semesters.length > 0 && (

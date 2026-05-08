@@ -100,8 +100,8 @@ function AdminAppointments() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-center border-b border-maroon-100 pb-6 mb-6">
             <div className="flex items-center space-x-4 mb-4 md:mb-0">
-              <div className="relative w-20 h-20">
-                <Image src="/WMSU-Logo.jpg" alt="WMSU Logo" fill className="object-contain" />
+              <div className="w-20 h-20">
+                <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-full h-full object-contain" />
               </div>
               <div className="text-center md:text-left">
                 <h1  className="text-xl font-bold text-[#800000]">WESTERN MINDANAO STATE UNIVERSITY</h1>
@@ -114,8 +114,8 @@ function AdminAppointments() {
                 <p className="text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
                 <p className="text-xs text-[#800000] font-semibold">Appointment Management System</p>
               </div>
-              <div className="relative w-16 h-16">
-                <Image src="/WMSU-HealthLogo.png" alt="Health Logo" fill className="object-contain" />
+              <div className="w-16 h-16">
+                <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-full h-full object-contain" />
               </div>
             </div>
           </div>

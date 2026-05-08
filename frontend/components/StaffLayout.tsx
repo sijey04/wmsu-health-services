@@ -60,7 +60,10 @@ export default function StaffLayout({ children, staffType }: StaffLayoutProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <Image src="/logo.png" alt="WMSU Logo" width={40} height={40} className="mr-3" />
+              <div className="flex items-center space-x-2 mr-3">
+                <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-8 h-8 object-contain brightness-110" />
+                <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-8 h-8 object-contain brightness-110" />
+              </div>
               <div>
                 <h1 className="text-xl font-bold">WMSU Health Services</h1>
                 <p className="text-xs text-pink-100">{staffTitle} Portal</p>

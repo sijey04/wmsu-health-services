@@ -732,9 +732,28 @@ function AdminMedicalDocuments() {
     <AdminLayout>
       <div className="max-w-7xl mx-auto px-3 sm:px-4">
         {/* Header */}
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Medical Documents</h1>
-          <p className="text-sm sm:text-base text-gray-600">Manage medical document submissions, verifications, and certificate issuance</p>
+          <div className="flex flex-col md:flex-row justify-between items-center border-b border-maroon-100 pb-6 mb-6">
+            <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-full h-full object-contain" />
+              </div>
+              <div className="text-center md:text-left">
+                <h1 className="text-lg sm:text-xl font-bold text-[#800000] uppercase">Western Mindanao State University</h1>
+                <p className="text-sm text-gray-600 font-medium">UNIVERSITY HEALTH SERVICES CENTER</p>
+                <p className="text-xs text-gray-500">Zamboanga City, Philippines</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right hidden md:block">
+                <p className="text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
+                <p className="text-xs text-[#800000] font-semibold">Medical Records Management</p>
+              </div>
+              <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
+                <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-full h-full object-contain" />
+              </div>
+            </div>
+          </div>
+          <p className="text-sm sm:text-base text-gray-600 px-2 mb-4">Manage medical document submissions, verifications, and certificate issuance</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg overflow-hidden min-h-[500px]">

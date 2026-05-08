@@ -258,15 +258,10 @@ export default function Home() {  // Authentication state
                   {/* Professional One-Time Animated Logo */}
                   <div className="flex justify-center mb-12 sm:mb-16">
                     <div className="relative group">
-                        <Image 
+                        <img 
                           src="/logo.png" 
                           alt="WMSU Logo" 
-                          width={224}
-                          height={224}
                           className="w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 xl:w-56 xl:h-56 object-contain animate-logo-entrance drop-shadow-2xl transition-all duration-700 ease-in-out group-hover:scale-105"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
                         />
                         {/* Professional glow effect */}
                         <div className="absolute inset-0 rounded-full bg-white/10 blur-xl animate-glow-entrance"></div>

@@ -170,7 +170,7 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
       <Head>
         <title>WMSU Health Services</title>
         <meta name="description" content="WMSU Health Services Portal" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/WMSU-Logo.jpg" />
       </Head>
 
       <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-gray-100 sticky top-0 z-50">
@@ -182,21 +182,17 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
                   <div className="flex items-center space-x-2 sm:space-x-3">
                     <div className="flex items-center space-x-2">
                       <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
-                        <Image 
+                        <img 
                           src="/WMSU-Logo.jpg" 
                           alt="WMSU Logo" 
-                          width={48}
-                          height={48}
-                          className="object-contain"
+                          className="w-full h-full object-contain"
                         />
                       </div>
                       <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center">
-                        <Image 
+                        <img 
                           src="/WMSU-HealthLogo.png" 
                           alt="Health Services Logo" 
-                          width={48}
-                          height={48}
-                          className="object-contain"
+                          className="w-full h-full object-contain"
                         />
                       </div>
                     </div>
