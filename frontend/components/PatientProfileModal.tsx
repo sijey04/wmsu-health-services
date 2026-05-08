@@ -295,6 +295,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   };
 
   const displayedProfile = selectedProfile || patient;
+  const resolvedSexValue = resolveText(dentalRecord?.sex, displayedProfile?.gender);
+  const showWomenSection = isTrue(dentalRecord?.is_woman) || resolvedSexValue.toLowerCase() === 'female';
 
   // Get the most recent profile (latest update) as the current one to display
   const currentProfile = sortedProfiles[0] || patient;
@@ -436,6 +438,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     if (!record) return 'None reported';
     const matches = items.filter((item) => isTrue(record[item.key])).map((item) => item.label);
     return matches.length > 0 ? matches.join(', ') : 'None reported';
+  };
+  const resolveText = (...values: any[]) => {
+    for (const value of values) {
+      const cleaned = clean(value);
+      if (cleaned) return cleaned;
+    }
+    return 'N/A';
   };
 
   // Helper function to render vaccination status with proper formatting
@@ -1232,31 +1241,43 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                       <div className="space-y-2 text-sm">
                         <div className="flex justify-between">
                           <span className="text-gray-500">Patient Name:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.patient_name || displayedProfile.name || 'N/A'}</span>
+                          <span className="font-medium text-gray-900">
+                            {resolveText(dentalRecord.patient_name, displayedProfile.name)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Age:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.age ?? 'N/A'}</span>
+                          <span className="font-medium text-gray-900">
+                            {dentalRecord.age ?? displayedProfile.age ?? 'N/A'}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Sex:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.sex || 'N/A'}</span>
+                          <span className="font-medium text-gray-900">{resolvedSexValue}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Education Level:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.education_level || 'N/A'}</span>
+                          <span className="font-medium text-gray-900">
+                            {resolveText(dentalRecord.education_level, displayedProfile.user_type)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Year Level:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.year_level || 'N/A'}</span>
+                          <span className="font-medium text-gray-900">
+                            {resolveText(dentalRecord.year_level, displayedProfile.year_level, displayedProfile.grade_level)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Course:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.course || 'N/A'}</span>
+                          <span className="font-medium text-gray-900">
+                            {resolveText(dentalRecord.course, displayedProfile.course, displayedProfile.department)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Year/Section:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.year_section || 'N/A'}</span>
+                          <span className="font-medium text-gray-900">
+                            {resolveText(dentalRecord.year_section, displayedProfile.year_level, displayedProfile.strand, displayedProfile.grade_level)}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Date:</span>
@@ -1372,27 +1393,29 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                       </div>
                     </div>
 
-                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">WOMEN ONLY</h3>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Is Woman:</span>
-                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.is_woman)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Menstruation Today:</span>
-                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.menstruation_today)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Pregnant:</span>
-                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.pregnant)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Taking Birth Control:</span>
-                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.taking_birth_control)}</span>
+                    {showWomenSection && (
+                      <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">WOMEN ONLY</h3>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Is Woman:</span>
+                            <span className="font-medium text-gray-900">{yesNo(showWomenSection)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Menstruation Today:</span>
+                            <span className="font-medium text-gray-900">{yesNo(dentalRecord.menstruation_today)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Pregnant:</span>
+                            <span className="font-medium text-gray-900">{yesNo(dentalRecord.pregnant)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Taking Birth Control:</span>
+                            <span className="font-medium text-gray-900">{yesNo(dentalRecord.taking_birth_control)}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
