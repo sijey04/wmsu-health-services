@@ -2626,3 +2626,260 @@ export const downloadFile = (filename: string, content: string | Blob, type: 'cs
     URL.revokeObjectURL(url);
   }
 };
+
+/**
+ * Exports a single patient profile to a professional PDF document
+ */
+export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
+  try {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // Load logos
+    const loadLogo = (src: string): Promise<string | null> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        if (typeof window !== 'undefined' && src.startsWith('http') && !src.includes(window.location.host)) {
+          img.crossOrigin = 'anonymous';
+        }
+        img.src = src;
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 3000);
+      });
+    };
+
+    const [wmsuLogo, healthLogo] = await Promise.all([
+      loadLogo('/WMSU-Logo.jpg'),
+      loadLogo('/WMSU-HealthLogo.png')
+    ]);
+
+    // Header
+    if (wmsuLogo) doc.addImage(wmsuLogo, 'JPEG', 20, 15, 20, 20);
+    if (healthLogo) doc.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 22, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 28, { align: 'center' });
+    doc.text('Zamboanga City', pageWidth / 2, 33, { align: 'center' });
+    
+    doc.setDrawColor(139, 0, 0); // Maroon color
+    doc.setLineWidth(1);
+    doc.line(20, 38, 190, 38);
+
+    doc.setFillColor(139, 0, 0);
+    doc.rect(20, 42, 170, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PATIENT HEALTH PROFILE & CONSULTATIONS RECORD', pageWidth / 2, 48.5, { align: 'center' });
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'italic');
+    doc.text('(Electronic/Paper-based Input)', pageWidth / 2, 57, { align: 'center' });
+
+    // Patient Photo if available
+    let photoY = 65;
+    if (patient.photo) {
+      const photoSrc = patient.photo.startsWith('http') 
+        ? patient.photo 
+        : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${patient.photo}`;
+      
+      const photo = await loadLogo(photoSrc);
+      if (photo) {
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(20, 65, 30, 40);
+        doc.addImage(photo, 'JPEG', 20.5, 65.5, 29, 39);
+      } else {
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(20, 65, 30, 40);
+        doc.setFontSize(8);
+        doc.text('No Photo', 35, 85, { align: 'center' });
+      }
+    } else {
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(20, 65, 30, 40);
+      doc.setFontSize(8);
+      doc.text('No Photo', 35, 85, { align: 'center' });
+    }
+
+    // Personal Information Table
+    const fullName = patient.name || `${patient.first_name || ''} ${patient.middle_name || ''} ${patient.last_name || ''}`.trim();
+    
+    autoTable(doc, {
+      startY: 65,
+      margin: { left: 55 },
+      tableWidth: 135,
+      head: [['PERSONAL INFORMATION', '']],
+      body: [
+        ['Name:', fullName],
+        ['Sex:', patient.gender || 'N/A'],
+        ['Age:', patient.age?.toString() || 'N/A'],
+        ['Course/Dept:', patient.department || 'N/A'],
+        ['Birthday:', patient.date_of_birth || 'N/A'],
+        ['Civil Status:', patient.civil_status || 'N/A'],
+        ['Nationality:', patient.nationality === 'Foreigner' ? `Foreigner (${patient.nationality_specify})` : (patient.nationality || 'N/A')],
+        ['Email:', patient.email || 'N/A'],
+        ['Contact #:', patient.contact_number || 'N/A']
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 30 } }
+    });
+
+    let currentY = (doc as any).lastAutoTable.finalY + 10;
+
+    // Emergency Contact
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['EMERGENCY CONTACT INFORMATION', '']],
+      body: [
+        ['Contact Person:', `${patient.emergency_contact_first_name || ''} ${patient.emergency_contact_surname || ''}`.trim() || 'N/A'],
+        ['Relationship:', patient.emergency_contact_relationship || 'N/A'],
+        ['Contact Number:', patient.emergency_contact_number || 'N/A'],
+        ['Address:', `${patient.emergency_contact_street || ''} ${patient.emergency_contact_barangay || ''}`.trim() || 'N/A']
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 40 } }
+    });
+
+    currentY = (doc as any).lastAutoTable.finalY + 10;
+
+    // Health Info & Medical History
+    const cleanArrayData = (data: any[]) => {
+      if (!data || !Array.isArray(data)) return 'None reported';
+      return data.map(item => typeof item === 'string' ? item : (item.name || item.condition || 'Unknown')).join(', ') || 'None reported';
+    };
+
+    autoTable(doc, {
+      startY: currentY,
+      margin: { left: 20 },
+      head: [['MEDICAL HISTORY', 'DETAILS']],
+      body: [
+        ['Blood Type:', patient.blood_type || 'N/A'],
+        ['Allergies:', patient.allergies || 'None reported'],
+        ['Comorbid Illnesses:', cleanArrayData(patient.comorbid_illnesses)],
+        ['Past Medical History:', cleanArrayData(patient.past_medical_history)],
+        ['Family Medical History:', cleanArrayData(patient.family_medical_history)]
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      columnStyles: { 0: { fontStyle: 'bold', width: 40 }, 1: { cellWidth: 'auto' } }
+    });
+
+    doc.save(`Profile_${fullName.replace(/\s+/g, '_')}.pdf`);
+  } catch (error) {
+    console.error('Failed to export patient profile PDF:', error);
+  }
+};
+
+/**
+ * Exports a signed waiver to a professional PDF document
+ */
+export const exportWaiverPDF = async (waiver: any, patientName: string): Promise<void> => {
+  try {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    
+    // Load logos
+    const loadLogo = (src: string): Promise<string | null> => {
+      return new Promise((resolve) => {
+        const img = new Image();
+        if (typeof window !== 'undefined' && src.startsWith('http') && !src.includes(window.location.host)) {
+          img.crossOrigin = 'anonymous';
+        }
+        img.src = src;
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx?.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL('image/png'));
+          } catch (e) { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        setTimeout(() => resolve(null), 3000);
+      });
+    };
+
+    const [wmsuLogo, healthLogo] = await Promise.all([
+      loadLogo('/WMSU-Logo.jpg'),
+      loadLogo('/WMSU-HealthLogo.png')
+    ]);
+
+    // Header
+    if (wmsuLogo) doc.addImage(wmsuLogo, 'JPEG', 20, 15, 20, 20);
+    if (healthLogo) doc.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 22, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 28, { align: 'center' });
+    doc.text('Zamboanga City', pageWidth / 2, 33, { align: 'center' });
+    
+    doc.setDrawColor(139, 0, 0);
+    doc.setLineWidth(1);
+    doc.line(20, 38, 190, 38);
+
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('WAIVER AND CONSENT FORM', pageWidth / 2, 55, { align: 'center' });
+    
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    const content = `I, ${waiver.full_name}, of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:\n\nI have given explicit consent to the University Health Services Center (UHSC) to collect, use, store, and process my personal and sensitive health information for the purpose of promoting and maintaining my health and general well-being as part of the school community.\n\nI understand that this information will be used to maintain my medical records, facilitate consultations, and ensure that appropriate medical assistance is provided when necessary. I am aware that my data will be handled with the utmost confidentiality in accordance with the Data Privacy Act of 2012 (Republic Act 10173).\n\nThis consent is given freely and voluntarily, and I understand that I may withdraw this consent at any time by providing a written notice to the University Health Services Center, subject to legal and university requirements.`;
+    
+    const splitContent = doc.splitTextToSize(content, 170);
+    doc.text(splitContent, 20, 75, { align: 'justify' });
+
+    // Signature
+    const signatureY = 180;
+    if (waiver.signature) {
+      const signature = await loadLogo(waiver.signature);
+      if (signature) {
+        doc.addImage(signature, 'PNG', pageWidth - 80, signatureY - 25, 60, 25);
+      }
+    }
+    
+    doc.line(pageWidth - 90, signatureY, pageWidth - 20, signatureY);
+    doc.setFont('helvetica', 'bold');
+    doc.text(waiver.full_name.toUpperCase(), pageWidth - 55, signatureY + 5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Signature over Printed Name', pageWidth - 55, signatureY + 10, { align: 'center' });
+    
+    const dateSigned = new Date(waiver.date_signed).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    doc.text(`Date Signed: ${dateSigned}`, pageWidth - 55, signatureY + 18, { align: 'center' });
+
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Document ID: WMSU-UHSC-WVR-${waiver.id.toString().padStart(6, '0')}`, 20, 280);
+    doc.text(`Generated on ${new Date().toLocaleString()}`, 20, 285);
+
+    doc.save(`Waiver_${patientName.replace(/\s+/g, '_')}.pdf`);
+  } catch (error) {
+    console.error('Failed to export waiver PDF:', error);
+  }
+};

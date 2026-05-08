@@ -2,6 +2,7 @@ import React from 'react';
 import { UserCircleIcon } from '@heroicons/react/24/outline';
 import { waiversAPI } from '../utils/api';
 import Image from 'next/image';
+import { exportPatientProfilePDF, exportWaiverPDF } from '../utils/reportExport';
 
 interface Patient {
   // Basic info
@@ -983,15 +984,15 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             <div className="bg-white rounded-lg shadow-lg print:shadow-none">
               {/* Current Profile Content */}
               <div className="p-6">
-                <div className="flex justify-end mb-4 print:hidden">
-                  <button
-                    onClick={() => window.print()}
-                    className="bg-[#8B0000] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-800 transition-colors flex items-center gap-2"
+                <div className="flex justify-end mb-4">
+                  <button 
+                    onClick={() => exportPatientProfilePDF(displayedProfile)}
+                    className="flex items-center gap-2 bg-[#8B0000] text-white px-4 py-2 rounded-lg hover:bg-[#660000] transition-colors"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Print Profile
+                    Export PDF
                   </button>
                 </div>
                 <div className="text-center italic text-sm py-2 mb-4 text-gray-600">
@@ -1005,14 +1006,14 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               <div className="flex justify-between items-center mb-6 print:hidden">
                 <h2 className="text-lg font-bold text-[#8B0000]">Signed Waiver</h2>
                 {waiver && (
-                  <button
-                    onClick={() => window.print()}
-                    className="bg-[#8B0000] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-800 transition-colors flex items-center gap-2"
+                  <button 
+                    onClick={() => exportWaiverPDF(waiver, displayedProfile.name || `${displayedProfile.first_name} ${displayedProfile.last_name}`)}
+                    className="flex items-center gap-2 bg-[#8B0000] text-white px-4 py-2 rounded-lg hover:bg-[#660000] transition-colors shadow-sm"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    Print Waiver
+                    Export Waiver PDF
                   </button>
                 )}
               </div>
