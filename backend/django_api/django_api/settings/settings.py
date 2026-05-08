@@ -175,6 +175,7 @@ except ImportError:
 # Media files (uploads)
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+SERVE_MEDIA = os.getenv('SERVE_MEDIA', 'False') == 'True'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
