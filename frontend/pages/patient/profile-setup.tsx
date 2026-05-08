@@ -1033,6 +1033,15 @@ export default function PatientProfileSetupPage() {
           }
         });
       }
+
+      // Vaccination Status validation - MANDATORY
+      if (Array.isArray(vaccinations) && vaccinations.length > 0) {
+        vaccinations.forEach(vaccine => {
+          if (!profile?.vaccination_history || !profile.vaccination_history[vaccine.name]) {
+            errors[`vaccine_${vaccine.id}`] = `Selection required for ${vaccine.name}.`;
+          }
+        });
+      }
     }
 
     // Step 3: Medical history conditional validation
@@ -4048,7 +4057,7 @@ export default function PatientProfileSetupPage() {
                             name={`vaccine-${vaccine.id}`}
                             value="lapsed"
                             className="h-4 w-4 text-gray-600 border-gray-300 focus:ring-gray-500"
-                            checked={profile?.vaccination_history?.[vaccine.name] === 'lapsed' || !profile?.vaccination_history?.[vaccine.name]}
+                            checked={profile?.vaccination_history?.[vaccine.name] === 'lapsed'}
                             onChange={() => {
                               const newHistory = { ...(profile?.vaccination_history || {}) };
                               newHistory[vaccine.name] = 'lapsed';
@@ -4059,6 +4068,11 @@ export default function PatientProfileSetupPage() {
                         </label>
                       </div>
                     </div>
+                    {fieldErrors[`vaccine_${vaccine.id}`] && (
+                      <div className="text-red-500 text-[10px] mt-2 text-right animate-pulse font-medium">
+                        ⚠ {fieldErrors[`vaccine_${vaccine.id}`]}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
