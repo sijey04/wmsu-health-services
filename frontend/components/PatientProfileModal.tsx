@@ -1,6 +1,7 @@
 import React from 'react';
-import { UserCircleIcon } from '@heroicons/react/24/outline';
-import { waiversAPI } from '../utils/api';
+import { UserCircleIcon, AcademicCapIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
+import Image from 'next/image';
+import { waiversAPI, dentalFormAPI } from '../utils/api';
 import { exportPatientProfilePDF, exportWaiverPDF } from '../utils/reportExport';
 
 interface Patient {
@@ -120,6 +121,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   const [activeTab, setActiveTab] = React.useState<'current' | 'history' | 'waiver' | 'dental'>('current');
   const [waiver, setWaiver] = React.useState<Waiver | null>(null);
   const [loadingWaiver, setLoadingWaiver] = React.useState(false);
+  const [dentalRecord, setDentalRecord] = React.useState<any>(null);
+  const [loadingDental, setLoadingDental] = React.useState(false);
 
   const fetchWaiver = React.useCallback(async () => {
     if (!patient?.user) return;
@@ -138,15 +141,30 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     }
   }, [patient?.user]);
 
-  React.useEffect(() => {
-    console.log('=== PatientProfileModal Debug ===');
-    console.log('Patient:', patient);
-    console.log('Patient User ID:', patient?.user);
-    console.log('All Patient Profiles received:', allPatientProfiles);
-    console.log('All Patient Profiles count:', allPatientProfiles.length);
+  const fetchDentalRecord = React.useCallback(async () => {
+    if (!patient?.id) return;
     
-    if (patient && allPatientProfiles.length > 0) {
-      // Set the most recent profile as the default selected profile
+    setLoadingDental(true);
+    try {
+      // Find dental records matching this patient
+      const response = await dentalFormAPI.getAll();
+      const records = Array.isArray(response.data) ? response.data : (response.data?.results || []);
+      const patientRecord = records.find((r: any) => r.patient === patient.id);
+      setDentalRecord(patientRecord || null);
+    } catch (error) {
+      console.error('Failed to fetch dental record:', error);
+      setDentalRecord(null);
+    } finally {
+      setLoadingDental(false);
+    }
+  }, [patient?.id]);
+
+  React.useEffect(() => {
+    if (open && patient) {
+      fetchWaiver();
+      fetchDentalRecord();
+    }
+  }, [open, patient, fetchWaiver, fetchDentalRecord]);
       // Use string comparison to handle both string and number user IDs
       const userProfiles = allPatientProfiles.filter(profile => 
         String(profile.user) === String(patient.user)
@@ -268,6 +286,14 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     }
   };
 
+  // Robust cleaner for "undefined" or "null" strings/values
+  const clean = (val: any) => {
+    if (val === undefined || val === null) return '';
+    const s = String(val).trim().toLowerCase();
+    if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return '';
+    return String(val).trim();
+  };
+
   // Helper function to safely render array data that might contain strings or objects
   const renderArrayData = (data: any[], field: string): string => {
     if (!data || !Array.isArray(data)) return '';
@@ -276,10 +302,12 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
         return item;
       } else if (typeof item === 'object' && item !== null) {
         if (field === 'maintenance_medications') {
-          const drug = (item.drug === 'Others' || item.drug_type === 'Others') ? item.custom_drug : (item.drug || item.drug_type || item.name || 'Unknown');
-          const dose = item.dose || item.dosage || '';
-          const unit = item.unit || '';
-          const frequency = item.frequency_type === 'specify' ? item.custom_frequency : (item.frequency || item.frequency_type || '');
+          const drug = clean((item.drug === 'Others' || item.drug_type === 'Others') ? item.custom_drug : (item.drug || item.drug_type || item.name));
+          const dose = clean(item.dose || item.dosage);
+          const unit = clean(item.unit);
+          const frequency = clean(item.frequency_type === 'specify' ? item.custom_frequency : (item.frequency || item.frequency_type));
+          
+          if (!drug) return null;
           return `${drug}${dose ? ` ${dose}${unit}` : ''}${frequency ? ` - ${frequency}` : ''}`;
         } else if (field === 'vaccination_history') {
           if ((item as any).vaccine && (item as any).date) {
@@ -315,12 +343,20 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       return <div className="p-3 min-h-[60px]">None reported</div>;
     }
 
+    const validMeds = medications.filter(med => med && (clean(med.drug) || clean(med.drug_type) || clean(med.name) || clean(med.custom_drug)));
+
+    if (validMeds.length === 0) {
+      return <div className="p-3 min-h-[60px]">None reported</div>;
+    }
+
     return (
       <div className="space-y-2">
-        {medications.map((med, index) => {
-          const drugName = (med.drug === 'Others' || med.drug_type === 'Others') ? med.custom_drug : (med.drug || med.drug_type || med.name || 'Unknown medication');
-          const frequency = med.frequency_type === 'specify' ? med.custom_frequency : (med.frequency || med.frequency_type || '');
-          const duration = med.duration_type === 'specify' ? med.custom_duration : (med.duration || med.duration_type || '');
+        {validMeds.map((med, index) => {
+          const drugName = clean((med.drug === 'Others' || med.drug_type === 'Others') ? med.custom_drug : (med.drug || med.drug_type || med.name)) || 'Unknown medication';
+          const dose = clean(med.dose || med.dosage);
+          const unit = clean(med.unit);
+          const frequency = clean(med.frequency_type === 'specify' ? med.custom_frequency : (med.frequency || med.frequency_type));
+          const duration = clean(med.duration_type === 'specify' ? med.custom_duration : (med.duration || med.duration_type));
           
           return (
             <div key={index} className="p-3 border-b border-gray-200 last:border-b-0">
@@ -328,8 +364,8 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 {drugName}
               </div>
               <div className="text-xs text-gray-600 mt-1">
-                {med.dose || med.dosage ? `${med.dose || med.dosage}${med.unit ? ` ${med.unit}` : ''}` : ''}
-                {(med.dose || med.dosage) && frequency ? ' - ' : ''}
+                {dose ? `${dose}${unit ? ` ${unit}` : ''}` : ''}
+                {dose && frequency ? ' - ' : ''}
                 {frequency}
                 {duration ? ` (${duration})` : ''}
               </div>
@@ -862,10 +898,12 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
           {/* Header Content */}
           <div className="flex items-center gap-4 sm:gap-6 print:w-full print:justify-center">
             <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative">
-              <img 
+              <Image 
                 src="/WMSU-Logo.jpg" 
                 alt="WMSU Logo" 
-                className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
+                width={80}
+                height={80}
+                className="object-contain"
               />
             </div>
             <div className="text-center">
@@ -875,10 +913,12 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               <p className="text-[10px] sm:text-xs text-gray-500 mt-1">Tel. no. (062) 991-6736 | Email: healthservices@wmsu.edu.ph</p>
             </div>
             <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center relative">
-              <img 
+              <Image 
                 src="/WMSU-HealthLogo.png" 
                 alt="Health Services Logo" 
-                className="w-16 h-16 sm:w-20 sm:h-20 object-contain"
+                width={80}
+                height={80}
+                className="object-contain"
               />
             </div>
           </div>
@@ -1002,13 +1042,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               {/* Institutional Header for Waiver */}
               <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-4">
-                  <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
+                  <Image src="/WMSU-Logo.jpg" alt="WMSU Logo" width={64} height={64} className="object-contain" />
                   <div>
                     <h2 className="text-[#8B0000] text-sm font-bold uppercase">Western Mindanao State University</h2>
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest">University Health Services Center</p>
                   </div>
                 </div>
-                <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-16 h-16 object-contain" />
+                <Image src="/WMSU-HealthLogo.png" alt="Health Logo" width={64} height={64} className="object-contain" />
               </div>
 
               <div className="flex justify-between items-center mb-6 print:hidden">
@@ -1105,26 +1145,83 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             <div className="bg-white rounded-lg shadow-lg p-6 print:shadow-none">
               <div className="flex justify-between items-center mb-6 print:hidden">
                 <h2 className="text-lg font-bold text-[#8B0000]">Dental Patient Information Record</h2>
-                <button 
-                  disabled
-                  className="flex items-center gap-2 bg-gray-300 text-gray-500 px-4 py-2 rounded-lg cursor-not-allowed opacity-50"
-                  title="No records to export"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Export Dental PDF
-                </button>
+                {dentalRecord && (
+                  <button 
+                    onClick={() => {
+                      // Call dental export logic if available
+                    }}
+                    className="flex items-center gap-2 bg-[#8B0000] text-white px-4 py-2 rounded-lg hover:bg-[#660000] transition-colors shadow-sm"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Export Dental PDF
+                  </button>
+                )}
               </div>
-              <div className="text-center py-12">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
-                  <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+              
+              {loadingDental ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8B0000]"></div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Records Found</h3>
-                <p className="text-gray-500 text-sm">There are currently no dental patient information records for this patient.</p>
-              </div>
+              ) : dentalRecord ? (
+                <div className="space-y-6">
+                  {/* Dental Record Details */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">CLINICAL INFORMATION</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Chief Concern:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.chief_concern || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">History:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.history_of_present_illness || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">DENTAL EXAMINATION</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Intraoral:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.intraoral_examination || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500">Extraoral:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.extraoral_examination || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">DIAGNOSIS & PLAN</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Diagnosis:</p>
+                        <p className="text-sm font-medium text-gray-900">{dentalRecord.diagnosis_dental || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Treatment Plan:</p>
+                        <p className="text-sm font-medium text-gray-900">{dentalRecord.treatment_plan_dental || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-50 mb-4">
+                    <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Records Found</h3>
+                  <p className="text-gray-500 text-sm">There are currently no dental patient information records for this patient.</p>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-6">

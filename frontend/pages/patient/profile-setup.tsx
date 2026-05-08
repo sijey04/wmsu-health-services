@@ -1367,39 +1367,9 @@ export default function PatientProfileSetupPage() {
         }
 
         // Load vaccinations
+        // Load vaccines
         try {
           const vaccinationResponse = await djangoApiClient.get('/user-management/vaccinations/');
-          if (vaccinationResponse.data) {
-            console.log('Raw vaccinations from API:', vaccinationResponse.data);
-            const enabledVaccinations = vaccinationResponse.data.filter(vaccination => vaccination.is_enabled);
-            
-            // Standard defaults to ensure they are always present, matching seeder
-            const defaultVaccines = [
-              { id: 1, name: 'COVID-19', is_enabled: true },
-              { id: 2, name: 'Hepatitis B', is_enabled: true },
-              { id: 3, name: 'Influenza', is_enabled: true },
-              { id: 4, name: 'Tetanus', is_enabled: true },
-              { id: 5, name: 'HPV', is_enabled: true },
-              { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
-            ];
-
-            const mergedVaccines = [...enabledVaccinations];
-            defaultVaccines.forEach(defVax => {
-              if (!mergedVaccines.some(v => v && v.name && v.name.toLowerCase() === defVax.name.toLowerCase())) {
-                // Ensure no ID collision with existing vaccines
-                let newId = defVax.id;
-                while (mergedVaccines.some(v => v && v.id === newId)) {
-                  newId += 100; // Offset to avoid collision
-                }
-                mergedVaccines.push({ ...defVax, id: newId });
-              }
-            });
-            
-            setVaccinations(mergedVaccines);
-          }
-        } catch (error) {
-          console.log('Vaccinations API not available, using fallback data');
-          // Default list of standard vaccines matching system seeder
           const defaultVaccines = [
             { id: 1, name: 'COVID-19', is_enabled: true },
             { id: 2, name: 'Hepatitis B', is_enabled: true },
@@ -1408,7 +1378,34 @@ export default function PatientProfileSetupPage() {
             { id: 5, name: 'HPV', is_enabled: true },
             { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
           ];
-          setVaccinations(defaultVaccines);
+
+          if (vaccinationResponse.data && Array.isArray(vaccinationResponse.data)) {
+            const enabledVaccinations = vaccinationResponse.data.filter(v => v.is_enabled);
+            const mergedVaccines = [...enabledVaccinations];
+            
+            defaultVaccines.forEach(defVax => {
+              if (!mergedVaccines.some(v => (v.name || '').toLowerCase() === defVax.name.toLowerCase())) {
+                let newId = defVax.id;
+                while (mergedVaccines.some(v => v.id === newId)) {
+                  newId += 100;
+                }
+                mergedVaccines.push({ ...defVax, id: newId });
+              }
+            });
+            setVaccinations(mergedVaccines);
+          } else {
+            setVaccinations(defaultVaccines);
+          }
+        } catch (error) {
+          console.error('Vaccinations initialization failed, using fallback:', error);
+          setVaccinations([
+            { id: 1, name: 'COVID-19', is_enabled: true },
+            { id: 2, name: 'Hepatitis B', is_enabled: true },
+            { id: 3, name: 'Influenza', is_enabled: true },
+            { id: 4, name: 'Tetanus', is_enabled: true },
+            { id: 5, name: 'HPV', is_enabled: true },
+            { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
+          ]);
         }
 
         // Load past medical histories
@@ -1719,10 +1716,17 @@ export default function PatientProfileSetupPage() {
       // Collect enhanced ComorbidIllness details
       const comorbidIllnessDetails: any = {};
       
-      // Process all comorbid illness related fields
+      // Robust cleaner for "undefined" or "null" strings/values
+      const cleanValue = (val: any) => {
+        if (val === undefined || val === null) return null;
+        const s = String(val).trim().toLowerCase();
+        if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return null;
+        return val;
+      };
+
+      // Process all comorbid illness related fields with cleaning
       Object.keys(profile).forEach(key => {
         if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
-          // Extract the illness name from the field name
           let illnessKey = '';
           if (key.includes('_sub')) {
             illnessKey = key.replace('comorbid_', '').replace('_sub', '');
@@ -1730,15 +1734,17 @@ export default function PatientProfileSetupPage() {
             illnessKey = key.replace('comorbid_', '').replace('_spec', '');
           }
           
-          if (illnessKey && profile[key]) {
+          const val = profile[key];
+          if (illnessKey && val) {
             if (!comorbidIllnessDetails[illnessKey]) {
               comorbidIllnessDetails[illnessKey] = {};
             }
             
-            if (key.includes('_sub') && Array.isArray(profile[key]) && profile[key].length > 0) {
-              comorbidIllnessDetails[illnessKey].sub_options = profile[key];
-            } else if (key.includes('_spec') && typeof profile[key] === 'string' && profile[key].trim()) {
-              comorbidIllnessDetails[illnessKey].specification = profile[key].trim();
+            if (key.includes('_sub') && Array.isArray(val) && val.length > 0) {
+              comorbidIllnessDetails[illnessKey].sub_options = val.map(v => cleanValue(v)).filter(v => v !== null);
+            } else if (key.includes('_spec')) {
+              const cleanedSpec = cleanValue(val);
+              if (cleanedSpec) comorbidIllnessDetails[illnessKey].specification = cleanedSpec;
             }
           }
         }
@@ -1834,9 +1840,44 @@ export default function PatientProfileSetupPage() {
         }
       }
       
+      // Robust cleaner for "undefined" or "null" strings/values
+      const cleanValue = (val: any) => {
+        if (val === undefined || val === null) return null;
+        const s = String(val).trim().toLowerCase();
+        if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a') return null;
+        return val;
+      };
+
+      // Clean maintenance medications to ensure no "undefined" strings reach backend
+      const cleanedMeds = Array.isArray(profile?.maintenance_medications) 
+        ? profile.maintenance_medications
+            .map((med: any) => {
+              if (!med || typeof med !== 'object') return null;
+              const cleanedMed: any = {};
+              Object.keys(med).forEach(k => {
+                const cleaned = cleanValue(med[k]);
+                if (cleaned !== null) cleanedMed[k] = cleaned;
+              });
+              // Only keep if it has a drug name or type
+              return (cleanedMed.drug || cleanedMed.drug_type || cleanedMed.custom_drug) ? cleanedMed : null;
+            })
+            .filter(m => m !== null)
+        : null;
+
+      // Clean vaccination history
+      const cleanedVaxHistory: any = {};
+      if (profile?.vaccination_history && typeof profile.vaccination_history === 'object') {
+        Object.entries(profile.vaccination_history).forEach(([vax, status]) => {
+          const cleanedStatus = cleanValue(status);
+          if (cleanedStatus) cleanedVaxHistory[vax] = cleanedStatus;
+        });
+      }
+
       // Add the enhanced details to the profile
       const enhancedProfile = {
         ...profile,
+        maintenance_medications: cleanedMeds,
+        vaccination_history: Object.keys(cleanedVaxHistory).length > 0 ? cleanedVaxHistory : null,
         comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null,
         custom_drug_names: customDrugNames.length > 0 ? customDrugNames : null,
         custom_nationalities: customNationalities.length > 0 ? customNationalities : null,
@@ -1882,22 +1923,21 @@ export default function PatientProfileSetupPage() {
       
       for (const key in enhancedProfile) {
         if (enhancedProfile[key] !== undefined && enhancedProfile[key] !== null) {
-          // Skip specification fields if they are empty strings (shouldn't happen due to validation, but double-check)
-          if ((key === 'nationality_specify' || key === 'religion_specify') && 
-              typeof enhancedProfile[key] === 'string' && 
-              enhancedProfile[key].trim() === '') {
-            console.log(`Skipping empty ${key} field`);
-            continue;
+          // Clean strings in FormData
+          let value = enhancedProfile[key];
+          if (typeof value === 'string') {
+            const cleaned = cleanValue(value);
+            if (cleaned === null) {
+              console.log(`Skipping empty/undefined ${key} field`);
+              continue;
+            }
+            value = cleaned;
           }
           
-          if (typeof enhancedProfile[key] === 'object' && !(enhancedProfile[key] instanceof File)) {
-            formData.append(key, JSON.stringify(enhancedProfile[key]));
+          if (typeof value === 'object' && !(value instanceof File)) {
+            formData.append(key, JSON.stringify(value));
           } else if (key !== 'photo') {
-            formData.append(key, enhancedProfile[key]);
-            // Log nationality and religion fields when added to FormData
-            if (key === 'nationality' || key === 'nationality_specify' || key === 'religion' || key === 'religion_specify') {
-              console.log(`FormData.append('${key}', '${enhancedProfile[key]}')`);
-            }
+            formData.append(key, value);
           }
         }
       }
@@ -2122,6 +2162,17 @@ export default function PatientProfileSetupPage() {
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Immediate validation of file extension
+      const allowedExtensions = ['bmp', 'dib', 'gif', 'jfif', 'jpe', 'jpg', 'jpeg', 'pbm', 'pgm', 'ppm', 'pnm', 'pfm', 'png', 'apng', 'blp', 'bufr', 'cur', 'pcx', 'dcx', 'dds', 'ps', 'eps', 'fit', 'fits', 'fli', 'flc', 'ftc', 'ftu', 'gbr', 'grib', 'h5', 'hdf', 'jp2', 'j2k', 'jpc', 'jpf', 'jpx', 'j2c', 'icns', 'ico', 'im', 'iim', 'mpg', 'mpeg', 'tif', 'tiff', 'mpo', 'msp', 'palm', 'pcd', 'pdf', 'pxr', 'psd', 'qoi', 'bw', 'rgb', 'rgba', 'sgi', 'ras', 'tga', 'icb', 'vda', 'vst', 'webp', 'wmf', 'emf', 'xbm', 'xpm'];
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+      
+      if (!allowedExtensions.includes(fileExtension)) {
+        setFeedbackMessage(`File extension "${fileExtension}" is not allowed. Allowed extensions are: ${allowedExtensions.join(', ')}.`);
+        setFeedbackOpen(true);
+        e.target.value = ''; // Reset input
+        return;
+      }
+
       let finalFile = file;
       
       // Convert to WebP if it's an image
@@ -4964,17 +5015,19 @@ export default function PatientProfileSetupPage() {
                           const durationType = clean(med.duration_type);
                           const customDuration = clean(med.custom_duration);
 
-                          const drugNameStr = (drug === 'Others' || drugType === 'Others') ? (customDrug || 'Other Medication') : (drug || drugType || 'Unknown Medication');
+                          const drugNameStr = (drug === 'Others' || drugType === 'Others') ? (customDrug || 'Other Medication') : (drug || drugType);
                           
-                          // Only render if we have at least a drug name that isn't "Unknown"
-                          if (drugNameStr === 'Unknown Medication' && !dose && !unit) return null;
+                          // Only render if we have at least a drug name or type
+                          if (!drugNameStr && !dose && !unit) return null;
+                          
+                          const finalDrugName = drugNameStr || 'Unknown Medication';
 
                           const freqStr = frequencyType === 'specify' ? (customFrequency || 'Specified Frequency') : (frequency || frequencyType || '');
                           const durStr = durationType === 'specify' ? (customDuration || 'Specified Duration') : (duration || durationType || '');
                           
                           return (
                             <div key={index} className="text-sm flex flex-wrap items-center gap-1 py-1 border-b border-gray-100 last:border-0">
-                              <span className="font-bold text-[#800000]">{drugNameStr}</span>
+                              <span className="font-bold text-[#800000]">{finalDrugName}</span>
                               {(dose || unit) && <span className="text-gray-700 ml-1">{dose || ''}{unit || ''}</span>}
                               {freqStr && (
                                 <>
