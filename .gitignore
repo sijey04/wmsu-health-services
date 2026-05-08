@@ -57,6 +57,9 @@ pids/
 *.seed
 *.pid.lock
 
+# Media uploads
+backend/django_api/media/
+
 # Coverage directory used by tools like istanbul
 coverage/
 

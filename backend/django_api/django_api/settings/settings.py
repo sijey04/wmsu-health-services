@@ -174,8 +174,14 @@ except ImportError:
 
 # Media files (uploads)
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = Path(os.getenv('MEDIA_ROOT_PATH', str(BASE_DIR / 'media')))
 SERVE_MEDIA = os.getenv('SERVE_MEDIA', 'False') == 'True'
+
+try:
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    (MEDIA_ROOT / 'patient_photos').mkdir(parents=True, exist_ok=True)
+except OSError:
+    pass
 
 # Optional S3-compatible storage for media (AWS S3, Cloudflare R2, MinIO, etc.)
 USE_S3 = os.getenv('USE_S3', 'False') == 'True'
