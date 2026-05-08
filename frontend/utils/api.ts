@@ -276,7 +276,7 @@ export const patientProfileAPI = {
     },
     params,
   }),
-  update: (formData: any) => djangoApiClient.put('/patients/update_my_profile/', formData, {
+  update: (formData: any) => djangoApiClient.patch('/patients/update_my_profile/', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
       ...getAuthHeaders(),

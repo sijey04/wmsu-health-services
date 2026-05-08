@@ -162,13 +162,14 @@ export default function PatientProfileSetupPage() {
 
           ctx.drawImage(img, 0, 0);
 
-          // Use WebP instead of AVIF as the backend doesn't support AVIF
-          const formats = ['image/webp', 'image/jpeg'];
+          // Use WebP or PNG instead of AVIF as the backend doesn't support AVIF
+          const formats = ['image/webp', 'image/png', 'image/jpeg'];
           let supportedFormat = 'image/jpeg';
           
           for (const format of formats) {
             try {
-              if (canvas.toDataURL(format).startsWith(`data:${format}`)) {
+              const dataUrl = canvas.toDataURL(format);
+              if (dataUrl.startsWith(`data:${format}`)) {
                 supportedFormat = format;
                 break;
               }
@@ -1037,8 +1038,9 @@ export default function PatientProfileSetupPage() {
       // Vaccination Status validation - MANDATORY
       if (Array.isArray(vaccinations) && vaccinations.length > 0) {
         vaccinations.forEach(vaccine => {
-          if (!profile?.vaccination_history || !profile.vaccination_history[vaccine.name]) {
-            errors[`vaccine_${vaccine.id}`] = `Selection required for ${vaccine.name}.`;
+          const status = profile?.vaccination_history?.[vaccine.name];
+          if (!status || status === '') {
+            errors[`vaccine_${vaccine.id}`] = `Please select a status for ${vaccine.name}.`;
           }
         });
       }
@@ -1370,18 +1372,48 @@ export default function PatientProfileSetupPage() {
           if (vaccinationResponse.data) {
             console.log('Raw vaccinations from API:', vaccinationResponse.data);
             const enabledVaccinations = vaccinationResponse.data.filter(vaccination => vaccination.is_enabled);
-            console.log('Filtered enabled vaccinations:', enabledVaccinations);
-            setVaccinations(enabledVaccinations);
+            
+            // Standard defaults to ensure they are always present
+            const defaultVaccines = [
+              { id: 1, name: 'COVID-19', is_enabled: true },
+              { id: 2, name: 'Influenza (Flu)', is_enabled: true },
+              { id: 3, name: 'Hepatitis B', is_enabled: true },
+              { id: 4, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true },
+              { id: 5, name: 'Tetanus', is_enabled: true }
+            ];
+
+            const mergedVaccines = [...enabledVaccinations];
+            defaultVaccines.forEach(defVax => {
+              if (!mergedVaccines.some(v => v.name.toLowerCase() === defVax.name.toLowerCase())) {
+                mergedVaccines.push(defVax);
+              }
+            });
+            
+            setVaccinations(mergedVaccines);
           }
         } catch (error) {
           console.log('Vaccinations API not available, using fallback data');
-          setVaccinations([
+          // Default list of standard vaccines
+          const defaultVaccines = [
             { id: 1, name: 'COVID-19', is_enabled: true },
             { id: 2, name: 'Influenza (Flu)', is_enabled: true },
             { id: 3, name: 'Hepatitis B', is_enabled: true },
             { id: 4, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true },
             { id: 5, name: 'Tetanus', is_enabled: true }
-          ]);
+          ];
+
+          // Merge autofill vaccines with defaults, ensuring no duplicates by name
+          if (Array.isArray(autofill.vaccines) && autofill.vaccines.length > 0) {
+            const mergedVaccines = [...autofill.vaccines];
+            defaultVaccines.forEach(defVax => {
+              if (!mergedVaccines.some(v => v.name.toLowerCase() === defVax.name.toLowerCase())) {
+                mergedVaccines.push(defVax);
+              }
+            });
+            setVaccinations(mergedVaccines);
+          } else {
+            setVaccinations(defaultVaccines);
+          }
         }
 
         // Load past medical histories
@@ -4931,17 +4963,25 @@ export default function PatientProfileSetupPage() {
                           // Only render if we have at least a drug name that isn't "Unknown"
                           if (drugNameStr === 'Unknown Medication' && !dose && !unit) return null;
 
-                          const freqStr = frequencyType === 'specify' ? (customFrequency || 'Specified Frequency') : (frequency || frequencyType || 'Frequency not specified');
-                          const durStr = durationType === 'specify' ? (customDuration || 'Specified Duration') : (duration || durationType || 'Duration not specified');
+                          const freqStr = frequencyType === 'specify' ? (customFrequency || 'Specified Frequency') : (frequency || frequencyType || '');
+                          const durStr = durationType === 'specify' ? (customDuration || 'Specified Duration') : (duration || durationType || '');
                           
                           return (
                             <div key={index} className="text-sm flex flex-wrap items-center gap-1 py-1 border-b border-gray-100 last:border-0">
                               <span className="font-bold text-[#800000]">{drugNameStr}</span>
-                              {(dose || unit) && <span className="text-gray-700">{dose || ''}{unit || ''}</span>}
-                              <span className="text-gray-400 mx-1">•</span>
-                              <span className="text-gray-700">{freqStr}</span>
-                              <span className="text-gray-400 mx-1">•</span>
-                              <span className="text-gray-600 italic">({durStr})</span>
+                              {(dose || unit) && <span className="text-gray-700 ml-1">{dose || ''}{unit || ''}</span>}
+                              {freqStr && (
+                                <>
+                                  <span className="text-gray-400 mx-1">•</span>
+                                  <span className="text-gray-700">{freqStr}</span>
+                                </>
+                              )}
+                              {durStr && (
+                                <>
+                                  <span className="text-gray-400 mx-1">•</span>
+                                  <span className="text-gray-600 italic">({durStr})</span>
+                                </>
+                              )}
                             </div>
                           );
                         })}
@@ -4979,22 +5019,26 @@ export default function PatientProfileSetupPage() {
                       const extraVaccines = historyEntries.filter(([name]) => !masterVaccineNames.includes(name));
 
                       const allToDisplay = [
-                        ...vaccinations.map(v => ({ name: v.name, status: profile?.vaccination_history?.[v.name] || 'lapsed' })),
-                        ...extraVaccines.map(([name, status]) => ({ name, status: (status as string) || 'lapsed' }))
+                        ...vaccinations.map(v => ({ name: v.name, status: profile?.vaccination_history?.[v.name] || '' })),
+                        ...extraVaccines.map(([name, status]) => ({ name, status: (status as string) || '' }))
                       ];
 
                       if (allToDisplay.length === 0) {
                         return <p className="text-gray-500 italic col-span-2">No vaccination records available.</p>;
                       }
 
-                      return allToDisplay.map((vax, idx) => (
-                        <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
-                          <span className="text-gray-700 font-medium">{vax.name}:</span>
-                          <span className={`font-bold ${statusColors[vax.status] || 'text-gray-600'}`}>
-                            {statusLabels[vax.status] || (typeof vax.status === 'string' ? vax.status.charAt(0).toUpperCase() + vax.status.slice(1) : vax.status)}
-                          </span>
-                        </div>
-                      ));
+                      return allToDisplay.map((vax, idx) => {
+                        if (!vax.status) return null; // Only show vaccines that HAVE a status
+                        
+                        return (
+                          <div key={idx} className="flex justify-between items-center py-1 border-b border-gray-100 last:border-0">
+                            <span className="text-gray-700 font-medium">{vax.name}:</span>
+                            <span className={`font-bold ${statusColors[vax.status] || 'text-gray-600'}`}>
+                              {statusLabels[vax.status] || (typeof vax.status === 'string' ? vax.status.charAt(0).toUpperCase() + vax.status.slice(1) : vax.status)}
+                            </span>
+                          </div>
+                        );
+                      });
                     })()}
                   </div>
                 </div>

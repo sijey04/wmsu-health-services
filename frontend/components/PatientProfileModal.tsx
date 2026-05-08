@@ -936,18 +936,6 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             >
               Current Profile
             </button>
-            {profileHistory.length > 0 && (
-              <button
-                className={`py-4 px-2 border-b-2 font-medium text-sm ${
-                  activeTab === 'history' 
-                    ? 'border-[#8B0000] text-[#8B0000]' 
-                    : 'border-transparent text-gray-500 hover:text-gray-700'
-                }`}
-                onClick={() => setActiveTab('history')}
-              >
-                Edit History ({profileHistory.length})
-              </button>
-            )}
             <button
               className={`py-4 px-2 border-b-2 font-medium text-sm ${
                 activeTab === 'dental' 
@@ -968,6 +956,18 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             >
               Waiver {waiver && '✓'}
             </button>
+            {profileHistory.length > 0 && (
+              <button
+                className={`py-4 px-2 border-b-2 font-medium text-sm ${
+                  activeTab === 'history' 
+                    ? 'border-[#8B0000] text-[#8B0000]' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+                onClick={() => setActiveTab('history')}
+              >
+                Edit History ({profileHistory.length})
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -999,6 +999,18 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             </div>
           ) : activeTab === 'waiver' ? (
             <div className="bg-white rounded-lg shadow-lg p-6 print:shadow-none print:p-0">
+              {/* Institutional Header for Waiver */}
+              <div className="flex items-center justify-between mb-8 pb-4 border-b border-gray-100">
+                <div className="flex items-center gap-4">
+                  <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
+                  <div>
+                    <h2 className="text-[#8B0000] text-sm font-bold uppercase">Western Mindanao State University</h2>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-widest">University Health Services Center</p>
+                  </div>
+                </div>
+                <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-16 h-16 object-contain" />
+              </div>
+
               <div className="flex justify-between items-center mb-6 print:hidden">
                 <h2 className="text-lg font-bold text-[#8B0000]">Signed Waiver</h2>
                 {waiver && (
@@ -1093,6 +1105,16 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
             <div className="bg-white rounded-lg shadow-lg p-6 print:shadow-none">
               <div className="flex justify-between items-center mb-6 print:hidden">
                 <h2 className="text-lg font-bold text-[#8B0000]">Dental Patient Information Record</h2>
+                <button 
+                  disabled
+                  className="flex items-center gap-2 bg-gray-300 text-gray-500 px-4 py-2 rounded-lg cursor-not-allowed opacity-50"
+                  title="No records to export"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export Dental PDF
+                </button>
               </div>
               <div className="text-center py-12">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-4">
