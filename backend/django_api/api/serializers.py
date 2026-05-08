@@ -469,6 +469,47 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             if combined_emergency_address and combined_emergency_address != instance.emergency_contact_address:
                 instance.emergency_contact_address = combined_emergency_address
                 instance.save(update_fields=['emergency_contact_address'])
+
+        # Sync with CustomUser (Account Details)
+        if instance.user:
+            user = instance.user
+            user_updated = False
+            
+            # Sync Names
+            if instance.first_name and user.first_name != instance.first_name:
+                user.first_name = instance.first_name
+                user_updated = True
+                
+            if instance.middle_name and user.middle_name != instance.middle_name:
+                user.middle_name = instance.middle_name
+                user_updated = True
+                
+            # Surname logic - extract surname from 'name' field if possible
+            if instance.name:
+                surname = instance.name.split(',')[0].strip() if ',' in instance.name else instance.name.strip()
+                if user.last_name != surname:
+                    user.last_name = surname
+                    user_updated = True
+            
+            # Sync Email (and username since email is username field)
+            if instance.email and user.email != instance.email:
+                user.email = instance.email
+                user.username = instance.email
+                user_updated = True
+            
+            # Sync Grade Level / Department (if applicable)
+            # Try to match the year_level or department to user's grade_level
+            if hasattr(instance, 'year_level') and instance.year_level:
+                if user.grade_level != instance.year_level:
+                    user.grade_level = instance.year_level
+                    user_updated = True
+            elif hasattr(instance, 'department') and instance.department:
+                if user.grade_level != instance.department:
+                    user.grade_level = instance.department
+                    user_updated = True
+                
+            if user_updated:
+                user.save()
         
         return instance
 

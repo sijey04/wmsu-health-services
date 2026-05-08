@@ -151,11 +151,14 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     // Use uploaded profile photo if available
     if (user?.photo) {
       // If the photo is a relative path, prepend the backend URL if needed
-      const photoUrl = user.photo.startsWith('http') ? user.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${user.photo}`;
-      return <Image className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" width={32} height={32} />;
+      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+      const photoUrl = user.photo.startsWith('http') ? user.photo : `${base}${user.photo.startsWith('/') ? '' : '/'}${user.photo}`;
+      return <img className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
     }
     if (user?.profile_picture) {
-      return <Image className="h-8 w-8 rounded-full object-cover" src={user.profile_picture} alt="Profile" width={32} height={32} />;
+      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+      const photoUrl = user.profile_picture.startsWith('http') ? user.profile_picture : `${base}${user.profile_picture.startsWith('/') ? '' : '/'}${user.profile_picture}`;
+      return <img className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
     }
     const letter = user?.first_name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?';
     return (

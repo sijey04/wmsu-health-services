@@ -533,7 +533,7 @@ export default function PatientProfileSetupPage() {
             city_municipality: autofillData.city_municipality || 'Zamboanga City',
             barangay: autofillData.barangay || '',
             street: autofillData.street || '',
-            civil_status: autofillData.civil_status || '',
+            civil_status: (autofillData.civil_status || '').toLowerCase(),
             emergency_contact_surname: autofillData.emergency_contact_surname || '',
             emergency_contact_first_name: autofillData.emergency_contact_first_name || '',
             emergency_contact_middle_name: autofillData.emergency_contact_middle_name || '',
@@ -723,7 +723,7 @@ export default function PatientProfileSetupPage() {
         if (stringValue && stringValue.length < 2) {
           return 'Name must be at least 2 characters long.';
         }
-        if (stringValue && !/^[a-zA-Z\s\-'\.]+$/.test(stringValue)) {
+        if (stringValue && !/^[a-zA-Z\s\-'\.ñÑ]+$/.test(stringValue)) {
           return 'Name can only contain letters, spaces, hyphens, apostrophes, and periods.';
         }
         break;
@@ -1169,7 +1169,7 @@ export default function PatientProfileSetupPage() {
     }
     
     setFieldErrors(stepSpecificErrors);
-    return Object.keys(stepSpecificErrors).length === 0;
+    return { isValid: Object.keys(stepSpecificErrors).length === 0, errors: stepSpecificErrors };
   };
 
   useEffect(() => {
@@ -1850,8 +1850,10 @@ export default function PatientProfileSetupPage() {
       }
 
       // Add the enhanced details to the profile
+      // Create a merged profile object that includes all fields for saving
       const enhancedProfile = {
         ...profile,
+        // Sub-fields should already be in profile if they were autofilled correctly in fetchProfile
         maintenance_medications: cleanedMeds,
         vaccination_history: Object.keys(cleanedVaxHistory).length > 0 ? cleanedVaxHistory : null,
         comorbid_illness_details: Object.keys(comorbidIllnessDetails).length > 0 ? comorbidIllnessDetails : null,
@@ -2075,7 +2077,22 @@ export default function PatientProfileSetupPage() {
           userData.first_name = profile.first_name || userData.first_name;
           userData.middle_name = profile.middle_name || userData.middle_name;
           userData.last_name = profile.name || userData.last_name;
+          
+          // Sync account details
+          if (profile.email) userData.email = profile.email;
+          if (profile.year_level) userData.grade_level = profile.year_level;
+          else if (profile.department) userData.grade_level = profile.department;
+          
+          // Update photo if it was updated
+          if (profile.photo) {
+            userData.photo = profile.photo;
+            userData.profile_picture = profile.photo;
+          }
+          
           localStorage.setItem('user', JSON.stringify(userData));
+          
+          // Trigger a storage event to update other components (like Layout)
+          window.dispatchEvent(new Event('storage'));
         }
       } catch (error) {
         console.error('Error updating localStorage user data:', error);
@@ -2698,9 +2715,12 @@ export default function PatientProfileSetupPage() {
                   ) : (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0 && profile.photo !== 'null' && profile.photo !== 'undefined') ? (
                     <div className="relative w-full h-full">
                       <img 
-                        src={profile.photo.startsWith('http') || profile.photo.startsWith('blob:') || profile.photo.startsWith('data:') 
-                          ? profile.photo 
-                          : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${profile.photo}`} 
+                        src={(() => {
+                          const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+                          return profile.photo.startsWith('http') || profile.photo.startsWith('blob:') || profile.photo.startsWith('data:') 
+                            ? profile.photo 
+                            : `${base}${profile.photo.startsWith('/') ? '' : '/'}${profile.photo}`;
+                        })()}
                         alt="Current Photo" 
                         className="object-cover w-full h-full rounded-md" 
                         key={profile.photo} 
@@ -5313,9 +5333,10 @@ export default function PatientProfileSetupPage() {
     }
     
     // ALWAYS validate current step before proceeding (regardless of edit mode)
-    if (!validateStep(currentStep)) {
+    const { isValid, errors: stepErrors } = validateStep(currentStep);
+    if (!isValid) {
       // Get specific error messages for missing fields
-      const errorMessages = Object.entries(fieldErrors)
+      const errorMessages = Object.entries(stepErrors)
         .filter(([_, message]) => message)
         .map(([field, message]) => {
           // Create user-friendly field names

@@ -815,9 +815,18 @@ export default function AdminPatientProfile() {
                                 <div className="flex-shrink-0 h-12 w-12">
                                   {patient.photo ? (
                                     <img 
-                                      src={patient.photo.startsWith('http') ? patient.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`} 
+                                      src={(() => {
+                                        const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+                                        return patient.photo.startsWith('http') 
+                                          ? patient.photo 
+                                          : `${base}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`;
+                                      })()} 
                                       alt={patient.name} 
                                       className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(patient.name) + '&color=7F9CF5&background=EBF4FF';
+                                      }}
                                     />
                                   ) : (
                                     <div className="h-12 w-12 rounded-full bg-gray-300 flex items-center justify-center">
