@@ -725,7 +725,7 @@ function AdminMedicalConsultations() {
   return (
     <AdminLayout>
       <div className="max-w-7xl mx-auto px-3 sm:px-4">
-        {/* Header */}
+        <div className="mb-4 sm:mb-6">
           <div className="flex flex-col md:flex-row justify-between items-center border-b border-maroon-100 pb-6 mb-6">
             <div className="flex items-center space-x-4 mb-4 md:mb-0">
               <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">

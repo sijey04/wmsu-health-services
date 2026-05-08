@@ -180,7 +180,7 @@ function MedicalCertificateViewer() {
                 </div>
                 <div className="flex items-center space-x-4">
                   <div className="text-right hidden md:block">
-                    <p className="text-xs text-gray-500 italic">"Excellence in Health Service"</p>
+                    <p className="text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
                     <p className="text-xs text-red-600 font-semibold">Medical Certificate Portal</p>
                   </div>
                   <div className="relative w-20 h-20">

@@ -474,38 +474,39 @@ export default function AdminPatientProfile() {
           <div className="">
             {/* Header */}
             <div className="mb-4 sm:mb-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
-                <div className="flex flex-col md:flex-row justify-between items-center border-b border-maroon-100 pb-6 mb-6 w-full">
-                  <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                    <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
-                      <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-full h-full object-contain" />
-                    </div>
-                    <div className="text-center md:text-left">
-                      <h1 className="text-lg sm:text-xl font-bold text-[#800000] uppercase">Western Mindanao State University</h1>
-                      <p className="text-xs sm:text-sm text-gray-600 font-medium">UNIVERSITY HEALTH SERVICES CENTER</p>
-                      <p className="text-[10px] sm:text-xs text-gray-500">Zamboanga City, Philippines</p>
-                    </div>
+              <div className="flex flex-col md:flex-row justify-between items-center border-b border-maroon-100 pb-6 mb-6 w-full">
+                <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0">
+                    <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-full h-full object-contain" />
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right hidden md:block">
-                      <p className="text-[10px] sm:text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
-                      <p className="text-[10px] sm:text-xs text-[#800000] font-semibold">Patient Records Management</p>
-                    </div>
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
-                      <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-full h-full object-contain" />
-                    </div>
+                  <div className="text-center md:text-left">
+                    <h1 className="text-lg sm:text-xl font-bold text-[#800000] uppercase">Western Mindanao State University</h1>
+                    <p className="text-xs sm:text-sm text-gray-600 font-medium">UNIVERSITY HEALTH SERVICES CENTER</p>
+                    <p className="text-[10px] sm:text-xs text-gray-500">Zamboanga City, Philippines</p>
                   </div>
                 </div>
-                <p className="text-sm sm:text-base text-gray-600 mb-4 px-2">
-                  Manage and organize patient records by academic semester
-                  {semesters.length === 0 && (
-                    <span className="text-orange-600 ml-2">
-                      • Semester tracking will be available when configured
-                    </span>
-                  )}
-                </p>
+                <div className="flex items-center space-x-4">
+                  <div className="text-right hidden md:block">
+                    <p className="text-[10px] sm:text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
+                    <p className="text-[10px] sm:text-xs text-[#800000] font-semibold">Patient Records Management</p>
+                  </div>
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0">
+                    <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-full h-full object-contain" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-sm sm:text-base text-gray-600 mb-4 px-2">
+                Manage and organize patient records by academic semester
+                {semesters.length === 0 && (
+                  <span className="text-orange-600 ml-2">
+                    • Semester tracking will be available when configured
+                  </span>
+                )}
+              </p>
+            </div>
 
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
                   {/* Current Semester Info */}
                   {currentSemester && semesters.length > 0 && (
                     <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
@@ -552,7 +553,7 @@ export default function AdminPatientProfile() {
                       </div>
                     </div>
                   ))}
-                </div>
+
 
                 {/* Export Button */}
                 <button
