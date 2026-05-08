@@ -289,6 +289,31 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 
   if (!open || !patient) return null;
 
+  // Robust cleaner for "undefined" or "null" strings/values
+  const clean = (val: any) => {
+    if (val === undefined || val === null) return '';
+    const s = String(val).trim().toLowerCase();
+    if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return '';
+    return String(val).trim();
+  };
+
+  const resolveText = (...values: any[]) => {
+    for (const value of values) {
+      const cleaned = clean(value);
+      if (cleaned) return cleaned;
+    }
+    return 'N/A';
+  };
+
+  const isTrue = (value: any) => value === true || value === 1 || value === '1' || value === 'true';
+  const isFalse = (value: any) => value === false || value === 0 || value === '0' || value === 'false';
+  const yesNo = (value: any) => (isTrue(value) ? 'Yes' : isFalse(value) ? 'No' : 'N/A');
+  const listTrueFlags = (record: any, items: Array<{ key: string; label: string }>) => {
+    if (!record) return 'None reported';
+    const matches = items.filter((item) => isTrue(record[item.key])).map((item) => item.label);
+    return matches.length > 0 ? matches.join(', ') : 'None reported';
+  };
+
   const handleProfileSelect = (profile: Patient) => {
     setSelectedProfile(profile);
     setActiveTab('current'); // Switch to Current Profile tab to view the selected version
@@ -339,14 +364,6 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       // Previous versions
       return `${academicInfo} - ${dateStr}`;
     }
-  };
-
-  // Robust cleaner for "undefined" or "null" strings/values
-  const clean = (val: any) => {
-    if (val === undefined || val === null) return '';
-    const s = String(val).trim().toLowerCase();
-    if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return '';
-    return String(val).trim();
   };
 
   // Helper function to safely render array data that might contain strings or objects
@@ -429,22 +446,6 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
         })}
       </div>
     );
-  };
-
-  const isTrue = (value: any) => value === true || value === 1 || value === '1' || value === 'true';
-  const isFalse = (value: any) => value === false || value === 0 || value === '0' || value === 'false';
-  const yesNo = (value: any) => (isTrue(value) ? 'Yes' : isFalse(value) ? 'No' : 'N/A');
-  const listTrueFlags = (record: any, items: Array<{ key: string; label: string }>) => {
-    if (!record) return 'None reported';
-    const matches = items.filter((item) => isTrue(record[item.key])).map((item) => item.label);
-    return matches.length > 0 ? matches.join(', ') : 'None reported';
-  };
-  const resolveText = (...values: any[]) => {
-    for (const value of values) {
-      const cleaned = clean(value);
-      if (cleaned) return cleaned;
-    }
-    return 'N/A';
   };
 
   // Helper function to render vaccination status with proper formatting
