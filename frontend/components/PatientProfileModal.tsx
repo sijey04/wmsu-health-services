@@ -71,6 +71,15 @@ interface Patient {
   family_medical_history_other?: string;
   family_medical_history_allergies?: string;
   allergies?: string;
+
+  // Menstrual & obstetric history
+  menstruation_age_began?: string | number;
+  menstruation_regular?: boolean;
+  menstruation_irregular?: boolean;
+  number_of_pregnancies?: number;
+  number_of_live_children?: number;
+  menstrual_symptoms?: (string | object)[] | string | null;
+  menstrual_symptoms_other?: string;
   
   // User account information
   user_email?: string;
@@ -487,6 +496,32 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   };
 
   function renderProfileContent(profile: Patient) {
+    const genderValue = clean(profile.gender).toLowerCase();
+    const hasWomenData = [
+      profile.menstruation_age_began,
+      profile.menstruation_regular,
+      profile.menstruation_irregular,
+      profile.number_of_pregnancies,
+      profile.number_of_live_children,
+      profile.menstrual_symptoms,
+      profile.menstrual_symptoms_other
+    ].some((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'string') return value.trim() !== '';
+      return value !== undefined && value !== null;
+    });
+    const isFemaleProfile = ['female', 'f', 'woman', 'women'].includes(genderValue);
+    const showWomenProfileSection = isFemaleProfile || hasWomenData;
+    const menstrualSymptomsValue = Array.isArray(profile.menstrual_symptoms)
+      ? renderArrayData(profile.menstrual_symptoms, 'menstrual_symptoms')
+      : clean(profile.menstrual_symptoms);
+    const normalizedSymptomsValue =
+      menstrualSymptomsValue && menstrualSymptomsValue !== 'None reported' && menstrualSymptomsValue !== 'N/A'
+        ? menstrualSymptomsValue
+        : '';
+    const menstrualSymptomsDisplay =
+      [normalizedSymptomsValue, clean(profile.menstrual_symptoms_other)].filter(Boolean).join(', ') || 'N/A';
+
     return (
       <div className="space-y-6 text-sm">
         {/* Personal Information Section */}
@@ -949,6 +984,47 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               </div>
             </div>
           </div>
+
+          {showWomenProfileSection && (
+            <div className="border border-gray-400 relative">
+              <div className="absolute left-0 top-0 bottom-0 w-20 bg-[#8B0000] border-r border-gray-400 flex items-center justify-center">
+                <div className="transform -rotate-90 whitespace-nowrap text-[10px] font-bold text-white tracking-wide">
+                  WOMEN ONLY
+                </div>
+              </div>
+
+              <div className="pl-24 p-4">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Menstruation Age Began:</td>
+                      <td className="border border-gray-400 p-2">{resolveText(profile.menstruation_age_began)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Menstruation Regular:</td>
+                      <td className="border border-gray-400 p-2">{yesNo(profile.menstruation_regular)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Menstruation Irregular:</td>
+                      <td className="border border-gray-400 p-2">{yesNo(profile.menstruation_irregular)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Number of Pregnancies:</td>
+                      <td className="border border-gray-400 p-2">{resolveText(profile.number_of_pregnancies)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Number of Live Children:</td>
+                      <td className="border border-gray-400 p-2">{resolveText(profile.number_of_live_children)}</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Menstrual Symptoms:</td>
+                      <td className="border border-gray-400 p-2">{menstrualSymptomsDisplay}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );

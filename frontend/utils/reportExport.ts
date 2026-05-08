@@ -2894,6 +2894,52 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 }, 1: { cellWidth: 'auto' } }
     });
 
+    currentY = (doc as any).lastAutoTable?.finalY || (currentY + 10);
+    currentY += 8;
+
+    const genderValue = String(patient.gender || '').toLowerCase();
+    const isFemaleProfile = ['female', 'f', 'woman', 'women'].includes(genderValue);
+    const hasWomenData = [
+      patient.menstruation_age_began,
+      patient.menstruation_regular,
+      patient.menstruation_irregular,
+      patient.number_of_pregnancies,
+      patient.number_of_live_children,
+      patient.menstrual_symptoms,
+      patient.menstrual_symptoms_other
+    ].some((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      if (typeof value === 'string') return value.trim() !== '';
+      return value !== undefined && value !== null;
+    });
+
+    if (isFemaleProfile || hasWomenData) {
+      const baseSymptoms = Array.isArray(patient.menstrual_symptoms)
+        ? cleanArrayData(patient.menstrual_symptoms)
+        : resolveText(patient.menstrual_symptoms);
+      const normalizedBaseSymptoms = (baseSymptoms === 'None reported' || baseSymptoms === 'N/A') ? '' : baseSymptoms;
+      const otherSymptoms = resolveText(patient.menstrual_symptoms_other);
+      const symptomsValue = [normalizedBaseSymptoms, otherSymptoms].filter(Boolean).join(', ') || 'None reported';
+
+      autoTable(doc, {
+        startY: currentY,
+        margin: { left: 20 },
+        head: [['WOMEN ONLY', ''] ],
+        body: [
+          ['Menstruation Age Began:', resolveText(patient.menstruation_age_began)],
+          ['Menstruation Regular:', yesNo(patient.menstruation_regular)],
+          ['Menstruation Irregular:', yesNo(patient.menstruation_irregular)],
+          ['Number of Pregnancies:', resolveText(patient.number_of_pregnancies)],
+          ['Number of Live Children:', resolveText(patient.number_of_live_children)],
+          ['Menstrual Symptoms:', symptomsValue]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+        styles: { fontSize: 8, cellPadding: 1.5, overflow: 'linebreak' },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 55 }, 1: { cellWidth: 'auto' } }
+      });
+    }
+
     doc.save(`Profile_${fullName.replace(/\s+/g, '_')}.pdf`);
   } catch (error) {
     console.error('Failed to export patient profile PDF:', error);
