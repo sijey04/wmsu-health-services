@@ -241,6 +241,7 @@ export default function AdminPatientProfile() {
   };
 
   const formatPatientName = (patient: any) => {
+    if (!patient) return '';
     // If we have explicit first, middle, last name fields, use them
     const firstName = patient.first_name || patient.user_first_name || '';
     const middleName = patient.middle_name || patient.user_middle_name || '';

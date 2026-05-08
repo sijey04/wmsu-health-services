@@ -335,6 +335,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   };
 
   const formatPatientName = (p: Patient) => {
+    if (!p) return '';
     // If we have explicit first, middle, last name fields, use them
     const firstName = p.first_name || p.user_first_name || '';
     const middleName = p.middle_name || p.user_middle_name || '';
