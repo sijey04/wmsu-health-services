@@ -155,39 +155,24 @@ export default function DentalInformationRecordPage() {
 
   const progress = (currentStep / steps.length) * 100;
 
+  const resolveSemesterCode = (semesterType?: string) => {
+    switch (semesterType) {
+      case '1st':
+        return '1st_semester';
+      case '2nd':
+        return '2nd_semester';
+      case 'Summer':
+        return 'summer';
+      case 'Full Year':
+        return '1st_semester';
+      default:
+        return '1st_semester';
+    }
+  };
+
 
 
   useEffect(() => {
-    // Check if dental information record already exists for current semester
-    const checkExistingRecord = async () => {
-      setLoading(true);
-      
-      try {
-        const response = await djangoApiClient.get('/dental-information-records/current_record/');
-        
-        if (response.data && response.data.id) {
-          console.log('Existing dental information record found:', response.data);
-          setRedirecting(true);
-          
-          // Redirect to dental appointment booking
-          setTimeout(() => {
-            router.push({
-              pathname: '/appointments/dental',
-              query: { ...router.query, option: 'Book Dental Consultation' }
-            });
-          }, 1000);
-          return;
-        }
-      } catch (error) {
-        console.log('No existing dental information record found, showing form');
-        // Continue to show the form if no record exists (404 is expected)
-      }
-      
-      setLoading(false);
-    };
-    
-    checkExistingRecord();
-    
     // Initialize with current date
     const today = new Date().toISOString().split('T')[0];
     setFormData(prev => ({ ...prev, date: today, signature_date: today }));
@@ -212,6 +197,40 @@ export default function DentalInformationRecordPage() {
     loadCurrentSchoolYear();
   }, [router]);
 
+  useEffect(() => {
+    const checkExistingRecord = async () => {
+      if (!currentSemester) return;
+      setLoading(true);
+
+      try {
+        const response = await djangoApiClient.get('/dental-information-records/current_record/', {
+          params: { semester: currentSemester },
+        });
+
+        if (response.data && response.data.id) {
+          console.log('Existing dental information record found:', response.data);
+          setRedirecting(true);
+
+          // Redirect to dental appointment booking
+          setTimeout(() => {
+            router.push({
+              pathname: '/appointments/dental',
+              query: { ...router.query, option: 'Book Dental Consultation' }
+            });
+          }, 1000);
+          return;
+        }
+      } catch (error) {
+        console.log('No existing dental information record found, showing form');
+        // Continue to show the form if no record exists (404 is expected)
+      }
+
+      setLoading(false);
+    };
+
+    checkExistingRecord();
+  }, [currentSemester, router]);
+
 
 
   const loadCurrentSchoolYear = async () => {
@@ -219,7 +238,7 @@ export default function DentalInformationRecordPage() {
       const response = await djangoApiClient.get('/academic-school-years/current/');
       if (response.data) {
         setCurrentSchoolYear(response.data);
-        setCurrentSemester('1st_semester'); // Default semester
+        setCurrentSemester(resolveSemesterCode(response.data.semester_type));
       }
     } catch (error) {
       console.error('Error loading current school year:', error);
