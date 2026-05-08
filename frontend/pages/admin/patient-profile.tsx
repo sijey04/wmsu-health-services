@@ -240,6 +240,27 @@ export default function AdminPatientProfile() {
     }
   };
 
+  const formatPatientName = (patient: any) => {
+    // If we have explicit first, middle, last name fields, use them
+    const firstName = patient.first_name || patient.user_first_name || '';
+    const middleName = patient.middle_name || patient.user_middle_name || '';
+    const lastName = patient.surname || patient.user_last_name || '';
+    
+    if (firstName || lastName) {
+      return `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
+    }
+    
+    // Fallback to name field, but try to reformat if it's "Last, First"
+    if (patient.name && patient.name.includes(',')) {
+      const parts = patient.name.split(',');
+      const last = parts[0].trim();
+      const first = parts[1].trim();
+      return `${first} ${last}`;
+    }
+    
+    return patient.name || 'N/A';
+  };
+
   const calculateSemesterStats = (patientsData: any[]) => {
     const stats: any = {};
     
@@ -450,7 +471,7 @@ export default function AdminPatientProfile() {
       csvData.push([
         semester?.academic_year || 'N/A',
         semester ? `${semester.semester_type} Semester` : 'N/A',
-        patient.name || 'N/A',
+        formatPatientName(patient),
         patient.email || patient.user_email || 'N/A',
         patient.age || 'N/A',
         patient.gender || 'N/A',
@@ -838,11 +859,11 @@ export default function AdminPatientProfile() {
                                           ? patient.photo 
                                           : `${base}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`;
                                       })()} 
-                                      alt={patient.name} 
+                                      alt={formatPatientName(patient)} 
                                       className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
                                       onError={(e) => {
                                         const target = e.target as HTMLImageElement;
-                                        target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(patient.name) + '&color=7F9CF5&background=EBF4FF';
+                                        target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(formatPatientName(patient)) + '&color=7F9CF5&background=EBF4FF';
                                       }}
                                     />
                                   ) : (
@@ -854,7 +875,7 @@ export default function AdminPatientProfile() {
                                   )}
                                 </div>
                                 <div className="ml-4">
-                                  <div className="text-sm font-medium text-gray-900">{patient.name}</div>
+                                  <div className="text-sm font-medium text-gray-900">{formatPatientName(patient)}</div>
                                   <div className="text-sm text-gray-500">{patient.email || patient.user_email}</div>
                                   <div className="text-xs text-gray-400">ID: {patient.id}</div>
                                 </div>
@@ -1122,7 +1143,7 @@ export default function AdminPatientProfile() {
       <PatientAppointmentHistory
         open={historyModalOpen}
         patientId={selectedPatient?.id || null}
-        patientName={selectedPatient?.name || ''}
+        patientName={formatPatientName(selectedPatient) || ''}
         onClose={() => setHistoryModalOpen(false)}
       />
     </AdminLayout>

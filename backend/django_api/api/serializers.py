@@ -53,6 +53,10 @@ class SignupSerializer(serializers.ModelSerializer):
         validated_data['is_staff'] = False
 
         user = CustomUser.objects.create_user(**validated_data)
+        # Safety net: ensure no signup can become staff/admin.
+        user.user_type = 'student'
+        user.is_staff = False
+        user.is_superuser = False
         if middle_name is not None:
             user.middle_name = middle_name
         

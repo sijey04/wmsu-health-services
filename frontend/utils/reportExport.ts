@@ -2913,7 +2913,7 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
       return value !== undefined && value !== null;
     });
 
-    if (isFemaleProfile || hasWomenData) {
+    if (isFemaleProfile) {
       const baseSymptoms = Array.isArray(patient.menstrual_symptoms)
         ? cleanArrayData(patient.menstrual_symptoms)
         : resolveText(patient.menstrual_symptoms);

@@ -333,6 +333,27 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     return 'N/A';
   };
 
+  const formatPatientName = (p: Patient) => {
+    // If we have explicit first, middle, last name fields, use them
+    const firstName = p.first_name || p.user_first_name || '';
+    const middleName = p.middle_name || p.user_middle_name || '';
+    const lastName = p.surname || p.user_last_name || '';
+    
+    if (firstName || lastName) {
+      return `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
+    }
+    
+    // Fallback to name field, but try to reformat if it's "Last, First"
+    if (p.name && p.name.includes(',')) {
+      const parts = p.name.split(',');
+      const last = parts[0].trim();
+      const first = parts[1].trim();
+      return `${first} ${last}`;
+    }
+    
+    return p.name || 'N/A';
+  };
+
   const isTrue = (value: any) => value === true || value === 1 || value === '1' || value === 'true';
   const isFalse = (value: any) => value === false || value === 0 || value === '0' || value === 'false';
   const yesNo = (value: any) => (isTrue(value) ? 'Yes' : isFalse(value) ? 'No' : 'N/A');
@@ -530,7 +551,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       return value !== undefined && value !== null;
     });
     const isFemaleProfile = ['female', 'f', 'woman', 'women'].includes(genderValue);
-    const showWomenProfileSection = isFemaleProfile || hasWomenData;
+    const showWomenProfileSection = isFemaleProfile;
     const menstrualSymptomsValue = Array.isArray(profile.menstrual_symptoms)
       ? renderArrayData(profile.menstrual_symptoms, 'menstrual_symptoms')
       : clean(profile.menstrual_symptoms);
@@ -581,7 +602,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 <tbody>
                   <tr>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Name:</td>
-                    <td className="border border-gray-400 p-2" colSpan={3}>{profile.name || ''}</td>
+                    <td className="border border-gray-400 p-2" colSpan={3}>{formatPatientName(profile)}</td>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-16">Sex:</td>
                     <td className="border border-gray-400 p-2 w-20">{profile.gender || ''}</td>
                   </tr>
@@ -1222,7 +1243,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 <h2 className="text-lg font-bold text-[#8B0000]">Signed Waiver</h2>
                 {waiver && (
                   <button 
-                    onClick={() => exportWaiverPDF(waiver, displayedProfile.name || `${displayedProfile.first_name} ${displayedProfile.last_name}`)}
+                    onClick={() => exportWaiverPDF(waiver, formatPatientName(displayedProfile))}
                     className="flex items-center gap-2 bg-[#8B0000] text-white px-4 py-2 rounded-lg hover:bg-[#660000] transition-colors shadow-sm"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1338,7 +1359,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                         <div className="flex justify-between">
                           <span className="text-gray-500">Patient Name:</span>
                           <span className="font-medium text-gray-900">
-                            {resolveText(dentalRecord.patient_name, displayedProfile.name)}
+                            {resolveText(dentalRecord.patient_name, formatPatientName(displayedProfile))}
                           </span>
                         </div>
                         <div className="flex justify-between">
