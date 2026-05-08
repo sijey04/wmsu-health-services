@@ -429,6 +429,15 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     );
   };
 
+  const isTrue = (value: any) => value === true || value === 1 || value === '1' || value === 'true';
+  const isFalse = (value: any) => value === false || value === 0 || value === '0' || value === 'false';
+  const yesNo = (value: any) => (isTrue(value) ? 'Yes' : isFalse(value) ? 'No' : 'N/A');
+  const listTrueFlags = (record: any, items: Array<{ key: string; label: string }>) => {
+    if (!record) return 'None reported';
+    const matches = items.filter((item) => isTrue(record[item.key])).map((item) => item.label);
+    return matches.length > 0 ? matches.join(', ') : 'None reported';
+  };
+
   // Helper function to render vaccination status with proper formatting
   const renderVaccinationStatus = (vaccinationHistory: any): JSX.Element => {
     if (!vaccinationHistory || typeof vaccinationHistory !== 'object') {
@@ -1217,47 +1226,271 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 </div>
               ) : dentalRecord ? (
                 <div className="space-y-6">
-                  {/* Dental Record Details */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">CLINICAL INFORMATION</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Chief Concern:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.chief_concern || 'N/A'}</span>
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">PATIENT DETAILS</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Patient Name:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.patient_name || displayedProfile.name || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">History:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.history_of_present_illness || 'N/A'}</span>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Age:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.age ?? 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Sex:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.sex || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Education Level:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.education_level || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Year Level:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.year_level || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Course:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.course || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Year/Section:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.year_section || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Date:</span>
+                          <span className="font-medium text-gray-900">
+                            {dentalRecord.date ? new Date(dentalRecord.date).toLocaleDateString() : 'N/A'}
+                          </span>
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">DENTAL EXAMINATION</h3>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Intraoral:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.intraoral_examination || 'N/A'}</span>
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">DENTAL HISTORY</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Previous Dentist:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.name_of_previous_dentist || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500">Extraoral:</span>
-                          <span className="font-medium text-gray-900">{dentalRecord.extraoral_examination || 'N/A'}</span>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Last Dental Visit:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.last_dental_visit || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Last Cleaning:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.date_of_last_cleaning || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                  
-                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
-                    <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">DIAGNOSIS & PLAN</h3>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Diagnosis:</p>
-                        <p className="text-sm font-medium text-gray-900">{dentalRecord.diagnosis_dental || 'N/A'}</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">FAMILY DENTIST</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Has Family Dentist:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.has_family_dentist)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Name:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.family_dentist_name || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Address:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.family_dentist_address || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Phone:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.family_dentist_phone || 'N/A'}</span>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Treatment Plan:</p>
-                        <p className="text-sm font-medium text-gray-900">{dentalRecord.treatment_plan_dental || 'N/A'}</p>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">MEDICAL HISTORY</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Oral Hygiene Instructions:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.oral_hygiene_instructions)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Gums Bleed Brushing:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.gums_bleed_brushing)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Sensitive to Hot/Cold:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.teeth_sensitive_hot_cold)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Pain in Teeth:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.feel_pain_teeth)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Difficult Extractions:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.difficult_extractions_past)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Orthodontic Treatment:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.orthodontic_treatment)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Prolonged Bleeding:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.prolonged_bleeding_extractions)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Frequent Headaches:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.frequent_headaches)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Clench/Grind Teeth:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.clench_grind_teeth)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">ALLERGIES</h3>
+                      <div className="text-sm space-y-2">
+                        <div>
+                          <div className="text-gray-500 mb-1">Allergic to:</div>
+                          <div className="font-medium text-gray-900">
+                            {listTrueFlags(dentalRecord, [
+                              { key: 'allergic_penicillin', label: 'Penicillin' },
+                              { key: 'allergic_amoxicillin', label: 'Amoxicillin' },
+                              { key: 'allergic_local_anesthetic', label: 'Local Anesthetic' },
+                              { key: 'allergic_sulfa_drugs', label: 'Sulfa Drugs' },
+                              { key: 'allergic_latex', label: 'Latex' },
+                            ])}
+                            {dentalRecord.allergic_others ? `, Other: ${dentalRecord.allergic_others}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">WOMEN ONLY</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Is Woman:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.is_woman)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Menstruation Today:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.menstruation_today)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Pregnant:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.pregnant)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Taking Birth Control:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.taking_birth_control)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">MEDICAL TREATMENT</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Smoke:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.smoke)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Under Medical Treatment:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.under_medical_treatment)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Condition:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.medical_treatment_condition || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Hospitalized:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.hospitalized)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">When/Why:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.hospitalization_when_why || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Taking Prescription Meds:</span>
+                          <span className="font-medium text-gray-900">{yesNo(dentalRecord.taking_prescription_medication)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Prescription Details:</span>
+                          <span className="font-medium text-gray-900">{dentalRecord.prescription_medication_details || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">MEDICAL CONDITIONS</h3>
+                      <div className="text-sm space-y-2">
+                        <div>
+                          <div className="text-gray-500 mb-1">Reported Conditions:</div>
+                          <div className="font-medium text-gray-900">
+                            {listTrueFlags(dentalRecord, [
+                              { key: 'high_blood_pressure', label: 'High Blood Pressure' },
+                              { key: 'low_blood_pressure', label: 'Low Blood Pressure' },
+                              { key: 'epilepsy_convulsions', label: 'Epilepsy/Convulsions' },
+                              { key: 'aids_hiv_positive', label: 'AIDS/HIV' },
+                              { key: 'sexually_transmitted_disease', label: 'STD' },
+                              { key: 'stomach_trouble_ulcers', label: 'Stomach Trouble/Ulcers' },
+                              { key: 'fainting_seizure', label: 'Fainting/Seizure' },
+                              { key: 'rapid_weight_loss', label: 'Rapid Weight Loss' },
+                              { key: 'radiation_therapy', label: 'Radiation Therapy' },
+                              { key: 'joint_replacement_implant', label: 'Joint Replacement/Implant' },
+                              { key: 'heart_surgery', label: 'Heart Surgery' },
+                              { key: 'heart_attack', label: 'Heart Attack' },
+                              { key: 'thyroid_problem', label: 'Thyroid Problem' },
+                              { key: 'heart_disease', label: 'Heart Disease' },
+                              { key: 'heart_murmur', label: 'Heart Murmur' },
+                              { key: 'hepatitis_liver_disease', label: 'Hepatitis/Liver Disease' },
+                              { key: 'rheumatic_fever', label: 'Rheumatic Fever' },
+                              { key: 'hay_fever_allergies', label: 'Hay Fever/Allergies' },
+                              { key: 'respiratory_problems', label: 'Respiratory Problems' },
+                              { key: 'hepatitis_jaundice', label: 'Hepatitis/Jaundice' },
+                              { key: 'tuberculosis', label: 'Tuberculosis' },
+                              { key: 'swollen_ankles', label: 'Swollen Ankles' },
+                              { key: 'kidney_disease', label: 'Kidney Disease' },
+                              { key: 'diabetes', label: 'Diabetes' },
+                              { key: 'chest_pain', label: 'Chest Pain' },
+                              { key: 'stroke', label: 'Stroke' },
+                              { key: 'cancer_tumors', label: 'Cancer/Tumors' },
+                              { key: 'anemia', label: 'Anemia' },
+                              { key: 'angina', label: 'Angina' },
+                              { key: 'asthma', label: 'Asthma' },
+                              { key: 'emphysema', label: 'Emphysema' },
+                              { key: 'blood_diseases', label: 'Blood Diseases' },
+                              { key: 'head_injuries', label: 'Head Injuries' },
+                              { key: 'arthritis_rheumatism', label: 'Arthritis/Rheumatism' },
+                            ])}
+                            {dentalRecord.other_conditions ? `, Other: ${dentalRecord.other_conditions}` : ''}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <h3 className="text-sm font-bold text-[#8B0000] mb-3 border-b border-maroon-100 pb-2">SIGNATURE</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Patient Signature:</span>
+                        <span className="font-medium text-gray-900">{dentalRecord.patient_signature || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Signature Date:</span>
+                        <span className="font-medium text-gray-900">
+                          {dentalRecord.signature_date ? new Date(dentalRecord.signature_date).toLocaleDateString() : 'N/A'}
+                        </span>
                       </div>
                     </div>
                   </div>
