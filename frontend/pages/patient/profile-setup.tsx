@@ -1378,39 +1378,12 @@ export default function PatientProfileSetupPage() {
         try {
           const vaccinationResponse = await djangoApiClient.get('/user-management/vaccinations/');
           
-          // Standard defaults matching system seeder
-          const defaultVaccines = [
-            { id: 1, name: 'COVID-19', is_enabled: true },
-            { id: 2, name: 'Hepatitis B', is_enabled: true },
-            { id: 3, name: 'Influenza', is_enabled: true },
-            { id: 4, name: 'Tetanus', is_enabled: true },
-            { id: 5, name: 'HPV', is_enabled: true },
-            { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
-          ];
-
           let enabledVaccinations: any[] = [];
           if (vaccinationResponse.data && Array.isArray(vaccinationResponse.data)) {
             enabledVaccinations = vaccinationResponse.data.filter(v => v.is_enabled);
           }
           
-          const mergedVaccines = [...enabledVaccinations];
-          
-          // Ensure all defaults are present (case-insensitive check)
-          defaultVaccines.forEach(defVax => {
-            const exists = mergedVaccines.some(v => 
-              (v.name || v.vaccine_name || '').toString().toLowerCase() === defVax.name.toLowerCase()
-            );
-            
-            if (!exists) {
-              let newId = defVax.id;
-              while (mergedVaccines.some(v => v.id === newId)) {
-                newId += 100;
-              }
-              mergedVaccines.push({ ...defVax, id: newId });
-            }
-          });
-          
-          setVaccinations(mergedVaccines);
+          setVaccinations(enabledVaccinations);
         } catch (error) {
           console.error('Vaccinations initialization failed, using strict defaults:', error);
           setVaccinations([
@@ -4072,16 +4045,14 @@ export default function PatientProfileSetupPage() {
             </div>
 
             {/* Vaccination History */}
-            {!medicalListsLoading && (
+            {!medicalListsLoading && vaccinations.length > 0 && (
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
               <h3 className="text-lg font-bold text-gray-800 mb-2 flex items-center">
                 <span className="w-5 h-5 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2">3</span>
                 Vaccination Status
-                {vaccinations.length > 0 && (
-                  <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
-                    {vaccinations.length} vaccines available
-                  </span>
-                )}
+                <span className="ml-2 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  {vaccinations.length} vaccines available
+                </span>
               </h3>
               <p className="text-sm text-gray-700 mb-4">Please indicate your vaccination status for each vaccine:</p>
               
