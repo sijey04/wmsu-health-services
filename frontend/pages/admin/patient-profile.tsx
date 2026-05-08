@@ -306,51 +306,68 @@ export default function AdminPatientProfile() {
     console.log('Student ID:', patient?.student_id);
     
     let allProfiles = [];
-    // Always use student_id for resolution as it's the unique identifier for a person in the university
-    if (patient && patient.student_id) {
+    const userId = patient?.user;
+    const studentId = patient?.student_id;
+
+    if (patient && userId) {
       try {
-        console.log('Fetching all profile versions for Student ID:', patient.student_id);
-        const allProfilesResponse = await patientsAPI.getByStudentId(patient.student_id);
-        
+        console.log('Fetching all profile versions for User ID:', userId);
+        const allProfilesResponse = await patientsAPI.getByUserId(userId);
+
         let profilesData = allProfilesResponse.data;
         if (!Array.isArray(profilesData)) {
           profilesData = profilesData ? [profilesData] : [];
         }
-        
+
         allProfiles = profilesData;
-        
-        // Sort profiles by recency (updated_at > created_at > id)
-        const sortedProfiles = [...allProfiles].sort((a: any, b: any) => {
-          const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
-          const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
-          if (timeB !== timeA) return timeB - timeA;
-          return b.id - a.id;
-        });
-        
-        const latestProfile = sortedProfiles[0] || patient;
-        setSelectedPatient(latestProfile);
-        
-        // If the current profile is not the latest, redirect the URL
-        if (latestProfile.id !== patient.id) {
-          console.log(`Redirecting from historical version ${patient.id} to latest version ${latestProfile.id}`);
-          router.push({
-            pathname: router.pathname,
-            query: { ...router.query, id: latestProfile.id }
-          }, undefined, { shallow: true });
+      } catch (error) {
+        console.error("Failed to fetch all patient profiles for user ID:", error);
+      }
+    }
+
+    if (patient && allProfiles.length === 0 && studentId) {
+      try {
+        console.log('Fetching all profile versions for Student ID:', studentId);
+        const allProfilesResponse = await patientsAPI.getByStudentId(studentId);
+
+        let profilesData = allProfilesResponse.data;
+        if (!Array.isArray(profilesData)) {
+          profilesData = profilesData ? [profilesData] : [];
         }
+
+        allProfiles = profilesData;
       } catch (error) {
         console.error("Failed to fetch all patient profiles for student ID:", error);
-        allProfiles = [patient];
-        setSelectedPatient(patient);
       }
-    } else {
-      console.log('No student ID found for this profile, showing single version.');
+    }
+
+    if (allProfiles.length === 0) {
+      console.log('No matching profiles found for user or student ID, showing single version.');
       allProfiles = [patient];
-      setSelectedPatient(patient);
+    }
+
+    // Sort profiles by recency (updated_at > created_at > id)
+    const sortedProfiles = [...allProfiles].sort((a: any, b: any) => {
+      const timeA = new Date(a.updated_at || a.created_at || 0).getTime();
+      const timeB = new Date(b.updated_at || b.created_at || 0).getTime();
+      if (timeB !== timeA) return timeB - timeA;
+      return b.id - a.id;
+    });
+
+    const latestProfile = sortedProfiles[0] || patient;
+    setSelectedPatient(latestProfile);
+
+    // If the current profile is not the latest, redirect the URL
+    if (latestProfile.id !== patient.id) {
+      console.log(`Redirecting from historical version ${patient.id} to latest version ${latestProfile.id}`);
+      router.push({
+        pathname: router.pathname,
+        query: { ...router.query, id: latestProfile.id }
+      }, undefined, { shallow: true });
     }
     
     setAllPatientProfiles(allProfiles);
-    console.log('Resolution complete. Latest ID:', selectedPatient?.id);
+    console.log('Resolution complete. Latest ID:', latestProfile?.id);
     console.log('===================================');
     setViewModalOpen(true);
   };

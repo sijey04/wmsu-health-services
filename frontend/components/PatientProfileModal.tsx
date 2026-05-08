@@ -132,15 +132,15 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   const [loadingDental, setLoadingDental] = React.useState(false);
 
   const profileMatchesPatient = React.useCallback((profile: Patient) => {
-    const patientStudentId = patient?.student_id;
-    const profileStudentId = profile?.student_id;
-    if (patientStudentId && profileStudentId && String(profileStudentId) === String(patientStudentId)) {
-      return true;
-    }
-
     const patientUserId = patient?.user;
     const profileUserId = profile?.user;
     if (patientUserId && profileUserId && String(profileUserId) === String(patientUserId)) {
+      return true;
+    }
+
+    const patientStudentId = patient?.student_id;
+    const profileStudentId = profile?.student_id;
+    if (patientStudentId && profileStudentId && String(profileStudentId) === String(patientStudentId)) {
       return true;
     }
 

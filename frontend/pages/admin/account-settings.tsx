@@ -79,8 +79,34 @@ export default function AdminAccountSettings() {
       // Fetch positions from staff roles endpoint
       const response = await djangoApiClient.get('/admin-controls/staff-roles/');
       if (response.data && Array.isArray(response.data)) {
-        setPositionOptions(response.data.map((role: any) => role.label || role.name));
+        const normalized = response.data
+          .map((role: any) => {
+            if (typeof role === 'string') return role;
+            if (role && typeof role === 'object') {
+              return role.label || role.name || role.value || '';
+            }
+            return '';
+          })
+          .map((role: string) => role.trim())
+          .filter(Boolean);
+
+        const uniqueRoles = Array.from(new Set(normalized));
+        if (uniqueRoles.length > 0) {
+          setPositionOptions(uniqueRoles);
+          return;
+        }
       }
+      console.warn('Staff roles endpoint returned no usable positions.');
+      setPositionOptions([
+        'Administrator',
+        'Medical Staff',
+        'Doctor',
+        'Nurse',
+        'Dentist',
+        'Dental Staff',
+        'General Staff',
+        'Receptionist'
+      ]);
     } catch (error) {
       console.warn('Failed to fetch positions from backend, using defaults');
       // Fallback to default positions
@@ -283,6 +309,13 @@ export default function AdminAccountSettings() {
     setLoading(true);
 
     try {
+      if (!staffDetails.position) {
+        setFeedbackMessage('Please select a position before saving.');
+        setFeedbackOpen(true);
+        setLoading(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('full_name', staffDetails.full_name);
       formData.append('position', staffDetails.position);
