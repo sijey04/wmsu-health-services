@@ -34,6 +34,14 @@ export default function PatientProfileSetupPage() {
   const [autoFilledFromYear, setAutoFilledFromYear] = useState<string>('');
   const [autoFilledFromSemester, setAutoFilledFromSemester] = useState<string>('');
 
+  // Robust cleaner for "undefined" or "null" strings/values
+  const cleanValue = (val: any) => {
+    if (val === undefined || val === null) return null;
+    const s = String(val).trim().toLowerCase();
+    if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return null;
+    return val;
+  };
+
   // Medical lists state
   const [comorbidIllnesses, setComorbidIllnesses] = useState<any[]>([]);
   const [vaccinations, setVaccinations] = useState<any[]>([]);
@@ -1367,9 +1375,10 @@ export default function PatientProfileSetupPage() {
         }
 
         // Load vaccinations
-        // Load vaccines
         try {
           const vaccinationResponse = await djangoApiClient.get('/user-management/vaccinations/');
+          
+          // Standard defaults matching system seeder
           const defaultVaccines = [
             { id: 1, name: 'COVID-19', is_enabled: true },
             { id: 2, name: 'Hepatitis B', is_enabled: true },
@@ -1379,25 +1388,31 @@ export default function PatientProfileSetupPage() {
             { id: 6, name: 'Measles, Mumps, Rubella (MMR)', is_enabled: true }
           ];
 
+          let enabledVaccinations: any[] = [];
           if (vaccinationResponse.data && Array.isArray(vaccinationResponse.data)) {
-            const enabledVaccinations = vaccinationResponse.data.filter(v => v.is_enabled);
-            const mergedVaccines = [...enabledVaccinations];
-            
-            defaultVaccines.forEach(defVax => {
-              if (!mergedVaccines.some(v => (v.name || '').toLowerCase() === defVax.name.toLowerCase())) {
-                let newId = defVax.id;
-                while (mergedVaccines.some(v => v.id === newId)) {
-                  newId += 100;
-                }
-                mergedVaccines.push({ ...defVax, id: newId });
-              }
-            });
-            setVaccinations(mergedVaccines);
-          } else {
-            setVaccinations(defaultVaccines);
+            enabledVaccinations = vaccinationResponse.data.filter(v => v.is_enabled);
           }
+          
+          const mergedVaccines = [...enabledVaccinations];
+          
+          // Ensure all defaults are present (case-insensitive check)
+          defaultVaccines.forEach(defVax => {
+            const exists = mergedVaccines.some(v => 
+              (v.name || v.vaccine_name || '').toString().toLowerCase() === defVax.name.toLowerCase()
+            );
+            
+            if (!exists) {
+              let newId = defVax.id;
+              while (mergedVaccines.some(v => v.id === newId)) {
+                newId += 100;
+              }
+              mergedVaccines.push({ ...defVax, id: newId });
+            }
+          });
+          
+          setVaccinations(mergedVaccines);
         } catch (error) {
-          console.error('Vaccinations initialization failed, using fallback:', error);
+          console.error('Vaccinations initialization failed, using strict defaults:', error);
           setVaccinations([
             { id: 1, name: 'COVID-19', is_enabled: true },
             { id: 2, name: 'Hepatitis B', is_enabled: true },
@@ -1716,14 +1731,6 @@ export default function PatientProfileSetupPage() {
       // Collect enhanced ComorbidIllness details
       const comorbidIllnessDetails: any = {};
       
-      // Robust cleaner for "undefined" or "null" strings/values
-      const cleanValue = (val: any) => {
-        if (val === undefined || val === null) return null;
-        const s = String(val).trim().toLowerCase();
-        if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a' || s === 'none') return null;
-        return val;
-      };
-
       // Process all comorbid illness related fields with cleaning
       Object.keys(profile).forEach(key => {
         if (key.startsWith('comorbid_') && (key.includes('_sub') || key.includes('_spec'))) {
@@ -1840,14 +1847,6 @@ export default function PatientProfileSetupPage() {
         }
       }
       
-      // Robust cleaner for "undefined" or "null" strings/values
-      const cleanValue = (val: any) => {
-        if (val === undefined || val === null) return null;
-        const s = String(val).trim().toLowerCase();
-        if (s === 'undefined' || s === 'null' || s === '' || s === 'n/a') return null;
-        return val;
-      };
-
       // Clean maintenance medications to ensure no "undefined" strings reach backend
       const cleanedMeds = Array.isArray(profile?.maintenance_medications) 
         ? profile.maintenance_medications
@@ -1921,22 +1920,35 @@ export default function PatientProfileSetupPage() {
       console.log('enhancedProfile.religion:', enhancedProfile.religion);
       console.log('enhancedProfile.religion_specify:', enhancedProfile.religion_specify);
       
-      for (const key in enhancedProfile) {
+      // Whitelist of fields allowed to be sent to the backend
+      const allowedFields = [
+        'first_name', 'last_name', 'middle_name', 'student_id', 'employee_id', 'user_type',
+        'course', 'year_level', 'strand', 'department', 'position_type',
+        'gender', 'date_of_birth', 'age', 'blood_type', 'contact_number', 'email',
+        'religion', 'nationality', 'religion_specify', 'nationality_specify',
+        'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relationship',
+        'home_address', 'boarding_house_address',
+        'past_medical_history', 'past_medical_history_other',
+        'family_medical_history', 'family_medical_history_other',
+        'vaccination_history', 'maintenance_medications', 'comorbid_illness_details',
+        'custom_drug_names', 'custom_nationalities', 'custom_religions',
+        'custom_comorbid_illnesses', 'custom_comorbid_specifications', 'custom_menstrual_symptoms'
+      ];
+
+      for (const key of allowedFields) {
         if (enhancedProfile[key] !== undefined && enhancedProfile[key] !== null) {
-          // Clean strings in FormData
           let value = enhancedProfile[key];
+          
+          // Clean strings in FormData
           if (typeof value === 'string') {
             const cleaned = cleanValue(value);
-            if (cleaned === null) {
-              console.log(`Skipping empty/undefined ${key} field`);
-              continue;
-            }
+            if (cleaned === null) continue;
             value = cleaned;
           }
           
           if (typeof value === 'object' && !(value instanceof File)) {
             formData.append(key, JSON.stringify(value));
-          } else if (key !== 'photo') {
+          } else {
             formData.append(key, value);
           }
         }
@@ -4796,35 +4808,35 @@ export default function PatientProfileSetupPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs">Full Name</p>
-                  <p className="text-gray-900 font-semibold">{profile?.name} {profile?.first_name} {profile?.middle_name} {profile?.suffix}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.name) || cleanValue(`${profile?.first_name || ''} ${profile?.middle_name || ''} ${profile?.last_name || ''}`.trim()) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs">Date of Birth</p>
-                  <p className="text-gray-900 font-semibold">{profile?.date_of_birth || 'Not specified'}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.date_of_birth) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs">Age</p>
-                  <p className="text-gray-900 font-semibold">{profile?.age || 'Not specified'}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.age) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs">Gender</p>
-                  <p className="text-gray-900 font-semibold">{profile?.gender || 'Not specified'}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.gender) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs">Blood Type</p>
-                  <p className="text-gray-900 font-semibold">{profile?.blood_type || 'Not specified'}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.blood_type) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                   <p className="font-medium text-gray-600 text-xs">Phone Number</p>
-                  <p className="text-gray-900 font-semibold">{profile?.contact_number || 'Not specified'}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.contact_number) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 sm:col-span-2">
                   <p className="font-medium text-gray-600 text-xs">Email</p>
-                  <p className="text-gray-900 font-semibold">{profile?.email || 'Not specified'}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.email) || 'Not specified'}</p>
                 </div>
                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 sm:col-span-2 lg:col-span-3">
                   <p className="font-medium text-gray-600 text-xs">Address</p>
-                  <p className="text-gray-900 font-semibold">{profile?.street}, {profile?.barangay}, {profile?.city_municipality}</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(`${profile?.street || ''}, ${profile?.barangay || ''}, ${profile?.city_municipality || ''}`.replace(/^, |, $/, '').trim()) || 'Not specified'}</p>
                 </div>
               </div>
             </div>
@@ -4846,15 +4858,15 @@ export default function PatientProfileSetupPage() {
                   <>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Employee ID</p>
-                      <p className="text-gray-900 font-semibold">{profile?.employee_id || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.employee_id) || 'Not specified'}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Position Type</p>
-                      <p className="text-gray-900 font-semibold">{profile?.position_type || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.position_type) || 'Not specified'}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Department</p>
-                      <p className="text-gray-900 font-semibold">{profile?.department || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.department) || 'Not specified'}</p>
                     </div>
                   </>
                 )}
@@ -4863,11 +4875,11 @@ export default function PatientProfileSetupPage() {
                   <>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Course</p>
-                      <p className="text-gray-900 font-semibold">{profile?.course || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.course) || 'Not specified'}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Year Level</p>
-                      <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.year_level) || 'Not specified'}</p>
                     </div>
                   </>
                 )}
@@ -4876,11 +4888,11 @@ export default function PatientProfileSetupPage() {
                   <>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Strand</p>
-                      <p className="text-gray-900 font-semibold">{profile?.strand || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.strand) || 'Not specified'}</p>
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                       <p className="font-medium text-gray-600 text-xs">Year Level</p>
-                      <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                      <p className="text-gray-900 font-semibold">{cleanValue(profile?.year_level) || 'Not specified'}</p>
                     </div>
                   </>
                 )}
@@ -4888,35 +4900,42 @@ export default function PatientProfileSetupPage() {
                 {(profile?.user_type === 'High School' || profile?.user_type === 'Elementary' || profile?.user_type === 'Kindergarten') && (
                   <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
                     <p className="font-medium text-gray-600 text-xs">Year Level</p>
-                    <p className="text-gray-900 font-semibold">{profile?.year_level || 'Not specified'}</p>
+                    <p className="text-gray-900 font-semibold">{cleanValue(profile?.year_level) || 'Not specified'}</p>
                   </div>
                 )}
               </div>
             </div>
 
+            {/* Contact Information Summary */}
+            <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
+              <p className="font-medium text-gray-600 text-xs mb-1">Contact Information</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase">Phone Number</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.contact_number) || 'Not specified'}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase">Email Address</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.email) || 'Not specified'}</p>
+                </div>
+              </div>
+            </div>
+
             {/* Emergency Contact Summary */}
             <div className="bg-white p-4 sm:p-6 rounded-xl border border-gray-200">
-              <h3 className="text-lg font-bold mb-4 flex items-center text-gray-800">
-                <span className="w-6 h-6 bg-gray-600 text-white rounded-full flex items-center justify-center text-xs mr-2 font-bold">3</span>
-                Emergency Contact
-              </h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs">Full Name</p>
-                  <p className="text-gray-900 font-semibold">{profile?.emergency_contact_surname} {profile?.emergency_contact_first_name} {profile?.emergency_contact_middle_name}</p>
+              <p className="font-medium text-gray-600 text-xs mb-1">Emergency Contact</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2">
+                  <p className="text-[10px] text-gray-500 uppercase">Contact Person</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.emergency_contact_name) || 'Not specified'}</p>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs">Phone Number</p>
-                  <p className="text-gray-900 font-semibold">{profile?.emergency_contact_number || 'Not specified'}</p>
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase">Emergency Number</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.emergency_contact_number) || 'Not specified'}</p>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs">Relationship</p>
-                  <p className="text-gray-900 font-semibold">{profile?.emergency_contact_relationship || 'Not specified'}</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <p className="font-medium text-gray-600 text-xs">Address</p>
-                  <p className="text-gray-900 font-semibold">{profile?.emergency_contact_street}, {profile?.emergency_contact_barangay}</p>
+                <div>
+                  <p className="text-[10px] text-gray-500 uppercase">Relationship</p>
+                  <p className="text-gray-900 font-semibold">{cleanValue(profile?.emergency_contact_relationship) || 'Not specified'}</p>
                 </div>
               </div>
             </div>
@@ -4994,14 +5013,8 @@ export default function PatientProfileSetupPage() {
                         {profile.maintenance_medications.map((med: any, index: number) => {
                           if (!med || (typeof med === 'object' && Object.keys(med).length === 0)) return null;
                           
-                          // Robust cleaner for "undefined" or "null" strings/values
-                          const clean = (val: any) => {
-                            if (val === undefined || val === null) return null;
-                            const s = String(val).trim().toLowerCase();
-                            // Expanded restricted list to include common placeholders
-                            if (s === 'undefined' || s === 'null' || s === '' || s === 'frequency' || s === 'duration' || s === 'n/a') return null;
-                            return val;
-                          };
+                          // Use the component-level cleanValue
+                          const clean = cleanValue;
                           
                           const drug = clean(med.drug);
                           const drugType = clean(med.drug_type);

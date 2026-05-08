@@ -111,7 +111,7 @@ function AdminAppointments() {
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right hidden md:block">
-                <p className="text-xs text-gray-500 italic">"Excellence in Health Service"</p>
+                <p className="text-xs text-gray-500 italic">&quot;Excellence in Health Service&quot;</p>
                 <p className="text-xs text-[#800000] font-semibold">Appointment Management System</p>
               </div>
               <div className="relative w-16 h-16">

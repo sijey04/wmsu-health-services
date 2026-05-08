@@ -2840,3 +2840,91 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
     console.error('Failed to export waiver PDF:', error);
   }
 };
+export const exportDentalPatientRecordPDF = async (record: any, patient: any): Promise<void> => {
+  try {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+
+    const [wmsuLogo, healthLogo] = await Promise.all([
+      loadLogo('/WMSU-Logo.jpg'),
+      loadLogo('/WMSU-HealthLogo.png')
+    ]);
+
+    // Header
+    if (wmsuLogo) doc.addImage(wmsuLogo, 'PNG', 20, 15, 20, 20);
+    if (healthLogo) doc.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 22, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 28, { align: 'center' });
+    doc.text('Zamboanga City', pageWidth / 2, 33, { align: 'center' });
+
+    doc.setDrawColor(139, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(20, 38, 190, 38);
+
+    doc.setFillColor(139, 0, 0);
+    doc.rect(20, 42, 170, 10, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DENTAL PATIENT INFORMATION RECORD', pageWidth / 2, 48.5, { align: 'center' });
+
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PATIENT DETAILS', 20, 60);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Name: ${patient.name || `${patient.first_name} ${patient.last_name}`}`, 20, 67);
+    doc.text(`Student/Employee ID: ${patient.student_id || patient.employee_id || 'N/A'}`, 20, 72);
+    doc.text(`Course/Department: ${patient.course || patient.department || 'N/A'}`, 20, 77);
+    doc.text(`Date of Record: ${new Date(record.created_at).toLocaleDateString()}`, 120, 67);
+
+    doc.setDrawColor(230, 230, 230);
+    doc.line(20, 82, 190, 82);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLINICAL FINDINGS', 20, 90);
+    
+    autoTable(doc, {
+      startY: 95,
+      margin: { left: 20, right: 20 },
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      body: [
+        ['Chief Concern', record.chief_concern || 'None reported'],
+        ['History of Present Illness', record.history_of_present_illness || 'None reported'],
+        ['Extraoral Examination', record.extraoral_examination || 'None reported'],
+        ['Intraoral Examination', record.intraoral_examination || 'None reported']
+      ],
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
+    });
+
+    const finalY = (doc as any).lastAutoTable.finalY || 130;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('DIAGNOSIS & TREATMENT PLAN', 20, finalY + 15);
+
+    autoTable(doc, {
+      startY: finalY + 20,
+      margin: { left: 20, right: 20 },
+      theme: 'grid',
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      body: [
+        ['Diagnosis', record.diagnosis_dental || 'None specified'],
+        ['Treatment Plan', record.treatment_plan_dental || 'None specified']
+      ],
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 } }
+    });
+
+    doc.save(`Dental_Record_${patient.student_id || patient.id}.pdf`);
+  } catch (error) {
+    console.error('Failed to generate dental PDF:', error);
+  }
+};

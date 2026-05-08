@@ -2,7 +2,7 @@ import React from 'react';
 import { UserCircleIcon, AcademicCapIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { waiversAPI, dentalFormAPI } from '../utils/api';
-import { exportPatientProfilePDF, exportWaiverPDF } from '../utils/reportExport';
+import { exportPatientProfilePDF, exportWaiverPDF, exportDentalPatientRecordPDF } from '../utils/reportExport';
 
 interface Patient {
   // Basic info
@@ -1147,9 +1147,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                 <h2 className="text-lg font-bold text-[#8B0000]">Dental Patient Information Record</h2>
                 {dentalRecord && (
                   <button 
-                    onClick={() => {
-                      // Call dental export logic if available
-                    }}
+                    onClick={() => exportDentalPatientRecordPDF(dentalRecord, displayedProfile)}
                     className="flex items-center gap-2 bg-[#8B0000] text-white px-4 py-2 rounded-lg hover:bg-[#660000] transition-colors shadow-sm"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
