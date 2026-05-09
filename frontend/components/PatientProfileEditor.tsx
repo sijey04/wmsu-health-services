@@ -31,6 +31,8 @@ interface Patient {
   course?: string;
   year_level?: string;
   user_type?: string;
+  nationality_specify?: string;
+  religion_specify?: string;
   emergency_contact_surname?: string;
   emergency_contact_first_name?: string;
   emergency_contact_middle_name?: string;
@@ -407,6 +409,12 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
                 type="select" 
                 options={['Filipino', 'Foreigner', 'Other']} 
               />
+              {(formData.nationality === 'Other' || formData.nationality === 'Foreigner') && (
+                <FormField label="Specify Nationality" field="nationality_specify" required />
+              )}
+              {formData.religion === 'Other' && (
+                <FormField label="Specify Religion" field="religion_specify" required />
+              )}
               <FormField 
                 label="Civil Status" 
                 field="civil_status" 

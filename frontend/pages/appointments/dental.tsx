@@ -303,7 +303,17 @@ export default function DentalAppointmentPage() {
         setPatientId(profileResponse.data.id);
       }
     } catch (error) {
-      console.error('Error loading patient profile:', error);
+      console.log('Current semester profile not found, trying fallback to any profile...');
+      try {
+        const fallbackResponse = await djangoApiClient.get('/patients/my_profiles/');
+        // Fallback returns a list of profiles, we take the first one (most recent)
+        if (fallbackResponse.data && Array.isArray(fallbackResponse.data) && fallbackResponse.data.length > 0) {
+          setPatientId(fallbackResponse.data[0].id);
+          console.log('Found fallback profile ID:', fallbackResponse.data[0].id);
+        }
+      } catch (fallbackError) {
+        console.error('Failed to load any patient profile:', fallbackError);
+      }
     }
   };
 

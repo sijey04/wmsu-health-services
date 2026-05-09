@@ -622,8 +622,14 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                     <td className="border border-gray-400 p-2 w-20">
                       {isEmployeeType(profile.user_type) ? (profile.employee_id || 'N/A') : (profile.year_level || 'N/A')}
                     </td>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">Religion:</td>
-                    <td className="border border-gray-400 p-2">{profile.religion || ''}</td>
+                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Religion:</td>
+                    <td className="border border-gray-400 p-2">
+                      {profile.religion === 'Other' && profile.religion_specify ? (
+                        profile.religion_specify
+                      ) : (
+                        profile.religion || ''
+                      )}
+                    </td>
                   </tr>
                   <tr>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50">
@@ -646,10 +652,10 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                     <td className="border border-gray-400 p-2" colSpan={3}>
                       {profile.date_of_birth ? new Date(profile.date_of_birth).toLocaleDateString() : ''}
                     </td>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">Nationality:</td>
+                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Nationality:</td>
                     <td className="border border-gray-400 p-2">
-                      {profile.nationality === 'Foreigner' && profile.nationality_specify ? (
-                        `${profile.nationality_specify}`
+                      {(profile.nationality === 'Foreigner' || profile.nationality === 'Other') && profile.nationality_specify ? (
+                        profile.nationality_specify
                       ) : (
                         profile.nationality || ''
                       )}
