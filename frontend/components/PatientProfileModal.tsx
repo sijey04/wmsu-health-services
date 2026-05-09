@@ -36,6 +36,7 @@ interface Patient {
   position_type?: string;
   course?: string;
   year_level?: string;
+  user_type?: string;
   
   // Emergency contact
   emergency_contact_surname?: string;
