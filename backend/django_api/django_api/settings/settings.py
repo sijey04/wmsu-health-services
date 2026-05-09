@@ -27,7 +27,15 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-wmsu-health-service
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# ALLOWED_HOSTS cleanup and processing
+raw_allowed_hosts = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = []
+for host in raw_allowed_hosts:
+    # Clean up the host string (remove protocol and trailing slashes)
+    clean_host = host.strip().replace('https://', '').replace('http://', '').split('/')[0]
+    if clean_host:
+        ALLOWED_HOSTS.append(clean_host)
+
 if '*' not in ALLOWED_HOSTS and os.getenv('RAILWAY_STATIC_URL'):
     ALLOWED_HOSTS.append(os.getenv('RAILWAY_STATIC_URL'))
 
@@ -233,6 +241,9 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://wmsuhealthservices.netlify.app",
 ]
+env_cors = os.getenv('CORS_ALLOWED_ORIGINS')
+if env_cors:
+    CORS_ALLOWED_ORIGINS.extend([o.strip().rstrip('/') for o in env_cors.split(',') if o.strip()])
 
 # CSRF settings
 CSRF_TRUSTED_ORIGINS = [
@@ -240,6 +251,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://wmsuhealthservices.netlify.app",
     "https://gleaming-consideration-production-647d.up.railway.app",
 ]
+env_csrf = os.getenv('CSRF_TRUSTED_ORIGINS')
+if env_csrf:
+    CSRF_TRUSTED_ORIGINS.extend([o.strip().rstrip('/') for o in env_csrf.split(',') if o.strip()])
 
 # Security headers for production
 if not DEBUG:
