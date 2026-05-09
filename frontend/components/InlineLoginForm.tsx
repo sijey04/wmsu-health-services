@@ -154,6 +154,16 @@ export default function InlineLoginForm({ onLogin, showSwitchLink = false, onSwi
           />
         </div>
 
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => router.push('/forgot-password')}
+            className="text-sm font-medium text-[#8B1538] hover:text-[#A31545] transition-colors"
+          >
+            Forgot password?
+          </button>
+        </div>
+
         <button 
           type="submit" 
           className="w-full bg-[#8B1538] text-white py-3 px-4 rounded-md hover:bg-[#A31545] focus:outline-none focus:ring-2 focus:ring-[#8B1538] focus:ring-offset-2 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"

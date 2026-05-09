@@ -205,7 +205,7 @@ export default function AdminPatientProfile() {
       // Use semester record ID which already includes academic_year + semester_type
       if (selectedSemester !== 'all') {
         // selectedSemester now contains the complete semester record ID
-        params.school_year_id = selectedSemester;
+        params.school_year = selectedSemester;
         console.log('Filtering by semester record ID:', selectedSemester);
       } else if (selectedAcademicYear !== 'all') {
         // If only academic year is selected, filter by academic year

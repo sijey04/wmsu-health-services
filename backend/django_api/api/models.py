@@ -21,6 +21,8 @@ class CustomUser(AbstractUser):
     is_email_verified = models.BooleanField(default=False)
     email_verification_token = models.UUIDField(default=uuid.uuid4, editable=False)
     email_verification_sent_at = models.DateTimeField(null=True, blank=True)
+    password_reset_token = models.UUIDField(null=True, blank=True)
+    password_reset_sent_at = models.DateTimeField(null=True, blank=True)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='student')
     middle_name = models.CharField(max_length=150, blank=True, null=True)
     
@@ -80,6 +82,51 @@ class CustomUser(AbstractUser):
         plain_message = strip_tags(html_message)
         
         # Start the background thread
+        thread = threading.Thread(
+            target=send_email_thread,
+            args=(
+                self.pk,
+                subject,
+                plain_message,
+                html_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [self.email]
+            )
+        )
+        thread.start()
+
+    def send_password_reset_email(self):
+        """Send password reset link to user in a background thread"""
+        def send_email_thread(user_id, subject, plain_message, html_message, from_email, recipient_list):
+            try:
+                send_mail(
+                    subject=subject,
+                    message=plain_message,
+                    from_email=from_email,
+                    recipient_list=recipient_list,
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                print(f"DEBUG: Password reset email sent successfully to {recipient_list[0]}")
+            except Exception as e:
+                print(f"ERROR: Failed to send password reset email to {recipient_list[0]}: {str(e)}")
+                import traceback
+                traceback.print_exc()
+
+        self.password_reset_token = uuid.uuid4()
+        self.password_reset_sent_at = timezone.now()
+        self.save(update_fields=['password_reset_token', 'password_reset_sent_at'])
+
+        subject = 'Reset Your Password - WMSU Health Services'
+        frontend_url = settings.FRONTEND_URL
+        reset_url = f"{frontend_url}/reset-password?token={self.password_reset_token}"
+
+        html_message = render_to_string('password_reset.html', {
+            'user': self,
+            'reset_url': reset_url,
+        })
+        plain_message = strip_tags(html_message)
+
         thread = threading.Thread(
             target=send_email_thread,
             args=(

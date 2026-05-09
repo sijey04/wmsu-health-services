@@ -22,7 +22,8 @@ from .models import (
 from .serializers import (
     UserSerializer, PatientSerializer, MedicalRecordSerializer, 
     AppointmentSerializer, InventorySerializer, SignupSerializer,
-    LoginSerializer, EmailVerificationSerializer, WaiverSerializer, DentalWaiverSerializer,
+    LoginSerializer, EmailVerificationSerializer, PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer, WaiverSerializer, DentalWaiverSerializer,
     PatientProfileUpdateSerializer, MedicalDocumentSerializer, 
     DentalFormDataSerializer, MedicalFormDataSerializer, StaffDetailsSerializer,
     SystemConfigurationSerializer, ProfileRequirementSerializer, 
@@ -118,6 +119,52 @@ class AuthViewSet(viewsets.ViewSet):
             return Response({
                 'error': 'User with this email does not exist.'
             }, status=status.HTTP_404_NOT_FOUND)
+
+    @action(detail=False, methods=['post'], url_path='request-password-reset', permission_classes=[AllowAny])
+    def request_password_reset(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            email = serializer.validated_data['email']
+            try:
+                user = CustomUser.objects.get(email=email)
+                user.send_password_reset_email()
+            except CustomUser.DoesNotExist:
+                pass
+
+            return Response({
+                'message': 'If an account exists, a reset link has been sent to the email address.'
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='reset-password', permission_classes=[AllowAny])
+    def reset_password(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        if serializer.is_valid():
+            token = serializer.validated_data['token']
+            try:
+                user = CustomUser.objects.get(password_reset_token=token)
+            except CustomUser.DoesNotExist:
+                return Response({
+                    'error': 'Invalid or expired reset token.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            if user.password_reset_sent_at:
+                if timezone.now() - user.password_reset_sent_at > timedelta(hours=24):
+                    return Response({
+                        'error': 'Reset token has expired.'
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+            user.set_password(serializer.validated_data['new_password'])
+            user.password_reset_token = None
+            user.password_reset_sent_at = None
+            user.save()
+
+            return Response({
+                'message': 'Password reset successfully.'
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def change_password(self, request):
@@ -1056,7 +1103,11 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                     email=user.email,
                     student_id=f"TEMP-{user.id}",
                 )
-                serializer.save(patient=patient_profile)
+                # Also set the academic_year from the patient profile to ensure consistency
+                serializer.save(
+                    patient=patient_profile, 
+                    academic_year=patient_profile.school_year
+                )
             except AcademicSchoolYear.DoesNotExist:
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
@@ -3428,7 +3479,9 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         if status_param:
             queryset = queryset.filter(status=status_param)
         if academic_year:
-            queryset = queryset.filter(patient__school_year_id=academic_year)
+            # Filter by both the document's own academic year link and its associated patient profile's school year
+            # This ensures we catch all relevant records for that period
+            queryset = queryset.filter(Q(academic_year_id=academic_year) | Q(patient__school_year_id=academic_year))
             
         return queryset.select_related('patient', 'reviewed_by').order_by('-updated_at')
 
@@ -3439,7 +3492,11 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         if not (user.is_staff or user.user_type in ['staff', 'admin']):
             patient_profile = user.get_current_patient_profile()
             if patient_profile:
-                serializer.save(patient=patient_profile)
+                # Also set the academic_year from the patient profile to ensure consistency
+                serializer.save(
+                    patient=patient_profile, 
+                    academic_year=patient_profile.school_year
+                )
             else:
                 raise PermissionDenied("No patient profile found. Please create your profile first.")
         else:
@@ -4006,7 +4063,11 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
                     email=user.email,
                     student_id=f"TEMP-{user.id}",
                 )
-                serializer.save(patient=patient_profile)
+                # Also set the academic_year from the patient profile to ensure consistency
+                serializer.save(
+                    patient=patient_profile, 
+                    academic_year=patient_profile.school_year
+                )
             except AcademicSchoolYear.DoesNotExist:
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
@@ -5217,7 +5278,11 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                     email=user.email,
                     student_id=f"TEMP-{user.id}",
                 )
-                serializer.save(patient=patient_profile)
+                # Also set the academic_year from the patient profile to ensure consistency
+                serializer.save(
+                    patient=patient_profile, 
+                    academic_year=patient_profile.school_year
+                )
             except AcademicSchoolYear.DoesNotExist:
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:
@@ -8412,7 +8477,8 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         if status_param:
             queryset = queryset.filter(status=status_param)
         if academic_year:
-            queryset = queryset.filter(patient__school_year_id=academic_year)
+            # Filter by both the document's own academic year link and its associated patient profile's school year
+            queryset = queryset.filter(Q(academic_year_id=academic_year) | Q(patient__school_year_id=academic_year))
             
         return queryset.select_related('patient', 'reviewed_by').order_by('-updated_at')
 
@@ -8423,7 +8489,11 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         if not (user.is_staff or user.user_type in ['staff', 'admin']):
             patient_profile = user.get_current_patient_profile()
             if patient_profile:
-                serializer.save(patient=patient_profile)
+                # Also set the academic_year from the patient profile to ensure consistency
+                serializer.save(
+                    patient=patient_profile, 
+                    academic_year=patient_profile.school_year
+                )
             else:
                 raise PermissionDenied("No patient profile found. Please create your profile first.")
         else:
@@ -8999,7 +9069,11 @@ class AppointmentViewSetDuplicate(viewsets.ModelViewSet):
                     email=user.email,
                     student_id=f"TEMP-{user.id}",
                 )
-                serializer.save(patient=patient_profile)
+                # Also set the academic_year from the patient profile to ensure consistency
+                serializer.save(
+                    patient=patient_profile, 
+                    academic_year=patient_profile.school_year
+                )
             except AcademicSchoolYear.DoesNotExist:
                 raise serializers.ValidationError("No active school year found. Please contact administration.")
             except Exception as e:

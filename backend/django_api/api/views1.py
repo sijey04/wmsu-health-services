@@ -248,13 +248,18 @@ class PatientViewSet(viewsets.ModelViewSet):
         if not (user.is_staff or user.user_type in ['staff', 'admin']):
             queryset = queryset.filter(user=user)
         
-        # Filter by school year if specified
+        # Filter by school year record ID if specified
         school_year_param = self.request.query_params.get('school_year')
         if school_year_param:
             try:
                 queryset = queryset.filter(school_year_id=int(school_year_param))
             except (ValueError, TypeError):
                 pass
+        
+        # Filter by academic year string if specified (e.g., "2023-2024")
+        academic_year_param = self.request.query_params.get('academic_year')
+        if academic_year_param:
+            queryset = queryset.filter(school_year__academic_year=academic_year_param)
         
         # Apply deduplication for admin/staff view - show only latest profile per student_id for list action
         # For admin view, show only the most recent profile per person

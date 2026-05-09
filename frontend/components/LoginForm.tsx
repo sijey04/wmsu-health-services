@@ -181,6 +181,7 @@ export default function LoginForm({ onLogin, isOpen, onClose, onSwitchToSignup }
             </div>
             <button
               type="button"
+              onClick={() => router.push('/forgot-password')}
               className="text-sm font-medium text-[#800000] hover:text-[#a83232] transition-colors"
             >
               Forgot password?

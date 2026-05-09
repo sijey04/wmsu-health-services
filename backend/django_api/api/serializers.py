@@ -111,6 +111,21 @@ class EmailVerificationSerializer(serializers.Serializer):
     token = serializers.CharField()
 
 
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    token = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True, validators=[validate_password])
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['confirm_password']:
+            raise serializers.ValidationError("Passwords don't match")
+        return attrs
+
+
 class PatientSerializer(serializers.ModelSerializer):
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
@@ -631,7 +646,7 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
         model = MedicalDocument
         # Use explicit fields instead of '__all__' to avoid issues with missing academic_year column
         fields = [
-            'id', 'patient', 'chest_xray', 'cbc', 'blood_typing', 'urinalysis', 
+            'id', 'patient', 'academic_year', 'chest_xray', 'cbc', 'blood_typing', 'urinalysis', 
             'drug_test', 'hepa_b', 'status', 'submitted_for_review', 'reviewed_by', 
             'reviewed_at', 'rejection_reason', 'medical_certificate', 'certificate_issued_at',
             'uploaded_at', 'updated_at', 'is_complete', 'completion_percentage',

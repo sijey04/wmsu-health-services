@@ -2,6 +2,7 @@ from datetime import date, time, timedelta
 
 from django.core.management import BaseCommand, call_command
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from api.models import (
@@ -347,22 +348,28 @@ class Command(BaseCommand):
     def _ensure_seed_users(self, reset_users):
         users = []
         for entry in SEED_USERS:
-            user, created = CustomUser.objects.get_or_create(
-                email=entry["email"],
-                defaults={
-                    "username": entry["email"],
-                    "first_name": entry["first_name"],
-                    "last_name": entry["last_name"],
-                    "user_type": entry["user_type"],
-                    "is_staff": entry["is_staff"],
-                    "is_superuser": entry["is_superuser"],
-                    "is_active": True,
-                    "is_email_verified": True,
-                },
-            )
+            user = CustomUser.objects.filter(
+                Q(email=entry["email"]) | Q(username=entry["email"])
+            ).first()
+            created = False
+
+            if not user:
+                user = CustomUser.objects.create(
+                    email=entry["email"],
+                    username=entry["email"],
+                    first_name=entry["first_name"],
+                    last_name=entry["last_name"],
+                    user_type=entry["user_type"],
+                    is_staff=entry["is_staff"],
+                    is_superuser=entry["is_superuser"],
+                    is_active=True,
+                    is_email_verified=True,
+                )
+                created = True
 
             if created or reset_users:
                 user.username = entry["email"]
+                user.email = entry["email"]
                 user.first_name = entry["first_name"]
                 user.last_name = entry["last_name"]
                 user.user_type = entry["user_type"]
