@@ -1,3 +1,6 @@
+import base64
+import uuid
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -13,10 +16,31 @@ from .models import (
 )
 
 
+class Base64ImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            try:
+                format, imgstr = data.split(';base64,')
+                ext = format.split('/')[-1]
+                # Handle cases like 'jpeg;base64' -> 'jpeg'
+                if ';' in ext:
+                    ext = ext.split(';')[0]
+                # Map common extensions if needed
+                if ext == 'jpeg': ext = 'jpg'
+                
+                id = uuid.uuid4()
+                data = ContentFile(base64.b64decode(imgstr), name=f"{id}.{ext}")
+            except Exception as e:
+                raise serializers.ValidationError(f"Invalid base64 image: {str(e)}")
+        return super().to_internal_value(data)
+
+
 class UserSerializer(serializers.ModelSerializer):
     patient_profile = serializers.PrimaryKeyRelatedField(read_only=True)
     blocked_by_name = serializers.CharField(source='blocked_by.get_full_name', read_only=True)
     can_book_consultation = serializers.ReadOnlyField()
+    
+    profile_picture = Base64ImageField(required=False, allow_null=True)
     
     class Meta:
         model = CustomUser
@@ -133,6 +157,7 @@ class PatientSerializer(serializers.ModelSerializer):
     user_middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     grade_level = serializers.CharField(source='user.grade_level', read_only=True)
+    photo = Base64ImageField(required=False, allow_null=True)
     school_year = serializers.SerializerMethodField()
     
     def get_school_year(self, obj):
@@ -322,6 +347,8 @@ class DentalWaiverSerializer(serializers.ModelSerializer):
 
 
 class PatientProfileUpdateSerializer(serializers.ModelSerializer):
+    photo = Base64ImageField(required=False, allow_null=True)
+
     class Meta:
         model = Patient
         fields = [
@@ -772,7 +799,7 @@ class DentalFormDataSerializer(serializers.ModelSerializer):
 class StaffDetailsSerializer(serializers.ModelSerializer):
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_name = serializers.CharField(source='user.get_full_name', read_only=True)
-    signature = serializers.ImageField(use_url=True, required=False, allow_null=True)
+    signature = Base64ImageField(use_url=True, required=False, allow_null=True)
     available_days = serializers.JSONField(required=False, default=list)
     time_slots = serializers.JSONField(required=False, default=list)
     blocked_dates = serializers.JSONField(required=False, default=list)

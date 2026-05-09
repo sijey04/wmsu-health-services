@@ -22,7 +22,7 @@ export default function PatientProfileSetupPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | string | null>(null);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoConverting, setPhotoConverting] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -298,7 +298,7 @@ export default function PatientProfileSetupPage() {
   };
 
   // Convert image to WebP format to save storage and ensure compatibility
-  const convertImageForUpload = async (file: File): Promise<File> => {
+  const convertImageForUpload = async (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const reader = new FileReader();
@@ -337,26 +337,9 @@ export default function PatientProfileSetupPage() {
             }
           }
 
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error('Failed to convert image'));
-                return;
-              }
-
-              const extension = supportedFormat.split('/')[1];
-              const originalName = file.name.replace(/\.[^/.]+$/, '');
-              const convertedFile = new File([blob], `${originalName}.${extension}`, {
-                type: blob.type || supportedFormat,
-                lastModified: Date.now(),
-              });
-
-              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${convertedFile.name} (${(convertedFile.size / 1024).toFixed(2)}KB) as ${supportedFormat}`);
-              resolve(convertedFile);
-            },
-            supportedFormat,
-            0.85
-          );
+          const base64String = canvas.toDataURL(supportedFormat, 0.85);
+          console.log(`✓ Converted ${file.name} to base64 (${(base64String.length / 1024).toFixed(2)}KB) as ${supportedFormat}`);
+          resolve(base64String);
         } catch (error) {
           reject(error);
         }
@@ -364,7 +347,6 @@ export default function PatientProfileSetupPage() {
 
       img.onerror = () => reject(new Error('Failed to load image'));
       reader.onerror = () => reject(new Error('Failed to read file'));
-      
       reader.readAsDataURL(file);
     });
   };
@@ -487,6 +469,11 @@ export default function PatientProfileSetupPage() {
         // Add user type information
         if (!profileData.user_type) {
           profileData.user_type = user.grade_level || user.user_type || 'College';
+        }
+
+        // Auto-populate year level for Incoming Freshman if missing
+        if (profileData.user_type === 'Incoming Freshman' && (!profileData.year_level || profileData.year_level.trim() === '')) {
+          profileData.year_level = '1st Year';
         }
         
         applyLegacyAddressFallbacks(profileData);
@@ -956,6 +943,12 @@ export default function PatientProfileSetupPage() {
     // Only validate fields for the current step
     required.forEach(field => {
       const value = profile?.[field];
+      
+      // Skip year_level validation for Incoming Freshman as it's auto-set and often disabled in UI
+      if (field === 'year_level' && profile?.user_type === 'Incoming Freshman') {
+        return;
+      }
+
       if (process.env.NODE_ENV === 'development') {
         console.log(`Checking field '${field}':`, value, typeof value, 'exists in profile:', field in (profile || {}));
       }
@@ -1700,6 +1693,15 @@ export default function PatientProfileSetupPage() {
       setProfile((prev: any) => {
         const newProfile = { ...prev, user_type: value, year_level: '1st Year' };
         
+        // Clear year_level error if it exists
+        if (fieldErrors.year_level) {
+          setFieldErrors(prevErrors => {
+            const newErrors = { ...prevErrors };
+            delete newErrors.year_level;
+            return newErrors;
+          });
+        }
+
         // Check for changes
         if (originalProfile) {
           const hasChanges = JSON.stringify(newProfile) !== JSON.stringify(originalProfile);
@@ -2307,27 +2309,23 @@ export default function PatientProfileSetupPage() {
         return;
       }
 
-      let finalFile = file;
-      
       // Convert to WebP if it's an image
       if (file.type.startsWith('image/') && file.type !== 'image/webp') {
         try {
-          setPhotoConverting(true);
-          finalFile = await convertImageForUpload(file);
+          const base64 = await convertImageForUpload(file);
+          setPhotoFile(base64 as any);
+          setPhotoPreview(base64);
+          handleProfileChange('photo', base64);
+          return;
         } catch (error) {
-          console.error('Error converting photo:', error);
-          // Fallback to original file
-          finalFile = file;
-        } finally {
-          setPhotoConverting(false);
+          console.error('Error converting image:', error);
         }
       }
-
-      setPhotoFile(finalFile);
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(finalFile);
-      handleProfileChange('photo', finalFile);
+      
+      // Fallback or non-image files
+      setPhotoFile(file as any);
+      setPhotoPreview(URL.createObjectURL(file));
+      handleProfileChange('photo', file);
     } else {
       setPhotoFile(null);
       setPhotoPreview(null);
@@ -2336,51 +2334,36 @@ export default function PatientProfileSetupPage() {
   };
 
   // Independent photo upload function - allows photo upload anytime
-  const handleIndependentPhotoUpload = async (file: File) => {
+  const handleIndependentPhotoUpload = async (base64: string) => {
     if (!profile?.id) {
       // If no profile exists yet, just store the photo for later
-      setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setPhotoPreview(reader.result as string);
-      reader.readAsDataURL(file);
-      handleProfileChange('photo', file);
+      setPhotoFile(base64 as any);
+      setPhotoPreview(base64);
+      handleProfileChange('photo', base64);
       return;
     }
 
     setPhotoUploading(true);
     setLoading(true);
     try {
-      const formData = new FormData();
+      const data: any = {};
       
-      // Include all existing profile data to avoid validation errors
-      for (const key in profile) {
-        if (profile[key] !== null && profile[key] !== undefined && key !== 'photo') {
-          if (Array.isArray(profile[key])) {
-            formData.append(key, JSON.stringify(profile[key]));
-          } else if (typeof profile[key] === 'object') {
-            formData.append(key, JSON.stringify(profile[key]));
-          } else {
-            formData.append(key, profile[key].toString());
-          }
-        }
-      }
+      // Include essential profile data to avoid validation errors
+      if (profile?.id) data.id = profile.id;
       
-      // Add the new photo file
-      formData.append('photo', file);
+      // Add the new photo base64 string
+      data.photo = base64;
       
       // Add required fields for the update
-      if (profile?.id) {
-        formData.append('id', profile.id.toString());
-      }
       if (currentSchoolYear?.id) {
-        formData.append('school_year', currentSchoolYear.id.toString());
+        data.school_year = currentSchoolYear.id;
       }
       if (currentSemester) {
-        formData.append('semester', currentSemester);
+        data.semester = currentSemester;
       }
 
-      // Update the profile with the new photo
-      await patientProfileAPI.update(formData);
+      // Update the profile with the new photo using JSON instead of FormData
+      await patientProfileAPI.update(data);
       
       setFeedbackMessage('Profile photo updated successfully!');
       setFeedbackOpen(true);
@@ -2437,32 +2420,19 @@ export default function PatientProfileSetupPage() {
 
       let finalFile = file;
       
-      // Convert to WebP if it's an image
-      if (file.type.startsWith('image/') && file.type !== 'image/webp') {
+      // Convert to WebP/Base64 if it's an image
+      if (file.type.startsWith('image/')) {
         try {
           setPhotoConverting(true);
-          finalFile = await convertImageForUpload(file);
+          const base64 = await convertImageForUpload(file);
+          // Upload immediately if profile exists, otherwise store for later
+          handleIndependentPhotoUpload(base64);
         } catch (error) {
           console.error('Error converting photo:', error);
-          // Fallback to original file
-          finalFile = file;
         } finally {
           setPhotoConverting(false);
         }
       }
-
-      // Clear any photo-related validation errors immediately when a valid photo is selected
-      setFieldErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.photo;
-        return newErrors;
-      });
-
-      // Don't set preview - we'll show the uploaded photo directly from server
-      // This prevents showing stale preview data after upload completes
-      
-      // Upload immediately if profile exists, otherwise store for later
-      handleIndependentPhotoUpload(finalFile);
     }
   };
 
@@ -3127,7 +3097,7 @@ export default function PatientProfileSetupPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Year Level *
+                          Year Level {profile?.user_type !== 'Incoming Freshman' && '*'}
                           {profile?.user_type === 'Incoming Freshman' && (
                             <span className="ml-2 text-xs text-gray-500">(Auto-set to 1st Year)</span>
                           )}

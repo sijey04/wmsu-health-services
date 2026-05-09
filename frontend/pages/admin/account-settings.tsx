@@ -17,7 +17,7 @@ export default function AdminAccountSettings() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [profilePic, setProfilePic] = useState<File | null>(null);
+  const [profilePic, setProfilePic] = useState<File | string | null>(null);
   const [currentProfilePic, setCurrentProfilePic] = useState<string | null>(null);
   const [currentUserType, setCurrentUserType] = useState('');
   
@@ -45,6 +45,40 @@ export default function AdminAccountSettings() {
   // Signature pad refs
   const sigPad = useRef<any>(null);
   const signaturePadInstance = useRef<any>(null);
+
+  // Convert image to Base64/WebP format
+  const convertImageToBase64 = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new (window as any).Image();
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        img.src = e.target?.result as string;
+      };
+
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Failed to get canvas context'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0);
+          const base64 = canvas.toDataURL('image/webp', 0.85);
+          resolve(base64);
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load image'));
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  };
   
   // UI states
   const [feedbackOpen, setFeedbackOpen] = useState(false);
@@ -306,7 +340,12 @@ export default function AdminAccountSettings() {
       }
 
       if (profilePic) {
-        formData.append('profile_picture', profilePic);
+        if (typeof profilePic === 'string') {
+          formData.append('profile_picture', profilePic);
+        } else {
+          const base64 = await convertImageToBase64(profilePic);
+          formData.append('profile_picture', base64);
+        }
       }
 
       await djangoApiClient.put('/users/me/', formData, {
@@ -379,16 +418,15 @@ export default function AdminAccountSettings() {
       // Check if signature pad has a signature
       if (signaturePadInstance.current && !signaturePadInstance.current.isEmpty()) {
         const signatureDataURL = signaturePadInstance.current.toDataURL();
-        
-        // Convert data URL to blob
-        const response = await fetch(signatureDataURL);
-        const blob = await response.blob();
-        
-        // Create a file from the blob
-        const signatureFile = new File([blob], 'signature.png', { type: 'image/png' });
-        formData.append('signature', signatureFile);
+        formData.append('signature', signatureDataURL);
       } else if (signatureFile) {
-        formData.append('signature', signatureFile);
+        // If it's already a string (base64) or file
+        if (typeof signatureFile === 'string') {
+           formData.append('signature', signatureFile);
+        } else {
+           const base64 = await convertImageToBase64(signatureFile);
+           formData.append('signature', base64);
+        }
       }
 
       console.log('Saving staff details to:', '/staff-details/my_details/');
@@ -494,7 +532,7 @@ export default function AdminAccountSettings() {
             <div className="flex items-center space-x-6">
               <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-4xl text-gray-400 font-bold overflow-hidden">
                 {profilePic ? (
-                  <Image src={URL.createObjectURL(profilePic)} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
+                  <Image src={typeof profilePic === 'string' ? profilePic : URL.createObjectURL(profilePic)} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
                 ) : currentProfilePic ? (
                   <Image src={currentProfilePic} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
                 ) : (
@@ -506,7 +544,20 @@ export default function AdminAccountSettings() {
                 <input 
                   type="file" 
                   accept="image/*" 
-                  onChange={e => setProfilePic(e.target.files?.[0] || null)} 
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      try {
+                        const base64 = await convertImageToBase64(file);
+                        setProfilePic(base64);
+                      } catch (err) {
+                        console.error('Error converting image:', err);
+                        setProfilePic(file); // Fallback
+                      }
+                    } else {
+                      setProfilePic(null);
+                    }
+                  }} 
                   className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#800000] file:text-white hover:file:bg-[#a83232]" 
                 />
               </div>
