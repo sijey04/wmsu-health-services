@@ -31,6 +31,7 @@ interface Patient {
   religion?: string;
   nationality?: string;
   nationality_specify?: string;
+  religion_specify?: string;
   civil_status?: string;
   employee_id?: string;
   position_type?: string;
