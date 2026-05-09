@@ -86,6 +86,36 @@ SEED_USERS = [
         "first_name": "Sample",
         "last_name": "Employee",
     },
+    {
+        "label": "Clean Admin",
+        "email": "clean.admin@wmsu.test",
+        "password": "WmsuAdmin123!",
+        "user_type": "admin",
+        "is_staff": True,
+        "is_superuser": True,
+        "first_name": "Clean",
+        "last_name": "Admin",
+    },
+    {
+        "label": "Clean Staff",
+        "email": "clean.staff@wmsu.test",
+        "password": "WmsuStaff123!",
+        "user_type": "staff",
+        "is_staff": True,
+        "is_superuser": False,
+        "first_name": "Clean",
+        "last_name": "Staff",
+    },
+    {
+        "label": "Clean Student",
+        "email": "clean.student@wmsu.test",
+        "password": "WmsuStudent123!",
+        "user_type": "student",
+        "is_staff": False,
+        "is_superuser": False,
+        "first_name": "Clean",
+        "last_name": "Student",
+    },
 ]
 
 
@@ -116,10 +146,17 @@ class Command(BaseCommand):
             self._ensure_dental_supplies()
             self._ensure_inventory()
 
-            admin_user, staff_user, student_user, employee_user = self._ensure_seed_users(reset_users)
-            self._ensure_staff_details(staff_user)
-            self._ensure_announcements(admin_user)
-            self._ensure_notifications(admin_user)
+            users_dict = self._ensure_seed_users(reset_users)
+            
+            # Ensure staff details for all staff/admin users
+            for email, user in users_dict.items():
+                if user.user_type in ['staff', 'admin']:
+                    self._ensure_staff_details(user)
+
+            admin_user = users_dict.get("admin@wmsu.test")
+            if admin_user:
+                self._ensure_announcements(admin_user)
+                self._ensure_notifications(admin_user)
 
         self._print_credentials()
         self.stdout.write(self.style.SUCCESS("Seeding completed."))
@@ -384,7 +421,8 @@ class Command(BaseCommand):
             status = "created" if created else "existing"
             self.stdout.write(self.style.SUCCESS(f"* {entry['label']} user {status}: {entry['email']}"))
 
-        return users[0], users[1], users[2], users[3]
+        # Return a dictionary for easier access by email
+        return {user.email: user for user in users}
 
     def _ensure_staff_details(self, staff_user):
         StaffDetails.objects.get_or_create(
