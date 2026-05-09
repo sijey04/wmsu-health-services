@@ -143,34 +143,52 @@ class AuthViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post'], url_path='test-email', permission_classes=[AllowAny])
     def test_email(self, request):
-        """Action to test SMTP configuration directly"""
+        """Action to test SMTP configuration with deep diagnostics"""
         target_email = request.data.get('email')
         if not target_email:
             return Response({'error': 'Target email is required'}, status=400)
         
+        import socket
         from django.core.mail import send_mail
         from django.conf import settings
         
-        print(f"DEBUG: Testing SMTP with target: {target_email}")
-        print(f"DEBUG: Using EMAIL_HOST: {settings.EMAIL_HOST}")
-        print(f"DEBUG: Using EMAIL_PORT: {settings.EMAIL_PORT}")
-        print(f"DEBUG: Using EMAIL_HOST_USER: {settings.EMAIL_HOST_USER}")
+        diagnostics = {}
+        
+        # 1. Test DNS resolution
+        try:
+            diagnostics['dns_resolve'] = socket.gethostbyname('smtp.gmail.com')
+        except Exception as e:
+            diagnostics['dns_resolve'] = f"Failed: {str(e)}"
+            
+        # 2. Test raw socket connection to common ports
+        for port in [587, 465, 25]:
+            try:
+                s = socket.create_connection(('smtp.gmail.com', port), timeout=5)
+                diagnostics[f'port_{port}_connect'] = "Success"
+                s.close()
+            except Exception as e:
+                diagnostics[f'port_{port}_connect'] = f"Failed: {str(e)}"
+        
+        print(f"DEBUG: SMTP Diagnostics: {diagnostics}")
         
         try:
             send_mail(
                 subject='Test Email - WMSU Health Services',
-                message='This is a test email to verify SMTP configuration.',
+                message=f'This is a test email. Diagnostics: {diagnostics}',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[target_email],
                 fail_silently=False,
+                timeout=10
             )
-            print(f"DEBUG: Test email sent successfully to {target_email}")
-            return Response({'message': f'Test email sent successfully to {target_email}'})
+            return Response({
+                'message': f'Test email sent successfully to {target_email}',
+                'diagnostics': diagnostics
+            })
         except Exception as e:
-            print(f"ERROR: SMTP test failed: {str(e)}")
-            import traceback
-            traceback.print_exc()
-            return Response({'error': str(e)}, status=500)
+            return Response({
+                'error': str(e),
+                'diagnostics': diagnostics
+            }, status=500)
 
     @action(detail=False, methods=['post'], url_path='reset-password', permission_classes=[AllowAny])
     def reset_password(self, request):

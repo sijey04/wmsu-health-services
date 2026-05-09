@@ -235,8 +235,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Frontend URL for verification links
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000').rstrip('/')
 
-# CORS settings
-CORS_ALLOW_ALL_ORIGINS = DEBUG
+# CORS settings - Temporarily allow all for debugging
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "https://wmsuhealthservices.netlify.app",

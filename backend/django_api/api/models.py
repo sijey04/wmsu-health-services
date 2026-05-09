@@ -49,8 +49,11 @@ class CustomUser(AbstractUser):
         """Send email verification link to user in a background thread"""
         def send_email_thread(user_id, subject, plain_message, html_message, from_email, recipient_list):
             try:
-                # We need to get the user object again in the thread if we use different connections,
-                # but here we just use the parameters passed to avoid issues with lazy objects
+                from django.conf import settings
+                print(f"DEBUG: Background thread starting to send verification email to {recipient_list[0]}")
+                print(f"DEBUG: Using SMTP Host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                print(f"DEBUG: SSL: {getattr(settings, 'EMAIL_USE_SSL', False)}, TLS: {settings.EMAIL_USE_TLS}")
+
                 send_mail(
                     subject=subject,
                     message=plain_message,
@@ -58,6 +61,7 @@ class CustomUser(AbstractUser):
                     recipient_list=recipient_list,
                     html_message=html_message,
                     fail_silently=False,
+                    timeout=20, # Add a timeout to prevent hanging
                 )
                 # Note: We don't update self here because it's a separate thread/object
                 # If we need to update, we should fetch by id
@@ -99,6 +103,11 @@ class CustomUser(AbstractUser):
         """Send password reset link to user in a background thread"""
         def send_email_thread(user_id, subject, plain_message, html_message, from_email, recipient_list):
             try:
+                from django.conf import settings
+                print(f"DEBUG: Background thread starting to send password reset email to {recipient_list[0]}")
+                print(f"DEBUG: Using SMTP Host: {settings.EMAIL_HOST}:{settings.EMAIL_PORT}")
+                print(f"DEBUG: SSL: {getattr(settings, 'EMAIL_USE_SSL', False)}, TLS: {settings.EMAIL_USE_TLS}")
+                
                 send_mail(
                     subject=subject,
                     message=plain_message,
@@ -106,6 +115,7 @@ class CustomUser(AbstractUser):
                     recipient_list=recipient_list,
                     html_message=html_message,
                     fail_silently=False,
+                    timeout=20, # Add a timeout to prevent hanging
                 )
                 print(f"DEBUG: Password reset email sent successfully to {recipient_list[0]}")
             except Exception as e:
