@@ -1,16 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
 const ResetPasswordPage = () => {
   const router = useRouter();
-  const token = typeof router.query.token === 'string' ? router.query.token : '';
-
+  const [token, setToken] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  // Handle router readiness and token extraction
+  useEffect(() => {
+    if (router.isReady) {
+      const tokenFromQuery = typeof router.query.token === 'string' ? router.query.token : '';
+      setToken(tokenFromQuery);
+      
+      if (!tokenFromQuery) {
+        setError('Missing reset token. Please use the link from your email.');
+      }
+    }
+  }, [router.isReady, router.query.token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +61,17 @@ const ResetPasswordPage = () => {
       if (res.ok) {
         setMessage(data?.message || 'Password reset successfully. You can now sign in.');
       } else {
-        const errorMessage = data?.error || data?.detail || data?.message || 'Failed to reset password.';
+        // Handle DRF error formats, including field errors
+        let errorMessage = 'Failed to reset password.';
+        
+        if (data?.error) errorMessage = data.error;
+        else if (data?.detail) errorMessage = data.detail;
+        else if (data?.message) errorMessage = data.message;
+        else if (typeof data === 'object' && data !== null) {
+          const values = Object.values(data).flat();
+          if (values.length > 0) errorMessage = values.join(' ');
+        }
+        
         setError(Array.isArray(errorMessage) ? errorMessage.join(' ') : errorMessage);
       }
     } catch (err: any) {
@@ -154,7 +175,7 @@ const ResetPasswordPage = () => {
 
           <div className="text-center mt-6">
             <Link href="/" className="text-sm text-gray-600 hover:text-[#800000] transition-colors">
-              <- Back to Home
+              &larr; Back to Home
             </Link>
           </div>
         </div>

@@ -118,7 +118,7 @@ const ForgotPasswordPage = () => {
 
           <div className="text-center mt-6">
             <Link href="/" className="text-sm text-gray-600 hover:text-[#800000] transition-colors">
-              <- Back to Home
+              &larr; Back to Home
             </Link>
           </div>
         </div>
