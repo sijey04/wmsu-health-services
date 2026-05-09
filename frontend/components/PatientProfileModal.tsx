@@ -32,6 +32,10 @@ interface Patient {
   nationality?: string;
   nationality_specify?: string;
   civil_status?: string;
+  employee_id?: string;
+  position_type?: string;
+  course?: string;
+  year_level?: string;
   
   // Emergency contact
   emergency_contact_surname?: string;
@@ -609,19 +613,33 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                     <td className="border border-gray-400 p-2 w-20">{profile.gender || ''}</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">Age:</td>
+                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Age:</td>
                     <td className="border border-gray-400 p-2 w-20">{profile.age || ''}</td>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Year Level:</td>
-                    <td className="border border-gray-400 p-2 w-20">N/A</td>
+                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">
+                      {isEmployeeType(profile.user_type) ? 'Employee ID:' : 'Year Level:'}
+                    </td>
+                    <td className="border border-gray-400 p-2 w-20">
+                      {isEmployeeType(profile.user_type) ? (profile.employee_id || 'N/A') : (profile.year_level || 'N/A')}
+                    </td>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50">Religion:</td>
                     <td className="border border-gray-400 p-2">{profile.religion || ''}</td>
                   </tr>
                   <tr>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">Course:</td>
-                    <td className="border border-gray-400 p-2" colSpan={3}>{profile.department || ''}</td>
+                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">
+                      {isEmployeeType(profile.user_type) ? 'Department:' : 'Course:'}
+                    </td>
+                    <td className="border border-gray-400 p-2" colSpan={3}>
+                      {isEmployeeType(profile.user_type) ? (profile.department || 'N/A') : (profile.course || profile.department || 'N/A')}
+                    </td>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50">Civil Status:</td>
                     <td className="border border-gray-400 p-2">{profile.civil_status || ''}</td>
                   </tr>
+                  {isEmployeeType(profile.user_type) && (
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50">Position Type:</td>
+                      <td className="border border-gray-400 p-2" colSpan={5}>{profile.position_type || 'N/A'}</td>
+                    </tr>
+                  )}
                   <tr>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50">Birthday:</td>
                     <td className="border border-gray-400 p-2" colSpan={3}>
@@ -1746,6 +1764,13 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       </div>
     </div>
   );
+};
+
+// Helper function to check if user is an employee (Staff, Faculty, Admin, etc.)
+const isEmployeeType = (type: string | undefined | null) => {
+  if (!type) return false;
+  const t = type.toLowerCase();
+  return t.includes('employee') || t.includes('staff') || t.includes('faculty') || t.includes('admin') || t.includes('teacher');
 };
 
 export default PatientProfileModal;

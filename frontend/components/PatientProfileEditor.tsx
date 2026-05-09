@@ -26,6 +26,11 @@ interface Patient {
   religion?: string;
   nationality?: string;
   civil_status?: string;
+  employee_id?: string;
+  position_type?: string;
+  course?: string;
+  year_level?: string;
+  user_type?: string;
   emergency_contact_surname?: string;
   emergency_contact_first_name?: string;
   emergency_contact_middle_name?: string;
@@ -112,6 +117,11 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
     number_of_live_children: 0,
     menstrual_symptoms: [],
     menstrual_symptoms_other: '',
+    employee_id: '',
+    position_type: '',
+    course: '',
+    year_level: '',
+    user_type: '',
   });
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<any>({});
@@ -343,6 +353,24 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
               <FormField label="Date of Birth" field="date_of_birth" type="date" />
               <FormField label="Age" field="age" type="number" />
               <FormField label="Department" field="department" />
+              <FormField 
+                label={isEmployeeType(formData.user_type) ? "Employee ID" : "Student ID"} 
+                field={isEmployeeType(formData.user_type) ? "employee_id" : "student_id"} 
+                required 
+              />
+              {isEmployeeType(formData.user_type) ? (
+                <FormField 
+                  label="Position Type" 
+                  field="position_type" 
+                  type="select" 
+                  options={['Teaching', 'Non-Teaching']} 
+                />
+              ) : (
+                <>
+                  <FormField label="Course" field="course" />
+                  <FormField label="Year Level" field="year_level" />
+                </>
+              )}
               <FormField label="Contact Number" field="contact_number" />
               <FormField label="Email" field="email" type="email" />
             </div>
@@ -496,6 +524,13 @@ const PatientProfileEditor: React.FC<PatientProfileEditorProps> = ({
       </div>
     </div>
   );
+};
+
+// Helper function to check if user is an employee (Staff, Faculty, Admin, etc.)
+const isEmployeeType = (type: string | undefined | null) => {
+  if (!type) return false;
+  const t = type.toLowerCase();
+  return t.includes('employee') || t.includes('staff') || t.includes('faculty') || t.includes('admin') || t.includes('teacher');
 };
 
 export default PatientProfileEditor;
