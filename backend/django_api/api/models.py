@@ -25,6 +25,7 @@ class CustomUser(AbstractUser):
     password_reset_sent_at = models.DateTimeField(null=True, blank=True)
     user_type = models.CharField(max_length=10, choices=USER_TYPE_CHOICES, default='student')
     middle_name = models.CharField(max_length=150, blank=True, null=True)
+    profile_picture = models.ImageField(upload_to='profile_pictures/', blank=True, null=True)
     
     # User blocking/restriction functionality
     is_blocked = models.BooleanField(default=False, help_text='Block user from booking consultations')
@@ -60,8 +61,7 @@ class CustomUser(AbstractUser):
                     from_email=from_email,
                     recipient_list=recipient_list,
                     html_message=html_message,
-                    fail_silently=False,
-                    timeout=20, # Add a timeout to prevent hanging
+                    fail_silently=False
                 )
                 # Note: We don't update self here because it's a separate thread/object
                 # If we need to update, we should fetch by id
@@ -114,8 +114,7 @@ class CustomUser(AbstractUser):
                     from_email=from_email,
                     recipient_list=recipient_list,
                     html_message=html_message,
-                    fail_silently=False,
-                    timeout=20, # Add a timeout to prevent hanging
+                    fail_silently=False
                 )
                 print(f"DEBUG: Password reset email sent successfully to {recipient_list[0]}")
             except Exception as e:

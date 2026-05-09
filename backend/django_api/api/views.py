@@ -177,8 +177,7 @@ class AuthViewSet(viewsets.ViewSet):
                 message=f'This is a test email. Diagnostics: {diagnostics}',
                 from_email=settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[target_email],
-                fail_silently=False,
-                timeout=10
+                fail_silently=False
             )
             return Response({
                 'message': f'Test email sent successfully to {target_email}',
@@ -285,6 +284,10 @@ class UserViewSet(viewsets.ModelViewSet):
                 
                 # Set new password
                 user.set_password(new_password)
+            
+            # Sync username with email if email is updated
+            if 'email' in request.data:
+                user.username = request.data.get('email')
             
             # Update other fields
             serializer = self.get_serializer(user, data=request.data, partial=True)
@@ -4310,6 +4313,10 @@ class UserViewSet(viewsets.ModelViewSet):
                 
                 # Set new password
                 user.set_password(new_password)
+            
+            # Sync username with email if email is updated
+            if 'email' in request.data:
+                user.username = request.data.get('email')
             
             # Update other fields
             serializer = self.get_serializer(user, data=request.data, partial=True)

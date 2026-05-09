@@ -22,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'id', 'username', 'email', 'first_name', 'middle_name', 'last_name', 'is_staff',
-            'grade_level', 'is_email_verified', 'user_type', 'patient_profile',
+            'grade_level', 'is_email_verified', 'user_type', 'patient_profile', 'profile_picture',
             'is_blocked', 'blocked_at', 'blocked_by', 'blocked_by_name', 'block_reason',
             'can_book_consultation'
         ]

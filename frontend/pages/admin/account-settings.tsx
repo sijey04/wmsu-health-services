@@ -281,6 +281,13 @@ export default function AdminAccountSettings() {
 
     try {
       // Validate passwords if changing
+      if (newPassword && !currentPassword) {
+        setFeedbackMessage('Current password is required to set a new password');
+        setFeedbackOpen(true);
+        setLoading(false);
+        return;
+      }
+
       if (newPassword && newPassword !== confirmPassword) {
         setFeedbackMessage('New passwords do not match');
         setFeedbackOpen(true);
@@ -314,7 +321,31 @@ export default function AdminAccountSettings() {
       setNewPassword('');
       setConfirmPassword('');
     } catch (error: any) {
-      setFeedbackMessage(error.response?.data?.message || 'Failed to update account');
+      console.error('Error updating account:', error);
+      let errorMessage = 'Failed to update account';
+      
+      if (error.response?.data) {
+        const data = error.response.data;
+        if (typeof data === 'string') {
+          errorMessage = data;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (data.detail) {
+          errorMessage = data.detail;
+        } else if (typeof data === 'object') {
+          // Handle field-specific errors from DRF
+          const errors = Object.entries(data)
+            .map(([field, msgs]: [string, any]) => {
+              const fieldName = field.charAt(0).toUpperCase() + field.slice(1).replace('_', ' ');
+              const msg = Array.isArray(msgs) ? msgs[0] : msgs;
+              return `${fieldName}: ${msg}`;
+            })
+            .join('\n');
+          if (errors) errorMessage = errors;
+        }
+      }
+      
+      setFeedbackMessage(errorMessage);
       setFeedbackOpen(true);
     } finally {
       setLoading(false);

@@ -46,9 +46,8 @@ const ForgotPasswordPage = () => {
   return (
     <div className="min-h-screen flex bg-gray-50 font-sans">
       <div className="hidden lg:flex w-1/2 bg-[#800000] text-white flex-col items-center justify-center p-12 text-center">
-        <div className="flex items-center space-x-4 mb-6">
-          <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-24 h-24 object-contain brightness-110" />
-          <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-24 h-24 object-contain brightness-110" />
+        <div className="flex items-center space-x-6">
+          <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-32 h-32 object-contain brightness-110" />
         </div>
         <h1 className="text-4xl font-bold">WMSU Health Services</h1>
         <p className="mt-2 text-pink-100">Reset your account password.</p>
@@ -56,12 +55,9 @@ const ForgotPasswordPage = () => {
 
       <div className="flex flex-1 items-center justify-center p-6">
         <div className="w-full max-w-md">
-          <div className="lg:hidden text-center mb-8">
-            <div className="flex items-center justify-center space-x-3 mb-4">
-              <img src="/WMSU-Logo.jpg" alt="WMSU Logo" className="w-16 h-16 object-contain" />
-              <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-16 h-16 object-contain" />
+            <div className="flex items-center justify-center mb-4">
+              <img src="/WMSU-HealthLogo.png" alt="Health Logo" className="w-20 h-20 object-contain" />
             </div>
-          </div>
 
           <div className="bg-white p-8 rounded-xl shadow-lg w-full">
             <div className="text-center mb-6">
