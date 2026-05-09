@@ -125,10 +125,14 @@ class AuthViewSet(viewsets.ViewSet):
         serializer = PasswordResetRequestSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
+            print(f"DEBUG: Password reset requested for email: {email}")
             try:
-                user = CustomUser.objects.get(email=email)
+                # Use iexact to avoid case-sensitivity issues
+                user = CustomUser.objects.get(email__iexact=email)
+                print(f"DEBUG: User found: {user.email}. Sending reset email...")
                 user.send_password_reset_email()
             except CustomUser.DoesNotExist:
+                print(f"DEBUG: No user found with email: {email}")
                 pass
 
             return Response({
@@ -136,6 +140,37 @@ class AuthViewSet(viewsets.ViewSet):
             }, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'], url_path='test-email', permission_classes=[AllowAny])
+    def test_email(self, request):
+        """Action to test SMTP configuration directly"""
+        target_email = request.data.get('email')
+        if not target_email:
+            return Response({'error': 'Target email is required'}, status=400)
+        
+        from django.core.mail import send_mail
+        from django.conf import settings
+        
+        print(f"DEBUG: Testing SMTP with target: {target_email}")
+        print(f"DEBUG: Using EMAIL_HOST: {settings.EMAIL_HOST}")
+        print(f"DEBUG: Using EMAIL_PORT: {settings.EMAIL_PORT}")
+        print(f"DEBUG: Using EMAIL_HOST_USER: {settings.EMAIL_HOST_USER}")
+        
+        try:
+            send_mail(
+                subject='Test Email - WMSU Health Services',
+                message='This is a test email to verify SMTP configuration.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[target_email],
+                fail_silently=False,
+            )
+            print(f"DEBUG: Test email sent successfully to {target_email}")
+            return Response({'message': f'Test email sent successfully to {target_email}'})
+        except Exception as e:
+            print(f"ERROR: SMTP test failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return Response({'error': str(e)}, status=500)
 
     @action(detail=False, methods=['post'], url_path='reset-password', permission_classes=[AllowAny])
     def reset_password(self, request):
