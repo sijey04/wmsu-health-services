@@ -262,8 +262,8 @@ class PatientViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(school_year__academic_year=academic_year_param)
         
         # Apply deduplication for admin/staff view - show only latest profile per student_id for list action
-        # For admin view, show only the most recent profile per person
-        if self.action == 'list' and (user.is_staff or user.user_type in ['staff', 'admin']):
+        # But only if NOT filtering by a specific school year/semester
+        if self.action == 'list' and (user.is_staff or user.user_type in ['staff', 'admin']) and not school_year_param and not academic_year_param:
             from django.db.models import Max
             
             # Find the latest profile ID for each unique student_id

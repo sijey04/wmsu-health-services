@@ -3479,9 +3479,21 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         if status_param:
             queryset = queryset.filter(status=status_param)
         if academic_year:
-            # Filter by both the document's own academic year link and its associated patient profile's school year
-            # This ensures we catch all relevant records for that period
-            queryset = queryset.filter(Q(academic_year_id=academic_year) | Q(patient__school_year_id=academic_year))
+            try:
+                # If it's a numeric ID
+                ay_id = int(academic_year)
+                # If the document has an academic year set, it must match.
+                # If it doesn't have one, we fall back to the patient's profile school year
+                queryset = queryset.filter(
+                    Q(academic_year_id=ay_id) | 
+                    Q(academic_year__isnull=True, patient__school_year_id=ay_id)
+                )
+            except (ValueError, TypeError):
+                # If it's a string, filter by academic_year string
+                queryset = queryset.filter(
+                    Q(academic_year__academic_year=academic_year) | 
+                    Q(academic_year__isnull=True, patient__school_year__academic_year=academic_year)
+                )
             
         return queryset.select_related('patient', 'reviewed_by').order_by('-updated_at')
 
@@ -8477,8 +8489,21 @@ class MedicalDocumentViewSet(viewsets.ModelViewSet):
         if status_param:
             queryset = queryset.filter(status=status_param)
         if academic_year:
-            # Filter by both the document's own academic year link and its associated patient profile's school year
-            queryset = queryset.filter(Q(academic_year_id=academic_year) | Q(patient__school_year_id=academic_year))
+            try:
+                # If it's a numeric ID
+                ay_id = int(academic_year)
+                # If the document has an academic year set, it must match.
+                # If it doesn't have one, we fall back to the patient's profile school year
+                queryset = queryset.filter(
+                    Q(academic_year_id=ay_id) | 
+                    Q(academic_year__isnull=True, patient__school_year_id=ay_id)
+                )
+            except (ValueError, TypeError):
+                # If it's a string, filter by academic_year string
+                queryset = queryset.filter(
+                    Q(academic_year__academic_year=academic_year) | 
+                    Q(academic_year__isnull=True, patient__school_year__academic_year=academic_year)
+                )
             
         return queryset.select_related('patient', 'reviewed_by').order_by('-updated_at')
 
