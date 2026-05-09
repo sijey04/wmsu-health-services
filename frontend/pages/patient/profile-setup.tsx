@@ -916,6 +916,10 @@ export default function PatientProfileSetupPage() {
         }
         break;
         
+      case 'photo':
+        // Base64 images are very long, skip generic length validation
+        break;
+
       default:
         // Generic text validation
         if (stringValue && stringValue.length > 500) {

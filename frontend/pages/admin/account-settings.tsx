@@ -177,7 +177,7 @@ export default function AdminAccountSettings() {
 
   const getFullImageUrl = (path: string | null) => {
     if (!path) return '';
-    if (path.startsWith('http')) return path;
+    if (path.startsWith('http') || path.startsWith('data:')) return path;
     // Prepend base URL if it's a relative path
     const baseUrl = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
     return `${baseUrl}${path.startsWith('/') ? '' : '/'}${path}`;
@@ -532,9 +532,9 @@ export default function AdminAccountSettings() {
             <div className="flex items-center space-x-6">
               <div className="w-24 h-24 rounded-full bg-gray-200 flex items-center justify-center text-4xl text-gray-400 font-bold overflow-hidden">
                 {profilePic ? (
-                  <Image src={typeof profilePic === 'string' ? profilePic : URL.createObjectURL(profilePic)} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
+                  <img src={typeof profilePic === 'string' ? profilePic : URL.createObjectURL(profilePic)} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
                 ) : currentProfilePic ? (
-                  <Image src={currentProfilePic} alt="Profile" width={96} height={96} className="w-24 h-24 rounded-full object-cover" />
+                  <img src={currentProfilePic} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
                 ) : (
                   <span>{name.split(' ').map(n => n[0]).join('').toUpperCase()}</span>
                 )}
@@ -727,12 +727,10 @@ export default function AdminAccountSettings() {
               {currentSignature && (
                 <div className="mb-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
                   <p className="text-sm font-medium text-gray-700 mb-2">Current Signature:</p>
-                  <Image 
+                  <img 
                     src={currentSignature} 
                     alt="Current signature" 
-                    width={300}
-                    height={96}
-                    className="max-h-24 border border-gray-300 rounded bg-white p-2"
+                    className="max-h-24 border border-gray-300 rounded bg-white p-2 object-contain"
                   />
                 </div>
               )}
