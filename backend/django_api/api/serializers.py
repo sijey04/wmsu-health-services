@@ -34,6 +34,39 @@ class Base64ImageField(serializers.ImageField):
                 raise serializers.ValidationError(f"Invalid base64 image: {str(e)}")
         return super().to_internal_value(data)
 
+    def to_representation(self, value):
+        if not value:
+            return None
+            
+        # Try to return base64 string for better reliability (like the waiver)
+        try:
+            # Check if file exists and can be opened
+            if hasattr(value, 'open'):
+                with value.open('rb') as f:
+                    img_data = f.read()
+                    # Determine extension
+                    ext = value.name.split('.')[-1].lower()
+                    if ext == 'jpg': ext = 'jpeg'
+                    if ext == 'png': ext = 'png'
+                    if ext == 'gif': ext = 'gif'
+                    if ext == 'webp': ext = 'webp'
+                    
+                    # If extension is not recognized, default to jpeg
+                    if ext not in ['jpeg', 'png', 'gif', 'webp']:
+                        ext = 'jpeg'
+                        
+                    base64_data = base64.b64encode(img_data).decode('utf-8')
+                    return f"data:image/{ext};base64,{base64_data}"
+        except Exception as e:
+            # Silently fail and fallback to URL if file can't be read
+            pass
+            
+        # Fallback to default behavior (returning URL)
+        try:
+            return super().to_representation(value)
+        except Exception:
+            return str(value) if value else None
+
 
 class UserSerializer(serializers.ModelSerializer):
     patient_profile = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -157,6 +190,9 @@ class PatientSerializer(serializers.ModelSerializer):
     user_middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     grade_level = serializers.CharField(source='user.grade_level', read_only=True)
+    surname = serializers.CharField(source='name', read_only=True)
+    full_name = serializers.CharField(source='get_full_name', read_only=True)
+    age = serializers.SerializerMethodField()
     photo = Base64ImageField(required=False, allow_null=True)
     school_year = serializers.SerializerMethodField()
     
@@ -184,10 +220,22 @@ class PatientSerializer(serializers.ModelSerializer):
         except AcademicSchoolYear.DoesNotExist:
             return None
     
+    def get_age(self, obj):
+        """Calculate age from date_of_birth if it's not set in the model"""
+        if obj.age:
+            return obj.age
+        
+        if obj.date_of_birth:
+            from datetime import date
+            today = date.today()
+            return today.year - obj.date_of_birth.year - ((today.month, today.day) < (obj.date_of_birth.month, obj.date_of_birth.day))
+        
+        return None
+    
     class Meta:
         model = Patient
         fields = [
-            'id', 'user', 'student_id', 'name', 'first_name', 'middle_name', 'suffix',
+            'id', 'user', 'student_id', 'name', 'surname', 'first_name', 'middle_name', 'full_name', 'suffix',
             'photo', 'gender', 'date_of_birth', 'age', 'department', 'contact_number',
             'email', 'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 'religion_specify',
             'nationality', 'nationality_specify', 'civil_status', 'emergency_contact_surname', 
@@ -209,7 +257,7 @@ class PatientSerializer(serializers.ModelSerializer):
 
 
 class MedicalRecordSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
     doctor_name = serializers.CharField(source='doctor.get_full_name', read_only=True)
     
     class Meta:
@@ -218,7 +266,7 @@ class MedicalRecordSerializer(serializers.ModelSerializer):
 
 
 class AppointmentSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
     doctor_name = serializers.CharField(source='doctor.get_full_name', read_only=True)
     rescheduled_by_name = serializers.CharField(source='rescheduled_by.get_full_name', read_only=True)
     was_rescheduled_by_admin = serializers.ReadOnlyField()
@@ -577,8 +625,8 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
     completion_percentage = serializers.ReadOnlyField()
     
     # Add basic patient fields
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
-    patient_display = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
+    patient_display = serializers.CharField(source='patient.get_full_name', read_only=True)
     patient_student_id = serializers.CharField(source='patient.student_id', read_only=True)
     patient_department = serializers.CharField(source='patient.department', read_only=True)
     reviewed_by_name = serializers.CharField(source='reviewed_by.get_full_name', read_only=True)
@@ -612,9 +660,9 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
     emergency_contact_first_name = serializers.CharField(source='patient.emergency_contact_first_name', read_only=True)
     emergency_contact_middle_name = serializers.CharField(source='patient.emergency_contact_middle_name', read_only=True)
     emergency_contact_surname = serializers.CharField(source='patient.emergency_contact_surname', read_only=True)
-    emergency_contact_name = serializers.SerializerMethodField()
     emergency_contact_number = serializers.CharField(source='patient.emergency_contact_number', read_only=True)
     emergency_contact_phone = serializers.CharField(source='patient.emergency_contact_number', read_only=True)  # alias
+    emergency_contact_name = serializers.CharField(source='patient.get_emergency_contact_full_name', read_only=True)
     emergency_contact_relationship = serializers.CharField(source='patient.emergency_contact_relationship', read_only=True)
     emergency_contact_address = serializers.SerializerMethodField()  # Concatenated emergency contact address
     
@@ -633,17 +681,6 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
             return obj.patient.user.last_name
         return obj.patient.name.split()[-1] if obj.patient and obj.patient.name else None
     
-    def get_emergency_contact_name(self, obj):
-        if obj.patient:
-            parts = []
-            if obj.patient.emergency_contact_first_name:
-                parts.append(obj.patient.emergency_contact_first_name)
-            if obj.patient.emergency_contact_middle_name:
-                parts.append(obj.patient.emergency_contact_middle_name)
-            if obj.patient.emergency_contact_surname:
-                parts.append(obj.patient.emergency_contact_surname)
-            return ' '.join(parts) if parts else None
-        return None
     
     def get_address(self, obj):
         """Concatenate patient address fields"""
@@ -693,6 +730,7 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
             'family_medical_history', 'vaccination_history', 'hospital_admission_or_surgery', 
             'hospital_admission_details'
         ]
+        validators = []  # Disable automatic unique-together validation since we set patient/year in perform_create
         
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -703,7 +741,7 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
 
 
 class DentalFormDataSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
     patient_student_id = serializers.CharField(source='patient.student_id', read_only=True)
     patient_department = serializers.CharField(source='patient.department', read_only=True)
     patient_age = serializers.IntegerField(source='patient.age', read_only=True)
@@ -811,7 +849,7 @@ class StaffDetailsSerializer(serializers.ModelSerializer):
 
 
 class MedicalFormDataSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.name', read_only=True)
+    patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
     patient_student_id = serializers.CharField(source='patient.student_id', read_only=True)
     patient_department = serializers.CharField(source='patient.department', read_only=True)
     patient_age = serializers.IntegerField(source='patient.age', read_only=True)

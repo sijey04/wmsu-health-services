@@ -401,8 +401,54 @@ class Patient(models.Model):
     
     def __str__(self):
         semester_display = f" ({self.get_semester_display()})" if self.semester else ""
-        return f"{self.name} ({self.student_id}) - {self.school_year}{semester_display}"
+        return f"{self.get_full_name} ({self.student_id}) - {self.school_year}{semester_display}"
     
+    @property
+    def get_full_name(self):
+        """
+        Returns the patient's full name from profile fields.
+        Format: "Surname, First Name Middle Name Suffix"
+        """
+        name_parts = []
+        if self.name:
+            name_parts.append(self.name + ",")
+        if self.first_name:
+            name_parts.append(self.first_name)
+        if self.middle_name:
+            name_parts.append(self.middle_name)
+        if self.suffix:
+            name_parts.append(self.suffix)
+        
+        full_name = " ".join(name_parts).strip()
+        if full_name.endswith(","):
+            full_name = full_name[:-1]
+        
+        # If still empty, fallback to user's full name
+        if not full_name and self.user:
+            return self.user.get_full_name()
+            
+        return full_name
+
+    @property
+    def get_emergency_contact_full_name(self):
+        """
+        Returns the emergency contact's full name from profile fields.
+        Format: "Surname, First Name Middle Name"
+        """
+        name_parts = []
+        if getattr(self, 'emergency_contact_surname', None):
+            name_parts.append(self.emergency_contact_surname + ",")
+        if getattr(self, 'emergency_contact_first_name', None):
+            name_parts.append(self.emergency_contact_first_name)
+        if getattr(self, 'emergency_contact_middle_name', None):
+            name_parts.append(self.emergency_contact_middle_name)
+        
+        full_name = " ".join(name_parts).strip()
+        if full_name.endswith(","):
+            full_name = full_name[:-1]
+            
+        return full_name if full_name else "N/A"
+
     def save(self, *args, **kwargs):
         """
         Override save method to auto-fill fields from associated CustomUser
@@ -412,9 +458,9 @@ class Patient(models.Model):
             if not self.email:
                 self.email = self.user.email
             
-            # Auto-fill name if not provided (format: "Last, First")
-            if not self.name and self.user.first_name and self.user.last_name:
-                self.name = f"{self.user.last_name}, {self.user.first_name}"
+            # Auto-fill name (surname) if not provided
+            if not self.name and self.user.last_name:
+                self.name = self.user.last_name
             
             # Auto-fill first_name if not provided
             if not self.first_name:
@@ -427,6 +473,12 @@ class Patient(models.Model):
             # Auto-fill student_id if not provided (temporary ID based on user ID)
             if not self.student_id:
                 self.student_id = f"TEMP-{self.user.id}"
+        
+        # Calculate age from date_of_birth if provided
+        if self.date_of_birth:
+            from datetime import date
+            today = date.today()
+            self.age = today.year - self.date_of_birth.year - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
         
         # Auto-assign current school year if not set
         if not self.school_year:
@@ -544,7 +596,7 @@ class Appointment(models.Model):
     
     def __str__(self):
         semester_display = f" ({self.get_semester_display()})" if self.semester else ""
-        return f"{self.patient.name}'s appointment on {self.appointment_date} at {self.appointment_time}{semester_display}"
+        return f"{self.patient.get_full_name}'s appointment on {self.appointment_date} at {self.appointment_time}{semester_display}"
     
     def determine_semester(self):
         """

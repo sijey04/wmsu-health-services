@@ -2289,7 +2289,7 @@ function AdminMedicalDocuments() {
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Full Name:</span>
                           <span className="text-base text-gray-900 font-medium">
-                            {selectedDocument.first_name || ''} {selectedDocument.middle_name || ''} {selectedDocument.last_name || selectedDocument.name || 'N/A'}
+                            {selectedDocument.patient_display || selectedDocument.patient_name || 'N/A'}
                           </span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
@@ -2350,7 +2350,7 @@ function AdminMedicalDocuments() {
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Contact Name:</span>
                           <span className="text-base text-gray-900 font-medium">
-                            {selectedDocument.emergency_contact_first_name || ''} {selectedDocument.emergency_contact_middle_name || ''} {selectedDocument.emergency_contact_surname || selectedDocument.emergency_contact_name || 'N/A'}
+                            {selectedDocument.emergency_contact_name || 'N/A'}
                           </span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">

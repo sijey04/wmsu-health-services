@@ -264,16 +264,15 @@ export default function UploadDocumentsPage() {
       if (field.specificCourses && field.specificCourses.length > 0) {
         // Only include if user's course matches one of the specific courses
         const courseMatches = field.specificCourses.includes(userProfile.course);
-        // If course matches, mark as required
+        // If course matches, mark as required (if not already)
         if (courseMatches) {
           field.required = true;
         }
         return courseMatches;
       }
       
-      // If no specific course requirements, include based on its required status
-      // This handles documents that are required for all freshmen
-      return field.required;
+      // If no specific course requirements, include it (it's either global required or global optional)
+      return true;
     });
     
     return filtered;
@@ -418,6 +417,10 @@ export default function UploadDocumentsPage() {
           formData.append(field.backendField, files[field.name]!);
         }
       });
+      
+      if (currentPatientId) {
+        formData.append('patient', currentPatientId.toString());
+      }
       
       await medicalDocumentsAPI.upload(formData);
       setSuccess(true);

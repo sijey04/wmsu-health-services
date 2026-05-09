@@ -676,7 +676,7 @@ const DentalForm: React.FC<DentalFormProps> = ({ appointmentId, patientId: patie
           middleName: data.middle_name || '',
           age: data.age ? data.age.toString() : '',
           // Convert gender to sex field, mapping 'Other' to 'Male' as fallback
-          sex: data.gender === 'Other' ? 'Male' : (data.gender || 'Male'),
+          sex: data.sex === 'Other' ? 'Male' : (data.sex || 'Male'),
           examinedBy: data.examined_by || '', // Auto-populated from staff details
           examinerPosition: data.examiner_position || '',
           examinerLicense: data.examiner_license || '',

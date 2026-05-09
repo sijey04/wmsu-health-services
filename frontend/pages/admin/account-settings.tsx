@@ -725,13 +725,17 @@ export default function AdminAccountSettings() {
               
               {/* Current Signature Display */}
               {currentSignature && (
-                <div className="mb-4 p-4 border border-gray-300 rounded-lg bg-gray-50">
-                  <p className="text-sm font-medium text-gray-700 mb-2">Current Signature:</p>
+                <div className="mb-8 p-6 border border-gray-100 rounded-xl bg-white shadow-sm flex flex-col items-center">
+                  <p className="text-sm font-medium text-gray-500 mb-4 self-start">Current Signature:</p>
                   <img 
                     src={currentSignature} 
                     alt="Current signature" 
-                    className="max-h-24 border border-gray-300 rounded bg-white p-2 object-contain"
+                    className="max-h-24 object-contain mb-[-10px] relative z-10"
                   />
+                  <div className="w-64 border-t border-gray-900 pt-1 text-center">
+                    <p className="text-xs font-bold uppercase">{name}</p>
+                    <p className="text-[10px] text-gray-500">Digital Signature</p>
+                  </div>
                 </div>
               )}
 

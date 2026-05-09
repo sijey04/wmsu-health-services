@@ -921,7 +921,10 @@ export default function PatientProfileSetupPage() {
         break;
 
       default:
-        // Generic text validation
+        // Generic text validation - exclude image fields from length limit
+        if (['photo', 'signature', 'profile_picture'].includes(field)) {
+          return null;
+        }
         if (stringValue && stringValue.length > 500) {
           return 'Text is too long (maximum 500 characters).';
         }

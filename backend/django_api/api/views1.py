@@ -95,35 +95,42 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
             if not examiner_name:
                 examiner_name = f"{staff_user.first_name} {staff_user.last_name}".strip() if staff_user.first_name or staff_user.last_name else staff_user.username
             
-            # Extract names
-            surname = ''
-            first_name = ''
-            middle_name = ''
+            # Extract names from patient profile fields
+            # Preference: 1. patient.first_name/middle_name/name(surname), 2. user.first_name/last_name
             
-            if patient.name:
-                if ',' in patient.name:
+            first_name = patient.first_name
+            middle_name = patient.middle_name
+            surname = patient.name # patient.name is labeled as Surname in profile setup
+            
+            # If still empty, try to extract from patient.name if it contains a comma (legacy data)
+            if not first_name or not surname:
+                if patient.name and ',' in patient.name:
                     name_parts = patient.name.split(',')
                     surname = name_parts[0].strip()
-                    if len(name_parts) > 1:
+                    if len(name_parts) > 1 and not first_name:
                         remaining_name = name_parts[1].strip()
                         name_parts_remaining = remaining_name.split()
                         if name_parts_remaining:
                             first_name = name_parts_remaining[0]
-                        if len(name_parts_remaining) > 1:
-                            middle_name = ' '.join(name_parts_remaining[1:])
-                else:
-                    name_parts = patient.name.split()
-                    if name_parts:
-                        surname = name_parts[-1]
-                        if len(name_parts) > 1:
-                            first_name = name_parts[0]
-                        if len(name_parts) > 2:
-                            middle_name = ' '.join(name_parts[1:-1])
+                            if len(name_parts_remaining) > 1 and not middle_name:
+                                middle_name = ' '.join(name_parts_remaining[1:])
+                elif not surname and patient.name:
+                    surname = patient.name
+
+            # Last resort: use user account data if profile fields are still empty
+            if not first_name and user:
+                first_name = user.first_name
+            if not middle_name and user:
+                middle_name = user.middle_name
+            if not surname and user:
+                surname = user.last_name
             
-            if patient.first_name:
-                first_name = patient.first_name
-            if patient.middle_name:
-                middle_name = patient.middle_name
+            # Calculate age if not set
+            age = patient.age
+            if not age and patient.date_of_birth:
+                from datetime import date
+                today = date.today()
+                age = today.year - patient.date_of_birth.year - ((today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day))
             
             department_value = patient.department or ''
             
@@ -131,10 +138,10 @@ class MedicalFormDataViewSet(viewsets.ModelViewSet):
             data = {
                 'patient_id': patient.id,
                 'file_no': patient.student_id or '',
-                'surname': surname,
-                'first_name': first_name,
-                'middle_name': middle_name,
-                'age': patient.age or '',
+                'surname': surname or '',
+                'first_name': first_name or '',
+                'middle_name': middle_name or '',
+                'age': age or '',
                 'sex': patient.gender or 'Male',
                 'department': department_value,
                 'contact': patient.contact_number or '',

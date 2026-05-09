@@ -782,8 +782,8 @@ class PatientViewSet(viewsets.ModelViewSet):
             if not patient_profile:
                 return Response({'detail': 'No patient profile found.'}, status=status.HTTP_404_NOT_FOUND)
         
-        partial = request.method == 'PATCH'
-        serializer = PatientProfileUpdateSerializer(patient_profile, data=request.data, partial=partial, context={'request': request})
+        # Always use partial update to prevent clearing fields that are not sent (like photo)
+        serializer = PatientProfileUpdateSerializer(patient_profile, data=request.data, partial=True, context={'request': request})
         
         if serializer.is_valid():
             serializer.save()
@@ -2030,22 +2030,51 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
             except StaffDetails.DoesNotExist:
                 examiner_name = f"{staff_user.first_name} {staff_user.last_name}".strip() if staff_user.first_name or staff_user.last_name else staff_user.username
             
-            # Extract surname
-            surname = ''
-            if patient.name:
-                if ',' in patient.name:
-                    surname = patient.name.split(',')[0].strip()
-                else:
+            # Extract names from patient profile fields
+            # Preference: 1. patient.first_name/middle_name/name(surname), 2. user.first_name/last_name
+            
+            first_name = patient.first_name
+            middle_name = patient.middle_name
+            surname = patient.name # patient.name is labeled as Surname in profile setup
+            
+            # If still empty, try to extract from patient.name if it contains a comma (legacy data)
+            if not first_name or not surname:
+                if patient.name and ',' in patient.name:
+                    name_parts = patient.name.split(',')
+                    surname = name_parts[0].strip()
+                    if len(name_parts) > 1 and not first_name:
+                        remaining_name = name_parts[1].strip()
+                        name_parts_remaining = remaining_name.split()
+                        if name_parts_remaining:
+                            first_name = name_parts_remaining[0]
+                            if len(name_parts_remaining) > 1 and not middle_name:
+                                middle_name = ' '.join(name_parts_remaining[1:])
+                elif not surname and patient.name:
                     surname = patient.name
+
+            # Last resort: use user account data if profile fields are still empty
+            if not first_name and user:
+                first_name = user.first_name
+            if not middle_name and user:
+                middle_name = user.middle_name
+            if not surname and user:
+                surname = user.last_name
+            
+            # Calculate age if not set
+            age = patient.age
+            if not age and patient.date_of_birth:
+                from datetime import date
+                today = date.today()
+                age = today.year - patient.date_of_birth.year - ((today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day))
             
             # Base data
             data = {
                 'patient_id': patient.id,
                 'file_no': patient.student_id or '',
-                'surname': surname,
-                'first_name': patient.first_name or '',
-                'middle_name': patient.middle_name or '',
-                'age': patient_age or '',
+                'surname': surname or '',
+                'first_name': first_name or '',
+                'middle_name': middle_name or '',
+                'age': age or '',
                 'sex': 'Male' if patient.gender == 'Other' else (patient.gender or 'Male'),
                 'examined_by': examiner_name,
                 'examiner_position': examiner_position,
@@ -4822,8 +4851,8 @@ class PatientViewSet(viewsets.ModelViewSet):
             if not patient_profile:
                 return Response({'detail': 'No patient profile found.'}, status=status.HTTP_404_NOT_FOUND)
         
-        partial = request.method == 'PATCH'
-        serializer = PatientProfileUpdateSerializer(patient_profile, data=request.data, partial=partial, context={'request': request})
+        # Always use partial update to prevent clearing fields that are not sent (like photo)
+        serializer = PatientProfileUpdateSerializer(patient_profile, data=request.data, partial=True, context={'request': request})
         
         if serializer.is_valid():
             serializer.save()
@@ -6076,22 +6105,51 @@ class DentalFormDataViewSet(viewsets.ModelViewSet):
                 # If no staff details found, use user's basic info as fallback
                 examiner_name = f"{user.first_name} {user.last_name}".strip() if user.first_name or user.last_name else user.username
             
-            # Extract surname from name field (assuming format "Surname, First Name")
-            surname = ''
-            if patient.name:
-                if ',' in patient.name:
-                    surname = patient.name.split(',')[0].strip()
-                else:
-                    # If no comma, use the name as surname
+            # Extract names from patient profile fields
+            # Preference: 1. patient.first_name/middle_name/name(surname), 2. user.first_name/last_name
+            
+            user_obj = patient.user # use user_obj to avoid confusion with request.user
+            first_name = patient.first_name
+            middle_name = patient.middle_name
+            surname = patient.name # patient.name is labeled as Surname in profile setup
+            
+            # If still empty, try to extract from patient.name if it contains a comma (legacy data)
+            if not first_name or not surname:
+                if patient.name and ',' in patient.name:
+                    name_parts = patient.name.split(',')
+                    surname = name_parts[0].strip()
+                    if len(name_parts) > 1 and not first_name:
+                        remaining_name = name_parts[1].strip()
+                        name_parts_remaining = remaining_name.split()
+                        if name_parts_remaining:
+                            first_name = name_parts_remaining[0]
+                            if len(name_parts_remaining) > 1 and not middle_name:
+                                middle_name = ' '.join(name_parts_remaining[1:])
+                elif not surname and patient.name:
                     surname = patient.name
+
+            # Last resort: use user account data if profile fields are still empty
+            if not first_name and user_obj:
+                first_name = user_obj.first_name
+            if not middle_name and user_obj:
+                middle_name = user_obj.middle_name
+            if not surname and user_obj:
+                surname = user_obj.last_name
+            
+            # Calculate age if not set
+            age = patient.age
+            if not age and patient.date_of_birth:
+                from datetime import date
+                today = date.today()
+                age = today.year - patient.date_of_birth.year - ((today.month, today.day) < (patient.date_of_birth.month, patient.date_of_birth.day))
             
             data = {
                 'patient_id': patient.id,
                 'file_no': patient.student_id or '',
-                'surname': surname,
-                'first_name': patient.first_name or '',
-                'middle_name': patient.middle_name or '',
-                'age': patient.age or '',
+                'surname': surname or '',
+                'first_name': first_name or '',
+                'middle_name': middle_name or '',
+                'age': age or '',
                 'sex': patient.gender or 'Male',
                 'examined_by': examiner_name,
                 'examiner_position': examiner_position,
