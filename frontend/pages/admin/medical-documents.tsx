@@ -2,7 +2,7 @@ import AdminLayout from '../../components/AdminLayout';
 import withAdminAccess from '../../components/withAdminAccess';
 import FeedbackModal from '../../components/feedbackmodal';
 import { useState, useEffect, useMemo } from 'react';
-import { medicalDocumentsAPI, academicSchoolYearsAPI, djangoApiClient } from '../../utils/api';
+import { medicalDocumentsAPI, academicSchoolYearsAPI, djangoApiClient, patientsAPI } from '../../utils/api';
 import { ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/24/outline';
 import { FaSortAlphaDown, FaSortAlphaUp } from 'react-icons/fa';
 
@@ -18,6 +18,8 @@ function AdminMedicalDocuments() {
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [patientProfile, setPatientProfile] = useState<any | null>(null);
+  const [patientProfileLoading, setPatientProfileLoading] = useState(false);
   
   // Consultation advice modal state
   const [showConsultationModal, setShowConsultationModal] = useState(false);
@@ -111,6 +113,36 @@ function AdminMedicalDocuments() {
     }
   };
 
+  const resolveFileUrl = (value: string) => {
+    if (!value) return '';
+    if (value.startsWith('http') || value.startsWith('data:')) return value;
+    const baseUrl = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+    return `${baseUrl}${value.startsWith('/') ? '' : '/'}${value}`;
+  };
+
+  const isImageFile = (value: string) => {
+    if (!value) return false;
+    if (value.startsWith('data:image')) return true;
+    return /\.(jpg|jpeg|png|gif|webp|avif)(\?.*)?$/i.test(value);
+  };
+
+  const resolveDisplayValue = (...values: any[]) => {
+    for (const value of values) {
+      if (value === 0 || value === false) return value;
+      if (value === undefined || value === null) continue;
+      if (typeof value === 'string' && value.trim() === '') continue;
+      return value;
+    }
+    return '';
+  };
+
+  const resolvePatientName = (data: any) => {
+    if (!data) return 'N/A';
+    const parts = [data.first_name, data.middle_name, data.last_name].filter(Boolean).join(' ').trim();
+    if (parts) return parts;
+    return data.patient_display || data.patient_name || data.name || 'N/A';
+  };
+
   // Handle academic year change
   const handleAcademicYearChange = (academicYearId: string) => {
     setSelectedAcademicYear(academicYearId);
@@ -182,6 +214,39 @@ function AdminMedicalDocuments() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const loadPatientProfile = async () => {
+      if (!viewModalOpen || !selectedDocument) {
+        setPatientProfile(null);
+        return;
+      }
+      setPatientProfileLoading(true);
+      try {
+        const patientId = selectedDocument.patient;
+        if (patientId) {
+          const response = await patientsAPI.getById(patientId);
+          setPatientProfile(response.data || null);
+          return;
+        }
+        const studentId = selectedDocument.student_id || selectedDocument.patient_student_id;
+        if (studentId) {
+          const response = await patientsAPI.getByStudentId(studentId);
+          const data = Array.isArray(response.data) ? response.data[0] : response.data;
+          setPatientProfile(data || null);
+          return;
+        }
+        setPatientProfile(null);
+      } catch (error) {
+        console.warn('Failed to load patient profile:', error);
+        setPatientProfile(null);
+      } finally {
+        setPatientProfileLoading(false);
+      }
+    };
+
+    loadPatientProfile();
+  }, [viewModalOpen, selectedDocument]);
 
   // Load document requirements from admin controls
   const loadDocumentRequirements = async () => {
@@ -375,7 +440,7 @@ function AdminMedicalDocuments() {
 
   // Helper to get file icon
   const getFileIcon = (url: string) => {
-    if (url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return (
+    if (isImageFile(url)) return (
       <svg className="w-6 h-6 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2" strokeWidth="2" stroke="currentColor" fill="none"/><path d="M8 14l2-2a2 2 0 0 1 2.83 0l2.17 2.17M8 14l-2 2m0 0h12" strokeWidth="2" stroke="currentColor" fill="none"/></svg>
     );
     if (url.match(/\.(pdf)$/i)) return (
@@ -442,11 +507,11 @@ function AdminMedicalDocuments() {
     const files = documentRequirements.length > 0 ? documentRequirements : [];
     
     return files
-      .filter(f => doc[f.key] && doc[f.key].match(/\.(jpg|jpeg|png|gif|webp|avif)$/i))
+      .filter(f => doc[f.key] && isImageFile(doc[f.key]))
       .map(f => ({
         key: f.key,
         label: f.label,
-        url: doc[f.key]?.startsWith('http') ? doc[f.key] : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${doc[f.key]}`
+        url: resolveFileUrl(doc[f.key])
       }));
   };
 
@@ -727,6 +792,54 @@ function AdminMedicalDocuments() {
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab]);
+
+  const resolvedPatient = patientProfile || selectedDocument || {};
+  const patientName = resolvePatientName(resolvedPatient);
+  const patientInitial = patientName && patientName !== 'N/A' ? patientName.charAt(0) : 'N';
+  const patientStudentId = resolveDisplayValue(patientProfile?.student_id, selectedDocument?.student_id, selectedDocument?.patient_student_id);
+  const patientEmail = resolveDisplayValue(patientProfile?.email, selectedDocument?.email);
+  const patientContact = resolveDisplayValue(patientProfile?.contact_number, patientProfile?.phone, selectedDocument?.contact_number, selectedDocument?.phone);
+  const patientGender = resolveDisplayValue(patientProfile?.gender, selectedDocument?.gender);
+  const patientDob = resolveDisplayValue(patientProfile?.date_of_birth, selectedDocument?.date_of_birth);
+  const patientAge = resolveDisplayValue(patientProfile?.age, selectedDocument?.age);
+  const patientDepartment = resolveDisplayValue(patientProfile?.department, selectedDocument?.department);
+  const patientAddressParts = [patientProfile?.street, patientProfile?.barangay, patientProfile?.city_municipality].filter(Boolean);
+  const patientAddress = resolveDisplayValue(patientProfile?.address, patientAddressParts.length ? patientAddressParts.join(', ') : '', selectedDocument?.address);
+  const patientBloodType = resolveDisplayValue(patientProfile?.blood_type, selectedDocument?.blood_type);
+  const patientReligion = resolveDisplayValue(patientProfile?.religion, selectedDocument?.religion);
+  const patientNationality = resolveDisplayValue(patientProfile?.nationality, selectedDocument?.nationality);
+  const patientCivilStatus = resolveDisplayValue(patientProfile?.civil_status, selectedDocument?.civil_status);
+  const patientUserType = resolveDisplayValue(patientProfile?.user_type, patientProfile?.grade_level, selectedDocument?.user_type, selectedDocument?.grade_level);
+  const patientCourse = resolveDisplayValue(patientProfile?.course, patientProfile?.department, selectedDocument?.course, selectedDocument?.department);
+  const patientYearLevel = resolveDisplayValue(patientProfile?.year_level, selectedDocument?.year_level);
+  const patientStrand = resolveDisplayValue(patientProfile?.strand, selectedDocument?.strand);
+  const patientEmployeeId = resolveDisplayValue(patientProfile?.employee_id, selectedDocument?.employee_id);
+  const patientPositionType = resolveDisplayValue(patientProfile?.position_type, selectedDocument?.position_type);
+  const emergencyName = resolveDisplayValue(
+    selectedDocument?.emergency_contact_name,
+    `${patientProfile?.emergency_contact_first_name || ''} ${patientProfile?.emergency_contact_middle_name || ''} ${patientProfile?.emergency_contact_surname || ''}`.trim(),
+    patientProfile?.emergency_contact_name
+  );
+  const emergencyNumber = resolveDisplayValue(patientProfile?.emergency_contact_number, selectedDocument?.emergency_contact_number, selectedDocument?.emergency_contact_phone);
+  const emergencyRelationship = resolveDisplayValue(patientProfile?.emergency_contact_relationship, selectedDocument?.emergency_contact_relationship);
+  const emergencyAddressParts = [patientProfile?.emergency_contact_street, patientProfile?.emergency_contact_barangay].filter(Boolean);
+  const emergencyAddress = resolveDisplayValue(
+    patientProfile?.emergency_contact_address,
+    emergencyAddressParts.length ? emergencyAddressParts.join(', ') : '',
+    selectedDocument?.emergency_contact_address
+  );
+  const patientPhotoRaw = resolveDisplayValue(
+    patientProfile?.photo,
+    selectedDocument?.photo,
+    selectedDocument?.patient_photo,
+    selectedDocument?.profile_photo,
+    selectedDocument?.image,
+    selectedDocument?.avatar,
+    selectedDocument?.profile_image,
+    selectedDocument?.user_photo,
+    selectedDocument?.picture
+  );
+  const patientPhotoUrl = typeof patientPhotoRaw === 'string' ? resolveFileUrl(patientPhotoRaw) : '';
 
   return (
     <AdminLayout>
@@ -2090,6 +2203,9 @@ function AdminMedicalDocuments() {
                   }
 
                   const currentDoc = availableFiles[currentDocIndex];
+                  const currentFileValue = selectedDocument[currentDoc.key];
+                  const currentFileUrl = resolveFileUrl(currentFileValue);
+                  const isCurrentImage = isImageFile(currentFileValue);
                   
                   return (
                     <div className="space-y-6">
@@ -2132,17 +2248,17 @@ function AdminMedicalDocuments() {
                           
                           {/* Document Content */}
                           <div className="p-8">
-                            {selectedDocument[currentDoc.key] && selectedDocument[currentDoc.key].match(/\.(jpg|jpeg|png|gif|avif)$/i) ? (
+                            {currentFileValue && isCurrentImage ? (
                               <div 
                                 className="relative cursor-pointer group"
                                 onClick={() => {
-                                  const imageFiles = files.filter(file => selectedDocument[file.key] && selectedDocument[file.key].match(/\.(jpg|jpeg|png|gif|avif)$/i));
+                                  const imageFiles = files.filter(file => selectedDocument[file.key] && isImageFile(selectedDocument[file.key]));
                                   const imageIndex = imageFiles.findIndex(file => file.key === currentDoc.key);
                                   openImageSlideshow(selectedDocument, imageIndex);
                                 }}
                               >
                                 <img 
-                                  src={selectedDocument[currentDoc.key]?.startsWith('http') ? selectedDocument[currentDoc.key] : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${selectedDocument[currentDoc.key]}`} 
+                                  src={currentFileUrl} 
                                   alt={currentDoc.label} 
                                   className="w-full h-96 object-contain rounded-lg border border-gray-200 group-hover:opacity-95 transition-opacity duration-200 bg-white shadow-sm"
                                 />
@@ -2161,7 +2277,7 @@ function AdminMedicalDocuments() {
                             
                             <div className="mt-8 flex items-center justify-between">
                               <a 
-                                href={selectedDocument[currentDoc.key]} 
+                                href={currentFileUrl} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
                                 className="inline-flex items-center px-6 py-3 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200 font-medium"
@@ -2172,7 +2288,7 @@ function AdminMedicalDocuments() {
                                 Download
                               </a>
                               <button 
-                                onClick={() => window.open(selectedDocument[currentDoc.key], '_blank')}
+                                onClick={() => window.open(currentFileUrl, '_blank')}
                                 className="inline-flex items-center px-6 py-3 bg-gray-50 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors duration-200 font-medium"
                               >
                                 <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2229,56 +2345,39 @@ function AdminMedicalDocuments() {
                     <div className="flex items-center p-6 bg-gradient-to-r from-[#800000] to-[#a83232] rounded-xl text-white">
                       <div className="flex-shrink-0">
                         <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-white border-opacity-30 relative">
-                          {(() => {
-                            const photoUrl = selectedDocument.photo || 
-                                           selectedDocument.patient_photo || 
-                                           selectedDocument.profile_photo || 
-                                           selectedDocument.image || 
-                                           selectedDocument.avatar || 
-                                           selectedDocument.profile_image ||
-                                           selectedDocument.user_photo ||
-                                           selectedDocument.picture;
-                            
-                            return photoUrl ? (
-                              <img 
-                                src={photoUrl.startsWith('http') ? photoUrl : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${photoUrl}`} 
-                                alt={selectedDocument.patient_display || selectedDocument.patient_name || 'Patient'}
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                  // Fallback to initials if image fails to load
-                                  e.currentTarget.style.display = 'none';
-                                  const fallbackDiv = e.currentTarget.nextElementSibling as HTMLElement;
-                                  if (fallbackDiv) {
-                                    fallbackDiv.style.display = 'flex';
-                                  }
-                                }}
-                              />
-                            ) : null;
-                          })()}
+                          {patientPhotoUrl ? (
+                            <img 
+                              src={patientPhotoUrl} 
+                              alt={patientName}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                const fallbackDiv = e.currentTarget.nextElementSibling as HTMLElement;
+                                if (fallbackDiv) {
+                                  fallbackDiv.style.display = 'flex';
+                                }
+                              }}
+                            />
+                          ) : null}
                           <div 
                             className="absolute inset-0 bg-white bg-opacity-20 rounded-full flex items-center justify-center"
                             style={{ 
-                              display: (selectedDocument.photo || 
-                                       selectedDocument.patient_photo || 
-                                       selectedDocument.profile_photo || 
-                                       selectedDocument.image || 
-                                       selectedDocument.avatar || 
-                                       selectedDocument.profile_image ||
-                                       selectedDocument.user_photo ||
-                                       selectedDocument.picture) ? 'none' : 'flex'
+                              display: patientPhotoUrl ? 'none' : 'flex'
                             }}
                           >
                             <span className="text-white font-bold text-2xl">
-                              {(selectedDocument.patient_display || selectedDocument.patient_name || 'N/A').charAt(0)}
+                              {patientInitial}
                             </span>
                           </div>
                         </div>
                       </div>
                       <div className="ml-6">
                         <p className="text-xl font-bold">
-                          {selectedDocument.patient_display || selectedDocument.patient_name || 'N/A'}
+                          {patientName}
                         </p>
-                        <p className="text-white text-opacity-90 text-base">Patient</p>
+                        <p className="text-white text-opacity-90 text-base">
+                          {patientProfileLoading ? 'Loading full profile...' : 'Patient'}
+                        </p>
                       </div>
                     </div>
 
@@ -2289,56 +2388,86 @@ function AdminMedicalDocuments() {
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Full Name:</span>
                           <span className="text-base text-gray-900 font-medium">
-                            {selectedDocument.patient_display || selectedDocument.patient_name || 'N/A'}
+                            {patientName || 'N/A'}
                           </span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Student ID:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.student_id || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientStudentId || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Email:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.email || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientEmail || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Contact Number:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.contact_number || selectedDocument.phone || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientContact || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Gender:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.gender || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientGender || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Date of Birth:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.date_of_birth ? formatDate(selectedDocument.date_of_birth) : 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientDob ? formatDate(patientDob) : 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Age:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.age || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientAge || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Department:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.department || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientDepartment || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Address:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.address || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientAddress || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Blood Type:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.blood_type || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientBloodType || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Religion:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.religion || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientReligion || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Nationality:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.nationality || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientNationality || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Civil Status:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.civil_status || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{patientCivilStatus || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 rounded-xl p-6">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-4">Academic/Employment Details</h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                          <span className="text-base font-medium text-gray-700">User Type:</span>
+                          <span className="text-base text-gray-900 font-medium">{patientUserType || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                          <span className="text-base font-medium text-gray-700">Course/Department:</span>
+                          <span className="text-base text-gray-900 font-medium">{patientCourse || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                          <span className="text-base font-medium text-gray-700">Year Level:</span>
+                          <span className="text-base text-gray-900 font-medium">{patientYearLevel || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                          <span className="text-base font-medium text-gray-700">Strand:</span>
+                          <span className="text-base text-gray-900 font-medium">{patientStrand || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                          <span className="text-base font-medium text-gray-700">Employee ID:</span>
+                          <span className="text-base text-gray-900 font-medium">{patientEmployeeId || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                          <span className="text-base font-medium text-gray-700">Position Type:</span>
+                          <span className="text-base text-gray-900 font-medium">{patientPositionType || 'N/A'}</span>
                         </div>
                       </div>
                     </div>
@@ -2350,20 +2479,20 @@ function AdminMedicalDocuments() {
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Contact Name:</span>
                           <span className="text-base text-gray-900 font-medium">
-                            {selectedDocument.emergency_contact_name || 'N/A'}
+                            {emergencyName || 'N/A'}
                           </span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Contact Number:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.emergency_contact_number || selectedDocument.emergency_contact_phone || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{emergencyNumber || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Relationship:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.emergency_contact_relationship || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{emergencyRelationship || 'N/A'}</span>
                         </div>
                         <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
                           <span className="text-base font-medium text-gray-700">Address:</span>
-                          <span className="text-base text-gray-900 font-medium">{selectedDocument.emergency_contact_address || 'N/A'}</span>
+                          <span className="text-base text-gray-900 font-medium">{emergencyAddress || 'N/A'}</span>
                         </div>
                       </div>
                     </div>

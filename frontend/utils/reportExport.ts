@@ -1957,7 +1957,7 @@ function addClinicianPerformancePage(pdf: any, clinicians: any[], pageWidth: num
   });
 
   const finalY = (pdf as any).lastAutoTable?.finalY || (yPos + 12);
-  yPos = finalY;
+  yPos = finalY + 12; // Added vertical spacing after table
 
   // Summary Insights
   pdf.setFontSize(11);
@@ -2625,7 +2625,7 @@ function addMedicineUsagePage(pdf: any, medicineUsage: any[], medicalMedCount: n
     columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
   });
 
-  yPos = (pdf as any).lastAutoTable?.finalY || (yPos + 12);
+  yPos = ((pdf as any).lastAutoTable?.finalY || yPos) + 12; // Added vertical spacing after table
 
   // Check if we need a new page for detailed breakdown
   if (yPos > pageHeight - 50) {

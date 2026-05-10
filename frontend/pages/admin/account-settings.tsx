@@ -24,7 +24,6 @@ export default function AdminAccountSettings() {
   // Staff details states
   const [staffDetails, setStaffDetails] = useState({
     full_name: '',
-    position: '',
     license_number: '',
     ptr_number: '',
     phone_number: '',
@@ -38,9 +37,7 @@ export default function AdminAccountSettings() {
   const [signatureFile, setSignatureFile] = useState(null);
   const [currentSignature, setCurrentSignature] = useState('');
   
-  // Position options - dynamically loaded from backend
-  const [positionOptions, setPositionOptions] = useState<string[]>([]);
-  const [loadingPositions, setLoadingPositions] = useState(true);
+
   
   // Signature pad refs
   const sigPad = useRef<any>(null);
@@ -95,7 +92,6 @@ export default function AdminAccountSettings() {
 
   useEffect(() => {
     fetchUserData();
-    fetchPositionOptions();
   }, []);
 
   useEffect(() => {
@@ -129,50 +125,7 @@ export default function AdminAccountSettings() {
     return normalized === 'teaching' || normalized === 'nonteaching';
   };
 
-  const fetchPositionOptions = async () => {
-    setLoadingPositions(true);
-    try {
-      // Fetch positions from staff roles endpoint
-      const response = await djangoApiClient.get('/admin-controls/staff-roles/');
-      if (response && response.data) {
-        const dataArray = Array.isArray(response.data) ? response.data : 
-                         (Array.isArray(response.data?.results) ? response.data.results : []);
-        
-        if (dataArray.length > 0) {
-          const normalized: string[] = dataArray
-            .map((role: any) => normalizeRoleLabel(role))
-            .map((role: string) => role.trim())
-            .filter((role): role is string => Boolean(role));
 
-          const uniqueRoles = Array.from(new Set(normalized));
-          if (uniqueRoles.length > 0) {
-            setPositionOptions(uniqueRoles);
-            return;
-          }
-        }
-      }
-      console.warn('Staff roles endpoint returned no usable positions, using defaults.');
-      applyDefaultPositions();
-    } catch (error) {
-      console.warn('Failed to fetch positions from backend, using defaults:', error);
-      applyDefaultPositions();
-    } finally {
-      setLoadingPositions(false);
-    }
-  };
-
-  function applyDefaultPositions() {
-    setPositionOptions([
-      'Administrator',
-      'Medical Staff',
-      'Doctor',
-      'Nurse',
-      'Dentist',
-      'Dental Staff',
-      'General Staff',
-      'Receptionist'
-    ]);
-  }
 
   const getFullImageUrl = (path: string | null) => {
     if (!path) return '';
@@ -227,7 +180,6 @@ export default function AdminAccountSettings() {
           // Auto-fill staff details from API response
           setStaffDetails({
             full_name: staffData.full_name || fullName,
-            position: staffData.position || '',
             license_number: staffData.license_number || '',
             ptr_number: staffData.ptr_number || '',
             phone_number: staffData.phone_number || '',
@@ -251,7 +203,6 @@ export default function AdminAccountSettings() {
             // Auto-fill staff details from user data for new staff user
             setStaffDetails({
               full_name: fullName,
-              position: userData.user_type === 'admin' ? 'Administrator' : 'Staff',
               license_number: '',
               ptr_number: '',
               phone_number: '',
@@ -267,7 +218,6 @@ export default function AdminAccountSettings() {
             // Still auto-fill basic info even on other errors
             setStaffDetails({
               full_name: fullName,
-              position: userData.user_type === 'admin' ? 'Administrator' : 'Staff',
               license_number: '',
               ptr_number: '',
               phone_number: '',
@@ -287,7 +237,6 @@ export default function AdminAccountSettings() {
         // Auto-fill basic staff details even for non-staff users (they might become staff)
         setStaffDetails({
           full_name: fullName,
-          position: '',
           license_number: '',
           ptr_number: '',
           phone_number: '',
@@ -395,16 +344,8 @@ export default function AdminAccountSettings() {
     setLoading(true);
 
     try {
-      if (!staffDetails.position) {
-        setFeedbackMessage('Please select a position before saving.');
-        setFeedbackOpen(true);
-        setLoading(false);
-        return;
-      }
-
       const formData = new FormData();
       formData.append('full_name', staffDetails.full_name);
-      formData.append('position', staffDetails.position);
       formData.append('license_number', staffDetails.license_number || '');
       formData.append('ptr_number', staffDetails.ptr_number || '');
       formData.append('phone_number', staffDetails.phone_number || '');
@@ -473,9 +414,7 @@ export default function AdminAccountSettings() {
     }
   };
 
-  const filteredPositionOptions = currentUserType === 'admin'
-    ? positionOptions.filter((position) => !isTeachingRole(position))
-    : positionOptions;
+
 
   return (
     <AdminLayout>
@@ -641,7 +580,7 @@ export default function AdminAccountSettings() {
             )}
             <form onSubmit={handleStaffDetailsSave} className="space-y-8">
             {/* Staff Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                 <input 
@@ -651,21 +590,6 @@ export default function AdminAccountSettings() {
                   className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]" 
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Position</label>
-                <select
-                  value={staffDetails.position}
-                  onChange={e => setStaffDetails({...staffDetails, position: e.target.value})}
-                  className="w-full border border-gray-300 rounded-lg shadow-sm py-3 px-4 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]"
-                  required
-                  disabled={loadingPositions}
-                >
-                  <option value="">{loadingPositions ? 'Loading positions...' : 'Select Position'}</option>
-                  {filteredPositionOptions.map(position => (
-                    <option key={position} value={position}>{position}</option>
-                  ))}
-                </select>
               </div>
             </div>
 
