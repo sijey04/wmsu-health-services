@@ -12,6 +12,7 @@ import useDebounce from '../../hooks/useDebounce';
 import { useRouter } from 'next/router';
 import { ClockIcon } from '@heroicons/react/24/outline';
 import PatientMedicalHistoryModal from '../../components/PatientMedicalHistoryModal';
+import FormViewerModal from '../../components/FormViewerModal';
 
 function AdminMedicalConsultations() {
   const router = useRouter();
@@ -63,6 +64,7 @@ function AdminMedicalConsultations() {
     userId: null as number | null,
     patientName: ''
   });
+  const [formViewerModal, setFormViewerModal] = useState({ open: false, appointmentId: null as number | null, patientName: '' });
 
   // Add semester filtering state (academic_year + semester_type)
   const [semesters, setSemesters] = useState([]);
@@ -481,26 +483,12 @@ function AdminMedicalConsultations() {
   };
 
   // Handle form data view
-  const handleViewFormData = async (appointment: any) => {
-    try {
-      const response = await appointmentsAPI.viewFormData(appointment.id);
-
-      // Create blob from response
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-
-      // Open in new tab
-      window.open(url, '_blank');
-
-      // Cleanup after a delay to allow the PDF to load
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-
-    } catch (err: any) {
-      console.error('Failed to view form data:', err);
-      setFeedbackModal({ open: true, message: 'Failed to view form data. Please try again.' });
-    }
+  const handleViewFormData = (appointment: any) => {
+    setFormViewerModal({
+      open: true,
+      appointmentId: appointment.id,
+      patientName: appointment.patient_name || 'Patient'
+    });
   };
 
   // Handle semester change
@@ -1389,6 +1377,13 @@ function AdminMedicalConsultations() {
         userId={medicalHistoryModal.userId}
         patientName={medicalHistoryModal.patientName}
         onClose={() => setMedicalHistoryModal({ ...medicalHistoryModal, open: false })}
+      />
+      <FormViewerModal
+        open={formViewerModal.open}
+        appointmentId={formViewerModal.appointmentId}
+        appointmentType="medical"
+        patientName={formViewerModal.patientName}
+        onClose={() => setFormViewerModal({ ...formViewerModal, open: false })}
       />
 
       {/* Reschedule Modal */}

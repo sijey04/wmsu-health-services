@@ -1,4 +1,5 @@
 
+
 import AdminLayout from '../../components/AdminLayout';
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
@@ -30,12 +31,12 @@ export default function AdminPatientProfile() {
   const [currentSemester, setCurrentSemester] = useState<any>(null);
   const [semesterStats, setSemesterStats] = useState<any>({});
   const router = useRouter();
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [paginatedPatients, setPaginatedPatients] = useState<any[]>([]);
-  
+
   // Modal states
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -56,14 +57,14 @@ export default function AdminPatientProfile() {
       const matchesGender = genderFilter === 'all' || patient.gender === genderFilter;
       const matchesBloodType = bloodTypeFilter === 'all' || patient.blood_type === bloodTypeFilter;
       const matchesNationality = nationalityFilter === 'all' || patient.nationality === nationalityFilter;
-      const matchesVerification = verificationFilter === 'all' || 
+      const matchesVerification = verificationFilter === 'all' ||
         (verificationFilter === 'verified' && patient.is_verified) ||
         (verificationFilter === 'unverified' && !patient.is_verified);
-      
+
       return matchesGender && matchesBloodType && matchesNationality && matchesVerification;
     }).sort((a, b) => {
       let compareValue = 0;
-      
+
       switch (sortField) {
         case 'name':
           compareValue = (a.name || '').localeCompare(b.name || '');
@@ -75,7 +76,7 @@ export default function AdminPatientProfile() {
           compareValue = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
           break;
       }
-      
+
       return sortOrder === 'asc' ? compareValue : -compareValue;
     });
   }, [patients, genderFilter, bloodTypeFilter, verificationFilter, sortField, sortOrder]);
@@ -122,7 +123,7 @@ export default function AdminPatientProfile() {
       // Try to fetch semesters, but handle gracefully if endpoints don't exist
       let semestersData = [];
       let currentSemesterData = null;
-      
+
       try {
         const semestersRes = await academicSemestersAPI.getAll({ ordering: '-academic_year,-semester_type' });
         semestersData = semestersRes.data || [];
@@ -148,7 +149,7 @@ export default function AdminPatientProfile() {
           }
         ];
       }
-      
+
       try {
         const currentRes = await academicSemestersAPI.getCurrent();
         currentSemesterData = currentRes.data;
@@ -157,15 +158,15 @@ export default function AdminPatientProfile() {
         // Use the first semester as current if API is not available
         currentSemesterData = semestersData.find(s => s.is_current) || semestersData[0];
       }
-      
+
       setSemesters(semestersData);
       setCurrentSemester(currentSemesterData);
-      
+
       // Default to current semester if available
       if (currentSemesterData && currentSemesterData.id) {
         setSelectedSemester(currentSemesterData.id.toString());
       }
-      
+
       // Extract unique academic years
       const academicYearsList: string[] = [];
       semestersData.forEach((sem: any) => {
@@ -174,7 +175,7 @@ export default function AdminPatientProfile() {
         }
       });
       setAcademicYears(academicYearsList);
-      
+
     } catch (err: any) {
       console.error('Failed to fetch semesters:', err);
       // Set minimal fallback data
@@ -187,7 +188,7 @@ export default function AdminPatientProfile() {
         is_current: true,
         status: 'active'
       }];
-      
+
       setSemesters(fallbackData);
       setCurrentSemester(fallbackData[0]);
       setAcademicYears([`${currentYear}-${nextYear}`]);
@@ -201,7 +202,7 @@ export default function AdminPatientProfile() {
       const params: any = {};
       if (searchTerm) params.search = searchTerm;
       if (userTypeFilter !== 'All User Types') params.user_type = userTypeFilter;
-      
+
       // Use semester record ID which already includes academic_year + semester_type
       if (selectedSemester !== 'all') {
         // selectedSemester now contains the complete semester record ID
@@ -212,10 +213,10 @@ export default function AdminPatientProfile() {
         params.academic_year = selectedAcademicYear;
         console.log('Filtering by academic year:', selectedAcademicYear);
       }
-      
+
       const res = await djangoApiClient.get('/patients/', { params });
       const patientsData = res.data || [];
-      
+
       // If we have semester data but patients don't have school_year, assign current semester
       if (semesters.length > 0 && currentSemester) {
         patientsData.forEach((patient: any) => {
@@ -226,12 +227,12 @@ export default function AdminPatientProfile() {
           }
         });
       }
-      
+
       setPatients(patientsData);
-      
+
       // Calculate semester statistics
       calculateSemesterStats(patientsData);
-      
+
     } catch (err: any) {
       setError('Failed to fetch patients.');
       console.error(err);
@@ -246,11 +247,11 @@ export default function AdminPatientProfile() {
     const firstName = patient.first_name || patient.user_first_name || '';
     const middleName = patient.middle_name || patient.user_middle_name || '';
     const lastName = patient.surname || patient.user_last_name || '';
-    
+
     if (firstName || lastName) {
       return `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}`.trim();
     }
-    
+
     // Fallback to name field, but try to reformat if it's "Last, First"
     if (patient.name && patient.name.includes(',')) {
       const parts = patient.name.split(',');
@@ -258,22 +259,22 @@ export default function AdminPatientProfile() {
       const first = parts[1].trim();
       return `${first} ${last}`;
     }
-    
+
     return patient.name || 'N/A';
   };
 
   const calculateSemesterStats = (patientsData: any[]) => {
     const stats: any = {};
-    
+
     // Only calculate stats if we have semester data
     if (semesters.length > 0) {
       semesters.forEach(semester => {
         // Patients are now associated with semester records via school_year field
         // school_year is an object with {id, academic_year, semester_type, is_current}
-        const semesterPatients = patientsData.filter(patient => 
+        const semesterPatients = patientsData.filter(patient =>
           patient.school_year?.id === semester.id || patient.school_year === semester.id || patient.semester_id === semester.id
         );
-        
+
         stats[semester.id] = {
           totalPatients: semesterPatients.length,
           verifiedPatients: semesterPatients.filter(p => p.is_verified).length,
@@ -293,7 +294,7 @@ export default function AdminPatientProfile() {
         }
       };
     }
-    
+
     setSemesterStats(stats);
   };
 
@@ -301,7 +302,7 @@ export default function AdminPatientProfile() {
     if (!patientId || isNaN(patientId)) return;
 
     let patient = patients.find((p) => p.id === patientId);
-    
+
     if (!patient) {
       try {
         const response = await patientsAPI.getById(patientId);
@@ -326,7 +327,7 @@ export default function AdminPatientProfile() {
     console.log('Initial Patient ID:', patientId);
     console.log('Found Patient:', patient);
     console.log('Student ID:', patient?.student_id);
-    
+
     let allProfiles = [];
     const userId = patient?.user;
     const studentId = patient?.student_id;
@@ -387,7 +388,7 @@ export default function AdminPatientProfile() {
         query: { ...router.query, id: latestProfile.id }
       }, undefined, { shallow: true });
     }
-    
+
     setAllPatientProfiles(allProfiles);
     console.log('Resolution complete. Latest ID:', latestProfile?.id);
     console.log('===================================');
@@ -398,7 +399,7 @@ export default function AdminPatientProfile() {
     try {
       const response = await patientsAPI.getByUserId(userId);
       const profiles = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
-      
+
       if (profiles.length > 0) {
         // Sort by date to get the latest
         const sortedProfiles = profiles.sort((a: any, b: any) => {
@@ -406,7 +407,7 @@ export default function AdminPatientProfile() {
           const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
           return dateB - dateA;
         });
-        
+
         const latestProfile = sortedProfiles[0];
         handleViewProfile(latestProfile.id);
       }
@@ -461,14 +462,14 @@ export default function AdminPatientProfile() {
   const exportPatientsBySemester = () => {
     const csvData = [];
     csvData.push(['Academic Year', 'Semester', 'Patient Name', 'Email', 'Age', 'Gender', 'Blood Type', 'Nationality', 'Contact Number', 'User Type', 'Verified Status']);
-    
+
     patients.forEach(patient => {
       // Use school_year (new) or semester_id (legacy) to find semester
       const semester = semesters.find(s => s.id === (patient.school_year || patient.semester_id));
-      const nationalityDisplay = patient.nationality === 'Foreigner' && patient.nationality_specify 
+      const nationalityDisplay = patient.nationality === 'Foreigner' && patient.nationality_specify
         ? `Foreigner (${patient.nationality_specify})`
         : (patient.nationality || 'N/A');
-      
+
       csvData.push([
         semester?.academic_year || 'N/A',
         semester ? `${semester.semester_type} Semester` : 'N/A',
@@ -483,7 +484,7 @@ export default function AdminPatientProfile() {
         patient.is_verified ? 'Verified' : 'Unverified'
       ]);
     });
-    
+
     const csvContent = csvData.map(row => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -499,10 +500,10 @@ export default function AdminPatientProfile() {
   const getSemesterLabel = (semesterId: any) => {
     if (!semesterId || semesterId === 'all') return 'All Semesters';
     if (semesters.length === 0) return 'Current Period';
-    
+
     const semester = semesters.find(s => s.id === parseInt(semesterId));
     if (!semester) return 'Unknown Semester';
-    
+
     return `${semester.academic_year} - ${semester.semester_type}`;
   };
 
@@ -524,54 +525,54 @@ export default function AdminPatientProfile() {
               </p>
             </div>
 
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
-                  {/* Current Semester Info */}
-                  {currentSemester && semesters.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
-                      <div className="flex items-center text-blue-700">
-                        <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                        <div>
-                          <div className="text-sm font-medium">Current Semester</div>
-                          <div className="text-xs">{currentSemester.academic_year} - {currentSemester.semester_type}</div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 w-full">
+                {/* Current Semester Info */}
+                {currentSemester && semesters.length > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
+                    <div className="flex items-center text-blue-700">
+                      <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium">Current Semester</div>
+                        <div className="text-xs">{currentSemester.academic_year} - {currentSemester.semester_type}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {semesters.length === 0 && (
+                  <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
+                    <div className="flex items-center text-orange-700">
+                      <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium">Current Period</div>
+                        <div className="text-xs">Academic Year {new Date().getFullYear()}-{new Date().getFullYear() + 1}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Semester Statistics - Inline */}
+                {Object.keys(semesterStats).length > 0 && Object.values(semesterStats).map((stat: any) => (
+                  <div key={stat.semester.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
+                      <AcademicCapIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+                      <div>
+                        <div className="text-sm font-medium text-blue-900">
+                          {stat.semester.academic_year}
+                        </div>
+                        <div className="text-xs text-blue-700">
+                          {stat.semester.semester_type} Semester
+                        </div>
+                      </div>
+                      <div className="text-right border-l border-blue-300 pl-3">
+                        <div className="text-2xl font-bold text-blue-600">{stat.totalPatients}</div>
+                        <div className="text-xs text-blue-700">
+                          {stat.verifiedPatients} verified
                         </div>
                       </div>
                     </div>
-                  )}
-                  {semesters.length === 0 && (
-                    <div className="bg-orange-50 border border-orange-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
-                      <div className="flex items-center text-orange-700">
-                        <CalendarDaysIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                        <div>
-                          <div className="text-sm font-medium">Current Period</div>
-                          <div className="text-xs">Academic Year {new Date().getFullYear()}-{new Date().getFullYear() + 1}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Semester Statistics - Inline */}
-                  {Object.keys(semesterStats).length > 0 && Object.values(semesterStats).map((stat: any) => (
-                    <div key={stat.semester.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg px-3 sm:px-4 py-2 w-full sm:w-auto">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        <AcademicCapIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
-                        <div>
-                          <div className="text-sm font-medium text-blue-900">
-                            {stat.semester.academic_year}
-                          </div>
-                          <div className="text-xs text-blue-700">
-                            {stat.semester.semester_type} Semester
-                          </div>
-                        </div>
-                        <div className="text-right border-l border-blue-300 pl-3">
-                          <div className="text-2xl font-bold text-blue-600">{stat.totalPatients}</div>
-                          <div className="text-xs text-blue-700">
-                            {stat.verifiedPatients} verified
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                  </div>
+                ))}
 
 
                 {/* Export Button */}
@@ -616,7 +617,7 @@ export default function AdminPatientProfile() {
                 {/* Filter Row */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                   <span className="text-xs sm:text-sm font-medium text-gray-700 w-full sm:w-auto">Filters:</span>
-                  
+
                   <select
                     value={userTypeFilter}
                     onChange={(e) => setUserTypeFilter(e.target.value)}
@@ -728,16 +729,16 @@ export default function AdminPatientProfile() {
                     {sortOrder === 'asc' ? <FaSortAlphaDown /> : <FaSortAlphaUp />}
                   </button>
 
-                  {(searchTerm || userTypeFilter !== 'All User Types' || selectedAcademicYear !== 'all' || 
-                    selectedSemester !== 'all' || genderFilter !== 'all' || bloodTypeFilter !== 'all' || 
+                  {(searchTerm || userTypeFilter !== 'All User Types' || selectedAcademicYear !== 'all' ||
+                    selectedSemester !== 'all' || genderFilter !== 'all' || bloodTypeFilter !== 'all' ||
                     nationalityFilter !== 'all' || verificationFilter !== 'all') && (
-                    <button
-                      onClick={clearFilters}
-                      className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
-                    >
-                      Clear Filters
-                    </button>
-                  )}
+                      <button
+                        onClick={clearFilters}
+                        className="text-xs sm:text-sm text-red-600 hover:text-red-800 underline w-full sm:w-auto text-center sm:text-left mt-2 sm:mt-0"
+                      >
+                        Clear Filters
+                      </button>
+                    )}
                 </div>
 
                 {/* Results Summary */}
@@ -784,7 +785,7 @@ export default function AdminPatientProfile() {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#800000]">
                       <tr>
-                        <th 
+                        <th
                           className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                           onClick={() => handleSortChange('name')}
                         >
@@ -796,7 +797,7 @@ export default function AdminPatientProfile() {
                           </div>
                         </th>
                         <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider">Academic Period</th>
-                        <th 
+                        <th
                           className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-medium text-white uppercase tracking-wider cursor-pointer hover:bg-[#600000]"
                           onClick={() => handleSortChange('age')}
                         >
@@ -833,14 +834,14 @@ export default function AdminPatientProfile() {
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-12 w-12">
                                   {patient.photo ? (
-                                    <img 
+                                    <img
                                       src={(() => {
                                         const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-                                        return patient.photo.startsWith('http') 
-                                          ? patient.photo 
+                                        return patient.photo.startsWith('http')
+                                          ? patient.photo
                                           : `${base}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`;
-                                      })()} 
-                                      alt={formatPatientName(patient)} 
+                                      })()}
+                                      alt={formatPatientName(patient)}
                                       className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
                                       onError={(e) => {
                                         const target = e.target as HTMLImageElement;
@@ -930,11 +931,10 @@ export default function AdminPatientProfile() {
                             {/* Status */}
                             <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                               <div className="flex flex-col space-y-1">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  patient.is_verified 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
-                                }`}>
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${patient.is_verified
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                                  }`}>
                                   {patient.is_verified ? '✓ Verified' : '⚠ Unverified'}
                                 </span>
                                 {patient.is_blocked && (
@@ -988,22 +988,20 @@ export default function AdminPatientProfile() {
                       <button
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                          currentPage === 1
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${currentPage === 1
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
                       >
                         Previous
                       </button>
                       <button
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                          currentPage === totalPages
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-white text-gray-700 hover:bg-gray-50'
-                        }`}
+                        className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${currentPage === totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                          }`}
                       >
                         Next
                       </button>
@@ -1039,15 +1037,14 @@ export default function AdminPatientProfile() {
                           <button
                             onClick={() => handlePageChange(currentPage - 1)}
                             disabled={currentPage === 1}
-                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                              currentPage === 1
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-white text-gray-500 hover:bg-gray-50'
-                            }`}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${currentPage === 1
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                              }`}
                           >
                             <ChevronLeftIcon className="h-5 w-5" />
                           </button>
-                          
+
                           {Array.from({ length: totalPages }, (_, i) => i + 1)
                             .filter(page => {
                               return (
@@ -1068,25 +1065,23 @@ export default function AdminPatientProfile() {
                                 <button
                                   key={page}
                                   onClick={() => handlePageChange(page)}
-                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                    currentPage === page
-                                      ? 'z-10 bg-[#800000] border-[#800000] text-white'
-                                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                                  }`}
+                                  className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
+                                    ? 'z-10 bg-[#800000] border-[#800000] text-white'
+                                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                                    }`}
                                 >
                                   {page}
                                 </button>
                               );
                             })}
-                          
+
                           <button
                             onClick={() => handlePageChange(currentPage + 1)}
                             disabled={currentPage === totalPages}
-                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                              currentPage === totalPages
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-white text-gray-500 hover:bg-gray-50'
-                            }`}
+                            className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${currentPage === totalPages
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                              }`}
                           >
                             <ChevronRightIcon className="h-5 w-5" />
                           </button>
@@ -1102,15 +1097,15 @@ export default function AdminPatientProfile() {
       </div>
 
       {/* Modals */}
-      <PatientProfileModal 
-        open={viewModalOpen} 
-        patient={selectedPatient} 
+      <PatientProfileModal
+        open={viewModalOpen}
+        patient={selectedPatient}
 
         allPatientProfiles={allPatientProfiles}
 
-        onClose={handleCloseViewModal} 
+        onClose={handleCloseViewModal}
       />
-      
+
       <PatientProfileEditor
         open={editModalOpen}
         patient={selectedPatient}

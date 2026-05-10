@@ -588,7 +588,15 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
               <div className="w-24 h-32 border border-gray-400 bg-gray-50 flex items-center justify-center">
                 {profile.photo ? (
                   <img 
-                    src={profile.photo.startsWith('http') ? profile.photo : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${profile.photo.startsWith('/') ? '' : '/'}${profile.photo}`} 
+                    src={(() => {
+                      if (profile.photo.startsWith('data:')) return profile.photo;
+                      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+                      let url = profile.photo.startsWith('http') ? profile.photo : `${base}${profile.photo.startsWith('/') ? '' : '/'}${profile.photo}`;
+                      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+                        url = url.replace('http://', 'https://');
+                      }
+                      return url;
+                    })()} 
                     alt="Patient" 
                     className="w-full h-full object-cover" 
                   />

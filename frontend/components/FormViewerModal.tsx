@@ -26,22 +26,42 @@ interface FormData {
   sex?: string;
   
   // Medical form specific fields
+  department?: string;
+  contact?: string;
   blood_pressure?: string;
   temperature?: string;
   pulse_rate?: string;
   respiratory_rate?: string;
   weight?: string;
   height?: string;
+  bmi?: string;
   chief_complaint?: string;
   present_illness?: string;
   past_medical_history?: string;
+  surgical_history?: string;
   family_history?: string;
   allergies?: string;
   medications?: string;
+  smoking?: string;
+  alcohol?: string;
+  drugs?: string;
+  general_appearance?: string;
+  heent?: string;
+  cardiovascular?: string;
+  respiratory_exam?: string;
+  gastrointestinal?: string;
+  genitourinary?: string;
+  neurological?: string;
+  musculoskeletal?: string;
+  integumentary?: string;
   diagnosis?: string;
   treatment_plan?: string;
+  prescriptions?: string;
   recommendations?: string;
+  follow_up?: string;
+  follow_up_date?: string;
   examined_by?: string;
+  examiner_license?: string;
   date?: string;
   
   // Dental form specific fields
@@ -75,7 +95,6 @@ interface FormData {
   treatment_priority?: string;
   remarks?: string;
   examiner_position?: string;
-  examiner_license?: string;
   examiner_ptr?: string;
   examiner_phone?: string;
   permanent_teeth_status?: any;
@@ -165,9 +184,25 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
   const renderMedicalForm = () => {
     if (!formData) return null;
 
+    // Calculate BMI if weight and height are available
+    const calcBMI = () => {
+      if (formData.bmi) return formData.bmi;
+      const w = parseFloat(formData.weight || '');
+      const h = parseFloat(formData.height || '') / 100;
+      if (w > 0 && h > 0) return (w / (h * h)).toFixed(1);
+      return null;
+    };
+    const bmiVal = calcBMI();
+    const getBMICategory = (bmi: number) => {
+      if (bmi < 18.5) return { category: 'Underweight', color: 'text-blue-600' };
+      if (bmi < 25) return { category: 'Normal', color: 'text-green-600' };
+      if (bmi < 30) return { category: 'Overweight', color: 'text-yellow-600' };
+      return { category: 'Obese', color: 'text-red-600' };
+    };
+
     return (
       <div className="space-y-6">
-        {/* Basic Information */}
+        {/* Patient Information */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold text-gray-900 mb-3">Patient Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -182,8 +217,16 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Age/Sex</label>
+              <label className="block text-sm font-medium text-gray-700">Age / Sex</label>
               <p className="text-sm text-gray-900">{formData.age || 'N/A'} / {formData.sex || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Department</label>
+              <p className="text-sm text-gray-900">{formData.department || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Contact Number</label>
+              <p className="text-sm text-gray-900">{formData.contact || 'N/A'}</p>
             </div>
           </div>
         </div>
@@ -198,7 +241,7 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Temperature</label>
-              <p className="text-sm text-gray-900">{formData.temperature || 'N/A'}</p>
+              <p className="text-sm text-gray-900">{formData.temperature ? `${formData.temperature}°C` : 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Pulse Rate</label>
@@ -210,17 +253,31 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Weight</label>
-              <p className="text-sm text-gray-900">{formData.weight || 'N/A'}</p>
+              <p className="text-sm text-gray-900">{formData.weight ? `${formData.weight} kg` : 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Height</label>
-              <p className="text-sm text-gray-900">{formData.height || 'N/A'}</p>
+              <p className="text-sm text-gray-900">{formData.height ? `${formData.height} cm` : 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">BMI</label>
+              <p className="text-sm text-gray-900">
+                {bmiVal ? (
+                  <span>
+                    {bmiVal}{' '}
+                    <span className={`text-xs font-medium ${getBMICategory(parseFloat(bmiVal)).color}`}>
+                      ({getBMICategory(parseFloat(bmiVal)).category})
+                    </span>
+                  </span>
+                ) : 'N/A'}
+              </p>
             </div>
           </div>
         </div>
 
         {/* Chief Complaint & History */}
         <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Chief Complaint & History</h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Chief Complaint</label>
             <div className="bg-white p-3 border border-gray-300 rounded-md">
@@ -233,34 +290,130 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
               <p className="text-sm text-gray-900">{formData.present_illness || 'N/A'}</p>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Past Medical History</label>
-            <div className="bg-white p-3 border border-gray-300 rounded-md">
-              <p className="text-sm text-gray-900">{formData.past_medical_history || 'N/A'}</p>
+        </div>
+
+        {/* Past Medical History */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Past Medical History</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Past Medical History</label>
+              <div className="bg-white p-3 border border-gray-300 rounded-md">
+                <p className="text-sm text-gray-900">{formData.past_medical_history || 'N/A'}</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Family History</label>
-            <div className="bg-white p-3 border border-gray-300 rounded-md">
-              <p className="text-sm text-gray-900">{formData.family_history || 'N/A'}</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Surgical History</label>
+              <div className="bg-white p-3 border border-gray-300 rounded-md">
+                <p className="text-sm text-gray-900">{formData.surgical_history || 'N/A'}</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
-            <div className="bg-white p-3 border border-gray-300 rounded-md">
-              <p className="text-sm text-gray-900">{formData.allergies || 'N/A'}</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Allergies</label>
+              <div className="bg-white p-3 border border-gray-300 rounded-md">
+                <p className="text-sm text-gray-900">{formData.allergies || 'N/A'}</p>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Current Medications</label>
-            <div className="bg-white p-3 border border-gray-300 rounded-md">
-              <p className="text-sm text-gray-900">{formData.medications || 'N/A'}</p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Current Medications</label>
+              <div className="bg-white p-3 border border-gray-300 rounded-md">
+                <p className="text-sm text-gray-900">{formData.medications || 'N/A'}</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Diagnosis & Treatment */}
+        {/* Family History */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Family History</label>
+          <div className="bg-white p-3 border border-gray-300 rounded-md">
+            <p className="text-sm text-gray-900">{formData.family_history || 'N/A'}</p>
+          </div>
+        </div>
+
+        {/* Social History */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Social History</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Smoking</label>
+              <p className="text-sm text-gray-900">{formData.smoking || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Alcohol</label>
+              <p className="text-sm text-gray-900">{formData.alcohol || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Drug Use</label>
+              <p className="text-sm text-gray-900">{formData.drugs || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Physical Examination */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Physical Examination</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">General Appearance</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.general_appearance || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Head, Eyes, Ears, Nose, Throat (HEENT)</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.heent || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cardiovascular</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.cardiovascular || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Respiratory</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.respiratory_exam || (formData as any).respiratory || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Gastrointestinal</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.gastrointestinal || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Genitourinary</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.genitourinary || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Neurological</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.neurological || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Musculoskeletal</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.musculoskeletal || 'N/A'}</p>
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Integumentary (Skin)</label>
+              <div className="bg-white p-2 border border-gray-200 rounded-md">
+                <p className="text-sm text-gray-900">{formData.integumentary || 'N/A'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Assessment & Plan */}
         <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-gray-900">Assessment & Plan</h3>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
             <div className="bg-white p-3 border border-gray-300 rounded-md">
@@ -274,9 +427,32 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
             </div>
           </div>
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Prescriptions</label>
+            <div className="bg-white p-3 border border-gray-300 rounded-md">
+              <p className="text-sm text-gray-900">{formData.prescriptions || 'N/A'}</p>
+            </div>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Recommendations</label>
             <div className="bg-white p-3 border border-gray-300 rounded-md">
               <p className="text-sm text-gray-900">{formData.recommendations || 'N/A'}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Follow-Up */}
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Follow-Up</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Follow-Up Date</label>
+              <p className="text-sm text-gray-900">
+                {formData.follow_up_date ? new Date(formData.follow_up_date).toLocaleDateString() : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Follow-Up Instructions</label>
+              <p className="text-sm text-gray-900">{formData.follow_up || 'N/A'}</p>
             </div>
           </div>
         </div>
@@ -288,6 +464,10 @@ const FormViewerModal: React.FC<FormViewerModalProps> = ({
             <div>
               <label className="block text-sm font-medium text-gray-700">Examined By</label>
               <p className="text-sm text-gray-900">{formData.examined_by || 'N/A'}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">License Number</label>
+              <p className="text-sm text-gray-900">{formData.examiner_license || 'N/A'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">Date of Examination</label>

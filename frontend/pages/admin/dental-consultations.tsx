@@ -11,6 +11,7 @@ import ConfirmationModal from '../../components/ConfirmationModal';
 import FeedbackModal from '../../components/feedbackmodal';
 import { useRouter } from 'next/router';
 import PatientDentalHistoryModal from '../../components/PatientDentalHistoryModal';
+import FormViewerModal from '../../components/FormViewerModal';
 import { ClockIcon } from '@heroicons/react/24/outline';
 
 function AdminDentalConsultations() {
@@ -74,6 +75,7 @@ function AdminDentalConsultations() {
   });
   const [feedbackModal, setFeedbackModal] = useState({ open: false, message: '' });
   const [dentalHistoryModal, setDentalHistoryModal] = useState({ open: false, patientId: null, userId: null, patientName: '' });
+  const [formViewerModal, setFormViewerModal] = useState({ open: false, appointmentId: null as number | null, patientName: '' });
 
   // Filter and paginate appointments
   const filteredAppointments = useMemo(() => {
@@ -476,31 +478,13 @@ function AdminDentalConsultations() {
     }
   };
 
-  // Handler for viewing form data as PDF inline
-  const handleViewFormData = async (appointment: any) => {
-    try {
-      const response = await appointmentsAPI.viewFormData(appointment.id);
-
-      // Create a blob from the response
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-
-      // Create a temporary URL for the blob
-      const url = window.URL.createObjectURL(blob);
-
-      // Open the PDF in a new tab
-      window.open(url, '_blank');
-
-      // Clean up after a short delay
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-    } catch (error: any) {
-      console.error('Failed to view form data:', error);
-      setFeedbackModal({
-        open: true,
-        message: `Failed to view PDF: ${error.response?.data?.detail || 'Please check the console for more details.'}`
-      });
-    }
+  // Handler for viewing form data in the FormViewerModal
+  const handleViewFormData = (appointment: any) => {
+    setFormViewerModal({
+      open: true,
+      appointmentId: appointment.id,
+      patientName: appointment.patient_name || 'Patient'
+    });
   };
 
   const handleViewPatientProfile = (patientId: number) => {
@@ -1400,6 +1384,13 @@ function AdminDentalConsultations() {
         userId={dentalHistoryModal.userId}
         patientName={dentalHistoryModal.patientName}
         onClose={() => setDentalHistoryModal({ ...dentalHistoryModal, open: false })}
+      />
+      <FormViewerModal
+        open={formViewerModal.open}
+        appointmentId={formViewerModal.appointmentId}
+        appointmentType="dental"
+        patientName={formViewerModal.patientName}
+        onClose={() => setFormViewerModal({ ...formViewerModal, open: false })}
       />
     </AdminLayout>
   );

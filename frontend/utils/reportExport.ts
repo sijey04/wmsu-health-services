@@ -169,33 +169,90 @@ export const generateSingleFormPDF = async (
     // Clinical Details - SHOW ALL FIELDS
     const detailsBody: any[] = [];
     if (appointmentType === 'medical') {
+      // Patient details
+      if (formData.department) detailsBody.push(['Department', formData.department]);
+      if (formData.contact) detailsBody.push(['Contact Number', formData.contact]);
+
+      // Vital Signs
       detailsBody.push(['Blood Pressure', formData.blood_pressure || 'N/A']);
       detailsBody.push(['Temperature', formData.temperature ? `${formData.temperature}°C` : 'N/A']);
       detailsBody.push(['Pulse Rate', formData.pulse_rate || 'N/A']);
       detailsBody.push(['Respiratory Rate', formData.respiratory_rate || 'N/A']);
       detailsBody.push(['Weight / Height', `${formData.weight || 'N/A'}kg / ${formData.height || 'N/A'}cm`]);
+      // BMI calculation
+      const w = parseFloat(formData.weight || '');
+      const h = parseFloat(formData.height || '') / 100;
+      if (w > 0 && h > 0) {
+        const bmi = (w / (h * h)).toFixed(1);
+        let category = 'Obese';
+        if (parseFloat(bmi) < 18.5) category = 'Underweight';
+        else if (parseFloat(bmi) < 25) category = 'Normal';
+        else if (parseFloat(bmi) < 30) category = 'Overweight';
+        detailsBody.push(['BMI', `${bmi} (${category})`]);
+      }
+
+      // Chief Complaint & History
       detailsBody.push(['Chief Complaint', formData.chief_complaint || 'N/A']);
       detailsBody.push(['History of Present Illness', formData.present_illness || 'N/A']);
+
+      // Past Medical History
       detailsBody.push(['Past Medical History', formData.past_medical_history || 'N/A']);
+      if (formData.surgical_history) detailsBody.push(['Surgical History', formData.surgical_history]);
       detailsBody.push(['Family History', formData.family_history || 'N/A']);
       detailsBody.push(['Allergies', formData.allergies || 'N/A']);
       detailsBody.push(['Medications', formData.medications || 'N/A']);
+
+      // Social History
+      if (formData.smoking || formData.alcohol || formData.drugs) {
+        detailsBody.push(['Smoking', formData.smoking || 'N/A']);
+        detailsBody.push(['Alcohol', formData.alcohol || 'N/A']);
+        detailsBody.push(['Drug Use', formData.drugs || 'N/A']);
+      }
+
+      // Physical Examination
+      if (formData.general_appearance) detailsBody.push(['General Appearance', formData.general_appearance]);
+      if (formData.heent) detailsBody.push(['HEENT', formData.heent]);
+      if (formData.cardiovascular) detailsBody.push(['Cardiovascular', formData.cardiovascular]);
+      if (formData.respiratory) detailsBody.push(['Respiratory', formData.respiratory]);
+      if (formData.gastrointestinal) detailsBody.push(['Gastrointestinal', formData.gastrointestinal]);
+      if (formData.genitourinary) detailsBody.push(['Genitourinary', formData.genitourinary]);
+      if (formData.neurological) detailsBody.push(['Neurological', formData.neurological]);
+      if (formData.musculoskeletal) detailsBody.push(['Musculoskeletal', formData.musculoskeletal]);
+      if (formData.integumentary) detailsBody.push(['Integumentary (Skin)', formData.integumentary]);
+
+      // Assessment & Plan
       detailsBody.push(['Diagnosis', formData.diagnosis || 'N/A']);
       detailsBody.push(['Treatment Plan', formData.treatment_plan || 'N/A']);
+      if (formData.prescriptions) detailsBody.push(['Prescriptions', formData.prescriptions]);
       detailsBody.push(['Recommendations', formData.recommendations || 'N/A']);
+
+      // Follow-up
+      if (formData.follow_up) detailsBody.push(['Follow-Up Instructions', formData.follow_up]);
+      if (formData.follow_up_date) detailsBody.push(['Follow-Up Date', new Date(formData.follow_up_date).toLocaleDateString()]);
     } else {
+      // Dental form — existing dental fields
+      if (formData.has_toothbrush) detailsBody.push(['Has Toothbrush', formData.has_toothbrush]);
+      if (formData.dentition) detailsBody.push(['Dentition', formData.dentition]);
+      if (formData.periodontal) detailsBody.push(['Periodontal', formData.periodontal]);
+      if (formData.occlusion) detailsBody.push(['Occlusion', formData.occlusion]);
+      if (formData.malocclusion_severity) detailsBody.push(['Malocclusion Severity', formData.malocclusion_severity]);
+      if (formData.oral_hygiene) detailsBody.push(['Oral Hygiene', formData.oral_hygiene]);
+
       detailsBody.push(['Chief Concern', formData.chief_concern || 'N/A']);
       detailsBody.push(['History of Present Illness', formData.history_of_present_illness || 'N/A']);
       detailsBody.push(['Medical History', formData.medical_history || 'N/A']);
-      detailsBody.push(['Oral Hygiene Habits', formData.oral_hygiene_habits || 'N/A']);
-      detailsBody.push(['Fluoride Exposure', formData.fluoride_exposure || 'N/A']);
+      if (formData.oral_hygiene_habits) detailsBody.push(['Oral Hygiene Habits', formData.oral_hygiene_habits]);
+      if (formData.fluoride_exposure) detailsBody.push(['Fluoride Exposure', formData.fluoride_exposure]);
       detailsBody.push(['Extraoral Exam', formData.extraoral_examination || 'N/A']);
       detailsBody.push(['Intraoral Exam', formData.intraoral_examination || 'N/A']);
-      detailsBody.push(['Occlusion', formData.occlusion || 'N/A']);
       detailsBody.push(['Periodontal Screening', formData.periodontal_screening || 'N/A']);
-      detailsBody.push(['Oral Pathology', formData.oral_pathology || 'N/A']);
+      if (formData.oral_pathology) detailsBody.push(['Oral Pathology', formData.oral_pathology]);
       detailsBody.push(['Diagnosis', formData.diagnosis_dental || 'N/A']);
       detailsBody.push(['Treatment Plan', formData.treatment_plan_dental || 'N/A']);
+      if (formData.recommended_treatments) detailsBody.push(['Recommended Treatments', formData.recommended_treatments]);
+      if (formData.prevention_advice) detailsBody.push(['Prevention Advice', formData.prevention_advice]);
+      if (formData.treatment_priority) detailsBody.push(['Treatment Priority', formData.treatment_priority]);
+      if (formData.next_appointment) detailsBody.push(['Next Appointment', formData.next_appointment]);
 
       // Teeth Status Counts
       detailsBody.push(['Teeth Count', `Decayed: ${formData.decayed_teeth || '0'}, Missing: ${formData.missing_teeth || '0'}, Filled: ${formData.filled_teeth || '0'}`]);
@@ -237,7 +294,7 @@ export const generateSingleFormPDF = async (
 
     // Medicine Usage
     if (formData.used_medicines && Array.isArray(formData.used_medicines) && formData.used_medicines.length > 0) {
-      const meds = formData.used_medicines.map((m: any) => `${m.item_name} (${m.quantity_used})`).join(', ');
+      const meds = formData.used_medicines.map((m: any) => `${m.item_name || m.name} (${m.quantity_used || m.quantity})`).join(', ');
       detailsBody.push(['Issued Medicines', meds]);
     }
 
@@ -256,7 +313,7 @@ export const generateSingleFormPDF = async (
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 20);
 
     // Signature
-    if (currentY > doc.internal.pageSize.getHeight() - 40) {
+    if (currentY > doc.internal.pageSize.getHeight() - 50) {
       doc.addPage();
       currentY = 40;
     }
@@ -266,8 +323,18 @@ export const generateSingleFormPDF = async (
     doc.line(125, currentY + 1, 185, currentY + 1);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text('Authorized Signature / Date', 130, currentY + 5);
-    doc.text(`License/PTR: ${formData.examiner_license || formData.dentist_license || 'N/A'}`, 130, currentY + 9);
+    if (formData.examiner_position) {
+      doc.text(formData.examiner_position, 130, currentY + 5);
+      doc.text(`License: ${formData.examiner_license || formData.dentist_license || 'N/A'}`, 130, currentY + 9);
+      if (formData.examiner_ptr) doc.text(`PTR: ${formData.examiner_ptr}`, 130, currentY + 13);
+      if (formData.examiner_phone) doc.text(`Contact: ${formData.examiner_phone}`, 130, currentY + 17);
+    } else {
+      doc.text('Authorized Signature / Date', 130, currentY + 5);
+      doc.text(`License/PTR: ${formData.examiner_license || formData.dentist_license || 'N/A'}`, 130, currentY + 9);
+    }
+    // Date of examination on the left side
+    doc.setFontSize(8);
+    doc.text(`Date of Examination: ${formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'}`, 20, currentY + 5);
 
     // Dental Chart Image Page
     if (appointmentType === 'dental' && teethChartImage) {

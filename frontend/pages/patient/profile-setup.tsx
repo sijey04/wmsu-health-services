@@ -145,7 +145,10 @@ export default function PatientProfileSetupPage() {
     let url = photoUrl;
     if (!url) return url;
 
-    if (!url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+    // base64 data URIs are already complete — return as-is
+    if (url.startsWith('data:')) return url;
+
+    if (!url.startsWith('http') && !url.startsWith('blob:')) {
       const base = getApiBase();
       url = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
     }
@@ -162,8 +165,11 @@ export default function PatientProfileSetupPage() {
 
     let fullPhotoUrl = normalizePhotoUrl(data.photo);
 
-    const separator = fullPhotoUrl.includes('?') ? '&' : '?';
-    fullPhotoUrl = `${fullPhotoUrl}${separator}t=${Date.now()}`;
+    // Only add cache-busting for URL-based photos, not for base64 data URIs
+    if (!fullPhotoUrl.startsWith('data:')) {
+      const separator = fullPhotoUrl.includes('?') ? '&' : '?';
+      fullPhotoUrl = `${fullPhotoUrl}${separator}t=${Date.now()}`;
+    }
 
     data.photo = fullPhotoUrl;
     setPhotoPreview(fullPhotoUrl);
@@ -2094,19 +2100,25 @@ export default function PatientProfileSetupPage() {
       if (photoFile) {
         formData.append('photo', photoFile);
       } else if (profile?.photo && typeof profile.photo === 'string' && profile.photo.length > 0) {
-        // Remove cache-busting timestamp and extract relative path
-        let photoPath = profile.photo.split('?')[0];
-        
-        // Strip the media URL prefix (e.g., http://localhost:8000/media/)
-        // to get just the relative path (e.g., patient_photos/filename.jpg)
-        if (photoPath.includes('/media/')) {
-          photoPath = photoPath.split('/media/')[1];
-        }
-        
-        formData.append('existing_photo', photoPath);
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log('Preserving existing photo (relative path):', photoPath);
+        if (profile.photo.startsWith('data:')) {
+          // Backend returned a base64 data URI — send it back as-is; the
+          // Base64ImageField serializer will decode and re-save it.
+          formData.append('photo', profile.photo);
+        } else {
+          // URL-based photo — remove cache-busting timestamp and extract relative path
+          let photoPath = profile.photo.split('?')[0];
+          
+          // Strip the media URL prefix (e.g., http://localhost:8000/media/)
+          // to get just the relative path (e.g., patient_photos/filename.jpg)
+          if (photoPath.includes('/media/')) {
+            photoPath = photoPath.split('/media/')[1];
+          }
+          
+          formData.append('existing_photo', photoPath);
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log('Preserving existing photo (relative path):', photoPath);
+          }
         }
       }
 
@@ -2341,6 +2353,8 @@ export default function PatientProfileSetupPage() {
   };
 
   // Independent photo upload function - allows photo upload anytime
+  // Uses multipart/form-data (same pattern as account-settings) to avoid
+  // CORS preflight issues that occur with large JSON payloads on production.
   const handleIndependentPhotoUpload = async (base64: string) => {
     if (!profile?.id) {
       // If no profile exists yet, just store the photo for later
@@ -2353,24 +2367,24 @@ export default function PatientProfileSetupPage() {
     setPhotoUploading(true);
     setLoading(true);
     try {
-      const data: any = {};
+      // Build FormData with multipart/form-data (like account-settings)
+      const formData = new FormData();
+      formData.append('photo', base64);
       
-      // Include essential profile data to avoid validation errors
-      if (profile?.id) data.id = profile.id;
-      
-      // Add the new photo base64 string
-      data.photo = base64;
-      
-      // Add required fields for the update
+      // Add required scoping fields
       if (currentSchoolYear?.id) {
-        data.school_year = currentSchoolYear.id;
+        formData.append('school_year', currentSchoolYear.id.toString());
       }
       if (currentSemester) {
-        data.semester = currentSemester;
+        formData.append('semester', currentSemester);
       }
 
-      // Update the profile with the new photo using JSON instead of FormData
-      await patientProfileAPI.update(data);
+      // Send as multipart/form-data to avoid CORS issues with large JSON
+      await djangoApiClient.patch('/patients/update_my_profile/', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       
       setFeedbackMessage('Profile photo updated successfully!');
       setFeedbackOpen(true);
