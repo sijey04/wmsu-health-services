@@ -2239,7 +2239,11 @@ export default function PatientProfileSetupPage() {
           // Note: profile.name is the surname/last name in the database
           userData.first_name = profileForStorage.first_name || userData.first_name;
           userData.middle_name = profileForStorage.middle_name || userData.middle_name;
-          userData.last_name = profileForStorage.name || userData.last_name;
+          
+          // Synchronize last_name with surname and suffix (matching backend pattern)
+          const surname = profileForStorage.name || userData.last_name;
+          const suffix = profileForStorage.suffix || '';
+          userData.last_name = suffix ? `${surname} ${suffix}` : surname;
           
           // Sync account details
           if (profileForStorage.email) userData.email = profileForStorage.email;

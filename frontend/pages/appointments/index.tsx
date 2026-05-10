@@ -3,6 +3,7 @@ import Layout from '../../components/Layout';
 import { appointmentsAPI, medicalDocumentsAPI } from '../../utils/api'; // Assuming you have this in your api utils
 import Link from 'next/link';
 import PostLoginOptionsModal from '../../components/PostLoginOptionsModal';
+import FormViewerModal from '../../components/FormViewerModal';
 import { useRouter } from 'next/router';
 
 // Define the Appointment type based on your backend model
@@ -60,6 +61,7 @@ const AppointmentsPage = () => {
   const [cancelReason, setCancelReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [medicalDocumentStatus, setMedicalDocumentStatus] = useState<any>(null);
+  const [formViewerModal, setFormViewerModal] = useState({ open: false, appointmentId: null as number | null, patientName: '', appointmentType: 'medical' as 'medical' | 'dental' });
   const router = useRouter();
 
   useEffect(() => {
@@ -272,56 +274,14 @@ const AppointmentsPage = () => {
   };
 
   // Handle form data download
-  const handleDownloadFormData = async (appointment: Appointment) => {
-    try {
-      setActionLoading(true);
-      const response = await appointmentsAPI.downloadFormData(appointment.id);
-
-      // Create blob from response
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-
-      // Create download link
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${appointment.form_type}_form_${appointment.patient_name || 'patient'}_${appointment.appointment_date}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-
-      // Cleanup
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to download form data.');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  // Handle form data view
-  const handleViewFormData = async (appointment: Appointment) => {
-    try {
-      setActionLoading(true);
-      const response = await appointmentsAPI.viewFormData(appointment.id);
-
-      // Create blob from response
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-
-      // Open in new tab
-      window.open(url, '_blank');
-
-      // Cleanup after a delay to allow the PDF to load
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-
-    } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to view form data.');
-    } finally {
-      setActionLoading(false);
-    }
+  // Handle form data view using FormViewerModal
+  const handleViewFormData = (appointment: Appointment) => {
+    setFormViewerModal({
+      open: true,
+      appointmentId: appointment.id,
+      patientName: appointment.patient_name || 'Patient',
+      appointmentType: appointment.form_type === 'dental' ? 'dental' : 'medical'
+    });
   };
 
   // Handle medical certificate view for standalone certificates
@@ -873,24 +833,13 @@ const AppointmentsPage = () => {
                           <div className="flex flex-col sm:flex-row gap-2">
                             <button
                               onClick={() => handleViewFormData(appt)}
-                              disabled={actionLoading}
-                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                             >
                               <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                               </svg>
-                              {actionLoading ? 'Loading...' : 'View Results'}
-                            </button>
-                            <button
-                              onClick={() => handleDownloadFormData(appt)}
-                              disabled={actionLoading}
-                              className="w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              <svg className="-ml-0.5 mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                              </svg>
-                              {actionLoading ? 'Downloading...' : 'Download PDF'}
+                              View Full Details
                             </button>
                           </div>
                         </div>
@@ -1121,6 +1070,15 @@ const AppointmentsPage = () => {
           </div>
         </div>
       )}
+
+      {/* Form Viewer Modal */}
+      <FormViewerModal
+        open={formViewerModal.open}
+        appointmentId={formViewerModal.appointmentId}
+        appointmentType={formViewerModal.appointmentType}
+        patientName={formViewerModal.patientName}
+        onClose={() => setFormViewerModal({ ...formViewerModal, open: false })}
+      />
     </Layout>
   );
 };

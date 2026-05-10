@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { appointmentsAPI, djangoApiClient } from '../../utils/api';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import dayjs, { Dayjs } from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
 
 function addDays(date, days) {
   const d = new Date(date);
@@ -94,6 +104,7 @@ export default function MedicalAppointmentPage() {
   const [campus, setCampus] = useState('');
   const [date, setDate] = useState('');
   const [availableCampuses, setAvailableCampuses] = useState<string[]>([]);
+  const [calendarDate, setCalendarDate] = useState<Dayjs | null>(null);
 
   // Validate navigation token to prevent direct URL access
   useEffect(() => {
@@ -418,6 +429,13 @@ export default function MedicalAppointmentPage() {
           return false;
         }
 
+        // Check if staff is available on this day of the week
+        const dayName = !dayjs(date).isValid() ? '' : dayjs(date).format('dddd');
+        const availableDays = staff.available_days || [];
+        if (availableDays.length > 0 && !availableDays.includes(dayName)) {
+          return false;
+        }
+
         // Count appointments for this staff on this date
         const staffAppointments = dayAppointments.filter((appt) => 
           appt.assigned_staff === staff.id && 
@@ -515,23 +533,24 @@ export default function MedicalAppointmentPage() {
     return true;
   }
 
-  function isDateDisabled(dateStr) {
-    const today = new Date();
-    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const d = new Date(dateStr);
-    if (d < todayMidnight) return true;
-    // Beyond 3 months
-    const max = addDays(new Date(), 90);
-    if (d > max) return true;
+  function isDateDisabled(dateVal: Dayjs): boolean {
+    const today = dayjs().startOf('day');
+    const maxDate = dayjs().add(3, 'month');
+    
+    // Check if in past or beyond range
+    if (dateVal.isBefore(today)) return true;
+    if (dateVal.isAfter(maxDate)) return true;
     
     // Check if campus is open on this day using dynamic schedule
-    if (!isCampusOpen(campus, dateStr)) return true;
+    const dayName = dateVal.format('dddd');
+    const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
+    if (operatingDays.length > 0 && !operatingDays.includes(dayName)) return true;
     
     return false;
   }
 
   function isTimeInputDisabled() {
-    if (!campusSchedule || !date || isDateDisabled(date)) return true;
+    if (!campusSchedule || !date || !calendarDate || isDateDisabled(calendarDate)) return true;
     
     // Check if campus is open on selected date
     if (!isCampusOpen(campus, date)) return true;
@@ -575,9 +594,9 @@ export default function MedicalAppointmentPage() {
     let patientId;
     try {
       patientId = await getPatientId();
-    } catch (error) {
-      console.error('Error in getPatientId:', error);
-      if (error.message && error.message.includes('Please create your profile first')) {
+    } catch (err: any) {
+      console.error('Error in getPatientId:', err);
+      if (err.message && err.message.includes('Please create your profile first')) {
         setNeedsProfile(true);
         setError('You need to create your patient profile before booking appointments.');
       } else {
@@ -729,8 +748,86 @@ export default function MedicalAppointmentPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  <input type="date" value={date} onChange={e => setDate(e.target.value)} required min={todayStr} max={maxDate} className={`block w-full border-gray-300 rounded-lg py-2 px-3 ${isDateDisabled(date) ? 'bg-gray-200 text-gray-400' : ''}`} />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Appointment Date *</label>
+                  <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                    <LocalizationProvider dateAdapter={AdapterDayjs}>
+                      <DateCalendar
+                        value={calendarDate}
+                        onChange={(newValue: Dayjs | null) => {
+                          if (newValue) {
+                            setCalendarDate(newValue);
+                            setDate(newValue.format('YYYY-MM-DD'));
+                          }
+                        }}
+                        shouldDisableDate={isDateDisabled}
+                        slots={{
+                          day: (dayProps: any) => {
+                            const dateStr = dayProps.day.format('YYYY-MM-DD');
+                            const dayName = dayProps.day.format('dddd');
+                            
+                            // Check if campus is closed on this day
+                            const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
+                            const isCampusClosed = operatingDays.length > 0 && !operatingDays.includes(dayName);
+                            
+                            // Highlight currently selected date if it has no staff
+                            const isSelected = calendarDate && dayProps.day.isSame(calendarDate, 'day');
+                            const hasNoStaff = isSelected && availableStaff.length === 0;
+
+                            return (
+                              <div className="relative">
+                                <PickersDay 
+                                  {...dayProps} 
+                                  sx={{
+                                    ...(hasNoStaff && {
+                                      backgroundColor: '#fee2e2 !important',
+                                      color: '#991b1b !important',
+                                      border: '1px solid #dc2626 !important',
+                                    })
+                                  }}
+                                />
+                                {isCampusClosed && (
+                                  <div className="absolute top-1 right-1 w-1 h-1 bg-gray-400 rounded-full"></div>
+                                )}
+                              </div>
+                            );
+                          }
+                        }}
+                        sx={{
+                          width: '100%',
+                          '& .MuiPickersCalendarHeader-root': {
+                            color: '#800000',
+                          },
+                          '& .MuiDayCalendar-weekDayLabel': {
+                            color: '#800000',
+                            fontWeight: 'bold',
+                          },
+                          '& .MuiPickersDay-today': {
+                            border: '1px solid #800000 !important',
+                          },
+                          '& .Mui-selected': {
+                            backgroundColor: '#800000 !important',
+                            color: 'white !important',
+                          },
+                          '& .Mui-selected:hover': {
+                            backgroundColor: '#600000 !important',
+                          }
+                        }}
+                      />
+                    </LocalizationProvider>
+                  </div>
+                  {date && availableStaff.length === 0 && medicalStaff.length > 0 && (
+                    <p className="text-red-500 text-sm mt-1 font-medium">
+                      No medical staff available on {dayjs(date).format('MMMM D, YYYY')}. All staff are blocked or have reached their appointment limit.
+                    </p>
+                  )}
+                  {date && (
+                    <p className="mt-2 text-sm text-gray-600 flex items-center">
+                      <svg className="w-4 h-4 mr-1 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Selected: <span className="font-bold ml-1">{dayjs(date).format('MMMM D, YYYY')}</span>
+                    </p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
@@ -749,7 +846,7 @@ export default function MedicalAppointmentPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Visit</label>
-                  <textarea value={reason} onChange={e => setReason(e.target.value)} required rows={3} className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]" disabled={!campusOpen || !hours || isDateDisabled(date)} />
+                  <textarea value={reason} onChange={e => setReason(e.target.value)} required rows={3} className="block w-full border-gray-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-[#800000]" disabled={!campusOpen || !hours || !calendarDate || isDateDisabled(calendarDate)} />
                 </div>
                 {error && (
                   <div className="text-red-600 text-sm font-semibold text-center">
@@ -770,7 +867,7 @@ export default function MedicalAppointmentPage() {
                 <button 
                   type="submit" 
                   className="w-full py-2.5 bg-[#800000] text-white rounded-lg font-semibold hover:bg-[#a83232] transition-all duration-200 shadow-md disabled:bg-gray-400 disabled:cursor-not-allowed" 
-                  disabled={bookingBlocked || loading || !campusOpen || !hours || isDateDisabled(date) || !isTimeValid(time, date)}
+                  disabled={bookingBlocked || loading || !campusOpen || !hours || !calendarDate || isDateDisabled(calendarDate) || !isTimeValid(time, date)}
                 >
                   {loading ? 'Submitting...' : 'Submit Request'}
                 </button>

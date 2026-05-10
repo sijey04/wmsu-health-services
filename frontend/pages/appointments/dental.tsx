@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Layout from '../../components/Layout';
 import { appointmentsAPI, djangoApiClient, dentalWaiversAPI, waiversAPI } from '../../utils/api';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import dayjs, { Dayjs } from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
 
 /**
  * DENTAL APPOINTMENT FLOW:
@@ -30,6 +40,7 @@ interface DentistSchedule {
   position: string;
   campus: string;
   blocked_dates: string[];
+  available_days: string[];
   daily_appointment_limit: number;
 }
 
@@ -229,6 +240,8 @@ export default function DentalAppointmentPage() {
   const [currentSchoolYear, setCurrentSchoolYear] = useState<any>(null);
   const [currentSemester, setCurrentSemester] = useState<string>('');
   const [patientId, setPatientId] = useState<number | null>(null);
+  const [campusSchedule, setCampusSchedule] = useState<any>(null);
+  const [calendarDate, setCalendarDate] = useState<Dayjs | null>(null);
 
   // Validate navigation token to prevent direct URL access
   useEffect(() => {
@@ -270,6 +283,7 @@ export default function DentalAppointmentPage() {
     loadDentistStaff();
     loadCurrentSchoolYear();
     loadPatientProfile();
+    loadCampusSchedule();
   }, []);
 
   // Check available staff when date changes
@@ -314,6 +328,33 @@ export default function DentalAppointmentPage() {
       } catch (fallbackError) {
         console.error('Failed to load any patient profile:', fallbackError);
       }
+    }
+  };
+
+  const loadCampusSchedule = async () => {
+    try {
+      const response = await djangoApiClient.get('/admin-controls/campus_schedules/');
+      const schedules = response.data || [];
+      
+      // Find the schedule for Campus A (Main Campus)
+      const mainCampusSchedule = schedules.find((s: any) => 
+        s.campus?.toString().toLowerCase() === 'a' || 
+        s.campus?.toString().toLowerCase().includes('main')
+      );
+      
+      if (mainCampusSchedule) {
+        setCampusSchedule(mainCampusSchedule);
+      } else {
+        // Default fallback if no schedule found
+        setCampusSchedule({
+          open_time: '08:00',
+          close_time: '17:00',
+          operating_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+          is_active: true
+        });
+      }
+    } catch (error) {
+      console.error('Error loading campus schedule:', error);
     }
   };
 
@@ -398,6 +439,13 @@ export default function DentalAppointmentPage() {
           return false;
         }
 
+        // Check if staff is available on this day of the week
+        const dayName = !dayjs(date).isValid() ? '' : dayjs(date).format('dddd');
+        const availableDays = staff.available_days || [];
+        if (availableDays.length > 0 && !availableDays.includes(dayName)) {
+          return false;
+        }
+
         // Check appointment limit
         const staffAppointments = dayAppointments.filter((appt: any) => 
           appt.assigned_staff === staff.id && 
@@ -437,11 +485,12 @@ export default function DentalAppointmentPage() {
   }
 
   function isCampusOpen(campus: string, dateStr: string): boolean {
-    // Only Campus A has dental services
-    if (campus !== 'A') return false;
+    if (!campusSchedule || !dateStr) return false;
     
-    // Check if any dentist is available on this day
-    return availableStaff.length > 0;
+    const dayName = dayjs(dateStr).format('dddd');
+    const operatingDays = campusSchedule.operating_days || [];
+    
+    return operatingDays.includes(dayName);
   }
 
   function isTimeValid(time: string, dateStr: string): boolean {
@@ -456,20 +505,24 @@ export default function DentalAppointmentPage() {
     return true;
   }
 
-  function isDateDisabled(dateStr: string): boolean {
-    const today = new Date();
-    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-    const d = new Date(dateStr);
-    if (d < todayMidnight) return true;
-    // Beyond 2 months
-    const max = addDays(new Date(), 61); // 2 months + 1 day
-    if (d > max) return true;
+  function isDateDisabled(dateVal: Dayjs): boolean {
+    const today = dayjs().startOf('day');
+    const maxDate = dayjs().add(2, 'month');
+    
+    // Check if in past or beyond range
+    if (dateVal.isBefore(today)) return true;
+    if (dateVal.isAfter(maxDate)) return true;
+    
+    // Check if campus is open
+    const dayName = dateVal.format('dddd');
+    const operatingDays = campusSchedule?.operating_days || [];
+    if (operatingDays.length > 0 && !operatingDays.includes(dayName)) return true;
     
     return false;
   }
 
   function isTimeInputDisabled(): boolean {
-    if (!date || isDateDisabled(date) || availableStaff.length === 0) return true;
+    if (!date || !calendarDate || isDateDisabled(calendarDate) || availableStaff.length === 0) return true;
     return false;
   }
 
@@ -630,20 +683,87 @@ export default function DentalAppointmentPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Date *
+                        Select Appointment Date *
                       </label>
-                      <input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        min={todayStr}
-                        max={maxDate}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
-                        required
-                      />
+                      <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                        <LocalizationProvider dateAdapter={AdapterDayjs}>
+                          <DateCalendar
+                            value={calendarDate}
+                            onChange={(newValue: Dayjs | null) => {
+                              if (newValue) {
+                                setCalendarDate(newValue);
+                                setDate(newValue.format('YYYY-MM-DD'));
+                              }
+                            }}
+                            shouldDisableDate={isDateDisabled}
+                            slots={{
+                              day: (dayProps: any) => {
+                                const dateStr = dayProps.day.format('YYYY-MM-DD');
+                                const dayName = dayProps.day.format('dddd');
+                                
+                                // Check if any dentist is available on this day
+                                // For performance, we'll just check if it's a weekend or closed day
+                                const isCampusClosed = campusSchedule && !campusSchedule.operating_days.includes(dayName);
+                                
+                                // Check if date is in the future but all dentists are blocked
+                                // This is tricky because we don't have all data for every day
+                                // But we can color the currently selected date if it has no staff
+                                const isSelected = calendarDate && dayProps.day.isSame(calendarDate, 'day');
+                                const hasNoStaff = isSelected && availableStaff.length === 0;
+
+                                return (
+                                  <div className="relative">
+                                    <PickersDay 
+                                      {...dayProps} 
+                                      sx={{
+                                        ...(hasNoStaff && {
+                                          backgroundColor: '#fee2e2 !important',
+                                          color: '#991b1b !important',
+                                          border: '1px solid #dc2626 !important',
+                                        })
+                                      }}
+                                    />
+                                    {isCampusClosed && (
+                                      <div className="absolute top-1 right-1 w-1 h-1 bg-gray-400 rounded-full"></div>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            }}
+                            sx={{
+                              width: '100%',
+                              '& .MuiPickersCalendarHeader-root': {
+                                color: '#800000',
+                              },
+                              '& .MuiDayCalendar-weekDayLabel': {
+                                color: '#800000',
+                                fontWeight: 'bold',
+                              },
+                              '& .MuiPickersDay-today': {
+                                border: '1px solid #800000 !important',
+                              },
+                              '& .Mui-selected': {
+                                backgroundColor: '#800000 !important',
+                                color: 'white !important',
+                              },
+                              '& .Mui-selected:hover': {
+                                backgroundColor: '#600000 !important',
+                              }
+                            }}
+                          />
+                        </LocalizationProvider>
+                      </div>
                       {date && availableStaff.length === 0 && dentistStaff.length > 0 && (
-                        <p className="text-red-500 text-sm mt-1">
-                          No dentists available on this date. All dentists are blocked or have reached their appointment limit.
+                        <p className="text-red-500 text-sm mt-1 font-medium">
+                          No dentists available on {dayjs(date).format('MMMM D, YYYY')}. All dentists are blocked or have reached their appointment limit.
+                        </p>
+                      )}
+                      {date && (
+                        <p className="mt-2 text-sm text-gray-600 flex items-center">
+                          <svg className="w-4 h-4 mr-1 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Selected: <span className="font-bold ml-1">{dayjs(date).format('MMMM D, YYYY')}</span>
                         </p>
                       )}
                     </div>

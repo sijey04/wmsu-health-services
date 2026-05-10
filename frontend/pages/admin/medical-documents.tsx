@@ -375,7 +375,7 @@ function AdminMedicalDocuments() {
 
   // Helper to get file icon
   const getFileIcon = (url: string) => {
-    if (url.match(/\.(jpg|jpeg|png|gif)$/i)) return (
+    if (url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) return (
       <svg className="w-6 h-6 text-blue-400 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2" strokeWidth="2" stroke="currentColor" fill="none"/><path d="M8 14l2-2a2 2 0 0 1 2.83 0l2.17 2.17M8 14l-2 2m0 0h12" strokeWidth="2" stroke="currentColor" fill="none"/></svg>
     );
     if (url.match(/\.(pdf)$/i)) return (
@@ -395,7 +395,7 @@ function AdminMedicalDocuments() {
       <div key={f.key} className="flex items-center mb-2">
         {getFileIcon(doc[f.key])}
         <a 
-          href={doc[f.key]} 
+          href={doc[f.key]?.startsWith('http') ? doc[f.key] : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${doc[f.key]}`} 
           target="_blank" 
           rel="noopener noreferrer" 
           className="text-blue-600 hover:underline text-sm"
@@ -442,7 +442,7 @@ function AdminMedicalDocuments() {
     const files = documentRequirements.length > 0 ? documentRequirements : [];
     
     return files
-      .filter(f => doc[f.key] && doc[f.key].match(/\.(jpg|jpeg|png|gif|avif)$/i))
+      .filter(f => doc[f.key] && doc[f.key].match(/\.(jpg|jpeg|png|gif|webp|avif)$/i))
       .map(f => ({
         key: f.key,
         label: f.label,

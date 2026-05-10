@@ -1,7 +1,7 @@
 import React from 'react';
 import { UserCircleIcon, AcademicCapIcon, CalendarDaysIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
-import { waiversAPI, dentalInformationRecordsAPI } from '../utils/api';
+import { waiversAPI, dentalInformationRecordsAPI, djangoApiClient } from '../utils/api';
 import { exportPatientProfilePDF, exportWaiverPDF, exportDentalPatientRecordPDF } from '../utils/reportExport';
 
 interface Patient {
@@ -37,6 +37,8 @@ interface Patient {
   position_type?: string;
   course?: string;
   year_level?: string;
+  strand?: string;
+  grade_level?: string;
   user_type?: string;
   
   // Emergency contact
@@ -137,6 +139,30 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   const [loadingWaiver, setLoadingWaiver] = React.useState(false);
   const [dentalRecord, setDentalRecord] = React.useState<any>(null);
   const [loadingDental, setLoadingDental] = React.useState(false);
+  const [userTypeInformations, setUserTypeInformations] = React.useState<any[]>([]);
+  const [currentUserTypeConfig, setCurrentUserTypeConfig] = React.useState<any | null>(null);
+
+  const normalizeText = React.useCallback((value: any) => String(value ?? '').trim().toLowerCase(), []);
+
+  const resolveUserTypeConfig = React.useCallback((configs: any[], profileData?: Patient | null) => {
+    if (!configs || configs.length === 0 || !profileData) return null;
+
+    const profileType = normalizeText(profileData.user_type || profileData.grade_level || '');
+    if (!profileType) return null;
+
+    const exactMatch = configs.find((config) => normalizeText(config?.name || '') === profileType);
+    if (exactMatch) return exactMatch;
+
+    if (isEmployeeType(profileType)) {
+      const employeeMatch = configs.find((config) => normalizeText(config?.name || '').includes('employee'));
+      if (employeeMatch) return employeeMatch;
+    }
+
+    return configs.find((config) => {
+      const configName = normalizeText(config?.name || '');
+      return configName && (profileType.includes(configName) || configName.includes(profileType));
+    }) || null;
+  }, [normalizeText]);
 
   const profileMatchesPatient = React.useCallback((profile: Patient) => {
     const patientUserId = patient?.user;
@@ -236,6 +262,46 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
       setLoadingDental(false);
     }
   }, [patient?.id, patient?.user, allPatientProfiles]);
+
+  React.useEffect(() => {
+    let isActive = true;
+
+    const loadUserTypeInformation = async () => {
+      try {
+        const response = await djangoApiClient.get('/admin-controls/user-type-information/');
+        if (!isActive) return;
+        setUserTypeInformations(Array.isArray(response.data) ? response.data : []);
+      } catch (error) {
+        console.error('Failed to fetch user type information:', error);
+        if (isActive) setUserTypeInformations([]);
+      }
+    };
+
+    if (open) {
+      loadUserTypeInformation();
+    }
+
+    return () => {
+      isActive = false;
+    };
+  }, [open]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const profileData = selectedProfile || patient;
+    if (!profileData || userTypeInformations.length === 0) {
+      setCurrentUserTypeConfig(null);
+      return;
+    }
+
+    const matchedConfig = resolveUserTypeConfig(userTypeInformations, profileData);
+    if (matchedConfig && matchedConfig.enabled === false) {
+      setCurrentUserTypeConfig(null);
+      return;
+    }
+
+    setCurrentUserTypeConfig(matchedConfig || null);
+  }, [open, selectedProfile, patient, userTypeInformations, resolveUserTypeConfig]);
 
   React.useEffect(() => {
     if (open && patient) {
@@ -570,6 +636,58 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     const menstrualSymptomsDisplay =
       [normalizedSymptomsValue, clean(profile.menstrual_symptoms_other)].filter(Boolean).join(', ') || 'N/A';
 
+    const userTypeValue = clean(profile.user_type) || clean(profile.grade_level);
+    const normalizedUserType = userTypeValue.toLowerCase();
+    const isEmployeeProfile = isEmployeeType(profile.user_type || profile.grade_level);
+    const isSeniorHigh = normalizedUserType.includes('senior high');
+    const isHighSchool = normalizedUserType === 'high school';
+    const isElementary = normalizedUserType === 'elementary';
+    const isKindergarten = normalizedUserType === 'kindergarten';
+    const isCollege = normalizedUserType === 'college' || normalizedUserType === 'incoming freshman';
+    const isBasicEd = isSeniorHigh || isHighSchool || isElementary || isKindergarten;
+    const yearLevelLabel = isBasicEd ? 'Grade Level:' : 'Year Level:';
+
+    const hasFieldValue = (value: any) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return clean(value) !== '';
+    };
+
+    const normalizeFieldName = (fieldName: string) => fieldName.toLowerCase().replace(/\s+/g, '_');
+    const isFieldConfigured = (fieldName: string) => {
+      if (!currentUserTypeConfig || !Array.isArray(currentUserTypeConfig.required_fields)) return false;
+      const normalized = normalizeFieldName(fieldName);
+      return currentUserTypeConfig.required_fields.some((field: string) =>
+        normalizeFieldName(String(field)) === normalized
+      );
+    };
+
+    const shouldShowField = (fieldName: string, value?: any) => {
+      if (hasFieldValue(value)) return true;
+      if (!currentUserTypeConfig) return false;
+      return isFieldConfigured(fieldName);
+    };
+
+    const showEmployeeId = isEmployeeProfile && shouldShowField('employee_id', profile.employee_id);
+    const showDepartment = isEmployeeProfile && shouldShowField('department', profile.department);
+    const showPositionType = isEmployeeProfile && shouldShowField('position_type', profile.position_type);
+    const showYearLevel = !isEmployeeProfile && shouldShowField('year_level', profile.year_level);
+    const showCourse = !isEmployeeProfile &&
+      (isCollege || hasFieldValue(profile.course) || hasFieldValue(profile.department)) &&
+      shouldShowField('course', profile.course || profile.department);
+    const showStrand = !isEmployeeProfile &&
+      (isSeniorHigh || hasFieldValue(profile.strand)) &&
+      shouldShowField('strand', profile.strand);
+
+    const showPrimaryUserTypeField = isEmployeeProfile ? showEmployeeId : showYearLevel;
+    const primaryLabel = isEmployeeProfile ? 'Employee ID:' : yearLevelLabel;
+    const primaryValue = isEmployeeProfile ? resolveText(profile.employee_id) : resolveText(profile.year_level);
+    const showSecondaryField = isEmployeeProfile ? showDepartment : (showStrand || showCourse);
+    const secondaryLabel = isEmployeeProfile ? 'Department:' : (showStrand ? 'Strand:' : 'Course:');
+    const secondaryValue = isEmployeeProfile
+      ? resolveText(profile.department)
+      : (showStrand ? resolveText(profile.strand) : resolveText(profile.course, profile.department));
+    const showUserTypeRow = hasFieldValue(userTypeValue);
+
     return (
       <div className="space-y-6 text-sm">
         {/* Personal Information Section */}
@@ -622,35 +740,57 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-16">Sex:</td>
                     <td className="border border-gray-400 p-2 w-20">{profile.gender || ''}</td>
                   </tr>
+                  {showUserTypeRow && (
+                    <tr>
+                      <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">User Type:</td>
+                      <td className="border border-gray-400 p-2" colSpan={5}>{userTypeValue || 'N/A'}</td>
+                    </tr>
+                  )}
                   <tr>
                     <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Age:</td>
                     <td className="border border-gray-400 p-2 w-20">{profile.age || ''}</td>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">
-                      {isEmployeeType(profile.user_type) ? 'Employee ID:' : 'Year Level:'}
-                    </td>
-                    <td className="border border-gray-400 p-2 w-20">
-                      {isEmployeeType(profile.user_type) ? (profile.employee_id || 'N/A') : (profile.year_level || 'N/A')}
-                    </td>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Religion:</td>
-                    <td className="border border-gray-400 p-2">
-                      {profile.religion === 'Other' && profile.religion_specify ? (
-                        profile.religion_specify
-                      ) : (
-                        profile.religion || ''
-                      )}
-                    </td>
+                    {showPrimaryUserTypeField ? (
+                      <>
+                        <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">{primaryLabel}</td>
+                        <td className="border border-gray-400 p-2 w-20">{primaryValue}</td>
+                        <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Religion:</td>
+                        <td className="border border-gray-400 p-2">
+                          {profile.religion === 'Other' && profile.religion_specify ? (
+                            profile.religion_specify
+                          ) : (
+                            profile.religion || ''
+                          )}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="border border-gray-400 p-2 font-medium bg-gray-50 w-24">Religion:</td>
+                        <td className="border border-gray-400 p-2" colSpan={3}>
+                          {profile.religion === 'Other' && profile.religion_specify ? (
+                            profile.religion_specify
+                          ) : (
+                            profile.religion || ''
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                   <tr>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">
-                      {isEmployeeType(profile.user_type) ? 'Department:' : 'Course:'}
-                    </td>
-                    <td className="border border-gray-400 p-2" colSpan={3}>
-                      {isEmployeeType(profile.user_type) ? (profile.department || 'N/A') : (profile.course || profile.department || 'N/A')}
-                    </td>
-                    <td className="border border-gray-400 p-2 font-medium bg-gray-50">Civil Status:</td>
-                    <td className="border border-gray-400 p-2">{profile.civil_status || ''}</td>
+                    {showSecondaryField ? (
+                      <>
+                        <td className="border border-gray-400 p-2 font-medium bg-gray-50">{secondaryLabel}</td>
+                        <td className="border border-gray-400 p-2" colSpan={3}>{secondaryValue}</td>
+                        <td className="border border-gray-400 p-2 font-medium bg-gray-50">Civil Status:</td>
+                        <td className="border border-gray-400 p-2">{profile.civil_status || ''}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="border border-gray-400 p-2 font-medium bg-gray-50">Civil Status:</td>
+                        <td className="border border-gray-400 p-2" colSpan={5}>{profile.civil_status || ''}</td>
+                      </>
+                    )}
                   </tr>
-                  {isEmployeeType(profile.user_type) && (
+                  {showPositionType && (
                     <tr>
                       <td className="border border-gray-400 p-2 font-medium bg-gray-50">Position Type:</td>
                       <td className="border border-gray-400 p-2" colSpan={5}>{profile.position_type || 'N/A'}</td>

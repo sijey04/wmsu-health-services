@@ -89,7 +89,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       const photoUrl = normalizePhotoUrl(user.profile_picture);
       return <img className="w-8 h-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
     }
-    const letter = user?.first_name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || 'A';
+    const letter = user?.first_name?.[0]?.toUpperCase() || user?.last_name?.[0]?.toUpperCase() || 'A';
     return (
       <span className="w-8 h-8 flex items-center justify-center rounded-full bg-[#800000] text-white font-bold text-sm">
         {letter}
@@ -97,12 +97,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   };
 
-  // Helper to get user display name
   const getUserDisplayName = () => {
     if (user?.first_name && user?.last_name) {
       return `${user.first_name} ${user.last_name}`;
     }
-    return user?.name || user?.username || 'Admin User';
+    return user?.last_name || user?.username || 'Admin User';
   };
 
   // Helper to get user email

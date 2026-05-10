@@ -173,7 +173,7 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
       const photoUrl = normalizePhotoUrl(user.profile_picture);
       return <img className="h-8 w-8 rounded-full object-cover" src={photoUrl} alt="Profile" />;
     }
-    const letter = user?.first_name?.[0]?.toUpperCase() || user?.name?.[0]?.toUpperCase() || '?';
+    const letter = user?.first_name?.[0]?.toUpperCase() || user?.last_name?.[0]?.toUpperCase() || '?';
     return (
       <span className="h-8 w-8 flex items-center justify-center rounded-full bg-[#800000] text-white font-bold text-lg">
         {letter}
@@ -444,7 +444,9 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
                   )}
                 </div>
                 <div className="ml-3">
-                  <div className="text-sm sm:text-base font-medium text-gray-800">{user?.first_name || user?.name || 'Dr. Admin'}</div>
+                  <div className="text-sm sm:text-base font-medium text-gray-800">
+                    {user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Dr. Admin' : 'Dr. Admin'}
+                  </div>
                   <div className="text-xs sm:text-sm font-medium text-gray-500">{user?.email || 'admin@wmsu.edu.ph'}</div>
                 </div>
               </div>

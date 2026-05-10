@@ -372,30 +372,32 @@ export const generatePDFReport = async (
       loadLogo('/WMSU-HealthLogo.png')
     ]);
 
-    if (wmsuLogo) pdf.addImage(wmsuLogo, 'PNG', 15, 12, 22, 22);
-    if (healthLogo) pdf.addImage(healthLogo, 'PNG', 173, 12, 22, 22);
+    if (wmsuLogo) pdf.addImage(wmsuLogo, 'PNG', 20, 15, 20, 20);
+    if (healthLogo) pdf.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
 
-    // Minimalist University Header
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
     pdf.setTextColor(0, 0, 0);
-    pdf.text('WESTERN MINDANAO STATE UNIVERSITY', 105, 20, { align: 'center' });
+    pdf.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 22, { align: 'center' });
 
     pdf.setFontSize(10);
     pdf.setFont('helvetica', 'normal');
-    pdf.text('UNIVERSITY HEALTH SERVICES CENTER', 105, 26, { align: 'center' });
-    pdf.text('Zamboanga City, Philippines', 105, 31, { align: 'center' });
+    pdf.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 28, { align: 'center' });
+    pdf.text('Zamboanga City', pageWidth / 2, 33, { align: 'center' });
 
-    pdf.setDrawColor(0, 0, 0);
-    pdf.setLineWidth(0.2);
-    pdf.line(20, 36, 190, 36);
+    pdf.setDrawColor(139, 0, 0); // Maroon color
+    pdf.setLineWidth(1);
+    pdf.line(20, 38, 190, 38);
 
-    // Report Title
-    pdf.setFontSize(12);
+    pdf.setFillColor(139, 0, 0);
+    pdf.rect(20, 42, 170, 10, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(11);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(`${reportType.toUpperCase()} INSTITUTIONAL PERFORMANCE REPORT`, 105, 45, { align: 'center' });
+    pdf.text(`${reportType.toUpperCase()} INSTITUTIONAL PERFORMANCE REPORT`, pageWidth / 2, 48.5, { align: 'center' });
 
-    let currentY = 55;
+    pdf.setTextColor(0, 0, 0);
+    let currentY = 60;
 
     const totalServices = stats.medical.total + stats.dental.total + stats.documents.total;
     const totalCompleted = stats.medical.completed + stats.dental.completed + stats.documents.issued;
@@ -420,8 +422,8 @@ export const generatePDFReport = async (
         ['Items Consumed', itemsConsumed.toString(), 'Medical and dental supplies used']
       ],
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
-      headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
     });
 
     currentY = (pdf as any).lastAutoTable?.finalY || (currentY + 12);
@@ -445,8 +447,8 @@ export const generatePDFReport = async (
         ['Document Issuance', stats.documents.total.toString(), stats.documents.issued.toString(), `${documentRate.toFixed(1)}%`]
       ],
       theme: 'striped',
-      styles: { fontSize: 9, cellPadding: 2 },
-      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+      styles: { fontSize: 8, cellPadding: 1.5 },
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
     });
 
     currentY = (pdf as any).lastAutoTable?.finalY || (currentY + 12);
@@ -1916,8 +1918,8 @@ function addClinicianPerformancePage(pdf: any, clinicians: any[], pageWidth: num
       ];
     }),
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
-    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
+    headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
   });
 
   const finalY = (pdf as any).lastAutoTable?.finalY || (yPos + 12);
@@ -1980,8 +1982,8 @@ function addUserTypeBreakdownPage(pdf: any, userTypeData: UserTypeData[], pageWi
     head: [['User Type', 'Medical', 'Dental', 'Documents', 'Total', 'Success Rate']],
     body: rows,
     theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
-    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
+    headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
   });
 
   yPos = (pdf as any).lastAutoTable?.finalY || (yPos + 8);
@@ -2004,18 +2006,20 @@ function addUserTypeBreakdownPage(pdf: any, userTypeData: UserTypeData[], pageWi
   const grandTotal = totals.medical + totals.dental + totals.documents;
   const grandRate = grandTotal > 0 ? ((totals.completed / grandTotal) * 100).toFixed(1) : '0.0';
 
-  pdf.setFontSize(9);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setDrawColor(0, 0, 0);
-  pdf.line(leftMargin, yPos, pageWidth - leftMargin, yPos);
-  yPos += 6;
-
-  pdf.text('TOTAL SYSTEM SUMMARY', leftMargin, yPos);
-  pdf.text(totals.medical.toString(), leftMargin + 60, yPos);
-  pdf.text(totals.dental.toString(), leftMargin + 90, yPos);
-  pdf.text(totals.documents.toString(), leftMargin + 120, yPos);
-  pdf.text(grandTotal.toString(), leftMargin + 150, yPos);
-  pdf.text(`${grandRate}%`, leftMargin + 175, yPos);
+  autoTable(pdf, {
+    startY: yPos,
+    body: [[
+      'TOTAL SYSTEM SUMMARY',
+      totals.medical.toString(),
+      totals.dental.toString(),
+      totals.documents.toString(),
+      grandTotal.toString(),
+      `${grandRate}%`
+    ]],
+    theme: 'grid',
+    styles: { fontSize: 8, cellPadding: 1.5, fontStyle: 'bold', fillColor: [245, 245, 245] },
+    columnStyles: { 0: { fontStyle: 'bold' } }
+  });
 }
 
 // Generate service-specific PDF report with demographics
@@ -2039,51 +2043,38 @@ export const generateServiceSpecificPDFReport = async (
     const leftMargin = 15;
     const rightMargin = 105;
 
-    // Header background (white)
-    pdf.setFillColor(255, 255, 255);
-    pdf.rect(0, 0, pageWidth, 45, 'F');
-
-    // Bottom border (Maroon)
-    pdf.setDrawColor(128, 0, 0);
-    pdf.setLineWidth(1);
-    pdf.line(0, 45, pageWidth, 45);
-
     const [wmsuLogo, healthLogo] = await Promise.all([
       loadLogo('/WMSU-Logo.jpg'),
       loadLogo('/WMSU-HealthLogo.png')
     ]);
 
-    if (wmsuLogo) pdf.addImage(wmsuLogo, 'PNG', leftMargin, 8, 28, 28);
-    if (healthLogo) pdf.addImage(healthLogo, 'PNG', pageWidth - leftMargin - 28, 8, 28, 28);
+    if (wmsuLogo) pdf.addImage(wmsuLogo, 'PNG', 20, 15, 20, 20);
+    if (healthLogo) pdf.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
 
-    // University Header Text
-    pdf.setTextColor(128, 0, 0);
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(14);
-    pdf.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 15, { align: 'center' });
-
-    pdf.setTextColor(100, 100, 100);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.text('Zamboanga City', pageWidth / 2, 21, { align: 'center' });
-
-    pdf.setTextColor(128, 0, 0);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
-    pdf.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 27, { align: 'center' });
-
-    pdf.setTextColor(150, 150, 150);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7);
-    pdf.text('Tel. no. (062) 991-6736 | Email: healthservices@wmsu.edu.ph', pageWidth / 2, 32, { align: 'center' });
-
-    // Report Title
     pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text(`${serviceType.charAt(0).toUpperCase() + serviceType.slice(1)} Services ${reportType.charAt(0).toUpperCase() + reportType.slice(1)} Report`, pageWidth / 2, 40, { align: 'center' });
+    pdf.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 22, { align: 'center' });
 
-    let yPosition = 55;
+    pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 28, { align: 'center' });
+    pdf.text('Zamboanga City', pageWidth / 2, 33, { align: 'center' });
+
+    pdf.setDrawColor(139, 0, 0); // Maroon color
+    pdf.setLineWidth(1);
+    pdf.line(20, 38, 190, 38);
+
+    pdf.setFillColor(139, 0, 0);
+    pdf.rect(20, 42, 170, 10, 'F');
+    pdf.setTextColor(255, 255, 255);
+    pdf.setFontSize(11);
+    pdf.setFont('helvetica', 'bold');
+    const titleText = `${serviceType.toUpperCase()} SERVICES ${reportType.toUpperCase()} REPORT`;
+    pdf.text(titleText, pageWidth / 2, 48.5, { align: 'center' });
+
+    pdf.setTextColor(0, 0, 0);
+    let yPosition = 60;
 
     // Service statistics definition
     let serviceStats;
@@ -2595,8 +2586,8 @@ function addMedicineUsagePage(pdf: any, medicineUsage: any[], medicalMedCount: n
       ['Total Combined', (medicalTotal + dentalTotal).toString()]
     ],
     theme: 'grid',
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 1.5 },
+    headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
     columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
   });
 
@@ -2624,8 +2615,8 @@ function addMedicineUsagePage(pdf: any, medicineUsage: any[], medicalMedCount: n
     head: [['Item Name', 'Quantity Used', 'Unit', 'Service']],
     body: tableBody,
     theme: 'striped',
-    styles: { fontSize: 9, cellPadding: 2 },
-    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, cellPadding: 1.5 },
+    headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
   });
 
   const lastTableY = (pdf as any).lastAutoTable?.finalY || yPos;

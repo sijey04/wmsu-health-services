@@ -836,10 +836,20 @@ export default function AdminPatientProfile() {
                                   {patient.photo ? (
                                     <img
                                       src={(() => {
+                                        if (typeof patient.photo === 'string' && patient.photo.startsWith('data:')) {
+                                          return patient.photo;
+                                        }
+
                                         const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-                                        return patient.photo.startsWith('http')
+                                        let url = patient.photo.startsWith('http')
                                           ? patient.photo
                                           : `${base}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`;
+
+                                        if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+                                          url = url.replace('http://', 'https://');
+                                        }
+
+                                        return url;
                                       })()}
                                       alt={formatPatientName(patient)}
                                       className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"

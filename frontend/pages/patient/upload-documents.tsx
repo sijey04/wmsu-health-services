@@ -288,8 +288,8 @@ export default function UploadDocumentsPage() {
   const [currentPatientId, setCurrentPatientId] = useState<number | null>(null);
   const [converting, setConverting] = useState<{ [key: string]: boolean }>({});
 
-  // Convert image to AVIF format to save storage
-  const convertImageToAVIF = async (file: File): Promise<File> => {
+  // Convert image to WebP format to save storage
+  const convertImageToWebP = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       const reader = new FileReader();
@@ -314,7 +314,7 @@ export default function UploadDocumentsPage() {
           // Draw image
           ctx.drawImage(img, 0, 0);
 
-          // Convert to AVIF blob (with quality 0.85 for good balance)
+          // Convert to WebP blob (with quality 0.85 for good balance)
           canvas.toBlob(
             (blob) => {
               if (!blob) {
@@ -322,17 +322,17 @@ export default function UploadDocumentsPage() {
                 return;
               }
 
-              // Create new file with .avif extension
+              // Create new file with .webp extension
               const originalName = file.name.replace(/\.[^/.]+$/, '');
-              const avifFile = new File([blob], `${originalName}.avif`, {
-                type: 'image/avif',
+              const webpFile = new File([blob], `${originalName}.webp`, {
+                type: 'image/webp',
                 lastModified: Date.now(),
               });
 
-              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${avifFile.name} (${(avifFile.size / 1024).toFixed(2)}KB)`);
-              resolve(avifFile);
+              console.log(`✓ Converted ${file.name} (${(file.size / 1024).toFixed(2)}KB) → ${webpFile.name} (${(webpFile.size / 1024).toFixed(2)}KB)`);
+              resolve(webpFile);
             },
-            'image/avif',
+            'image/webp',
             0.85
           );
         } catch (error) {
@@ -352,15 +352,15 @@ export default function UploadDocumentsPage() {
       const originalFile = e.target.files[0];
       const isImage = originalFile.type.startsWith('image/');
 
-      // If it's an image, convert to AVIF
-      if (isImage && originalFile.type !== 'image/avif') {
+      // If it's an image, convert to WebP
+      if (isImage && originalFile.type !== 'image/webp') {
         try {
           setConverting((prev) => ({ ...prev, [name]: true }));
-          const avifFile = await convertImageToAVIF(originalFile);
-          setFiles((prev) => ({ ...prev, [name]: avifFile }));
+          const webpFile = await convertImageToWebP(originalFile);
+          setFiles((prev) => ({ ...prev, [name]: webpFile }));
           setMissingFields((prev) => prev.filter((f) => f !== name));
         } catch (error) {
-          console.error('Error converting image to AVIF:', error);
+          console.error('Error converting image to WebP:', error);
           // Fallback to original file if conversion fails
           setFiles((prev) => ({ ...prev, [name]: originalFile }));
           setMissingFields((prev) => prev.filter((f) => f !== name));
@@ -368,7 +368,7 @@ export default function UploadDocumentsPage() {
           setConverting((prev) => ({ ...prev, [name]: false }));
         }
       } else {
-        // For non-images (PDF, DOCX) or already AVIF, use original file
+        // For non-images (PDF, DOCX) or already WebP, use original file
         setFiles((prev) => ({ ...prev, [name]: originalFile }));
         setMissingFields((prev) => prev.filter((f) => f !== name));
       }

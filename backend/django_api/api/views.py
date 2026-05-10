@@ -786,7 +786,41 @@ class PatientViewSet(viewsets.ModelViewSet):
         serializer = PatientProfileUpdateSerializer(patient_profile, data=request.data, partial=True, context={'request': request})
         
         if serializer.is_valid():
-            serializer.save()
+            patient_profile = serializer.save()
+            
+            # Synchronize fields to CustomUser model
+            user_updated = False
+            if 'first_name' in request.data:
+                user.first_name = request.data.get('first_name')
+                user_updated = True
+            if 'surname' in request.data:
+                user.last_name = request.data.get('surname')
+                user_updated = True
+            elif 'last_name' in request.data:
+                user.last_name = request.data.get('last_name')
+                user_updated = True
+            if 'middle_name' in request.data:
+                user.middle_name = request.data.get('middle_name')
+                user_updated = True
+            if 'department' in request.data:
+                user.department_college = request.data.get('department')
+                user_updated = True
+            if 'course' in request.data:
+                user.education_program = request.data.get('course')
+                user_updated = True
+            if 'year_level' in request.data:
+                try:
+                    user.education_year = int(request.data.get('year_level'))
+                    user_updated = True
+                except (ValueError, TypeError):
+                    pass
+            if 'position_type' in request.data:
+                user.employee_position = request.data.get('position_type')
+                user_updated = True
+            
+            if user_updated:
+                user.save()
+                
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

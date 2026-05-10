@@ -581,6 +581,11 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             # Surname logic - extract surname from 'name' field if possible
             if instance.name:
                 surname = instance.name.split(',')[0].strip() if ',' in instance.name else instance.name.strip()
+                
+                # Append suffix to last name if it exists
+                if hasattr(instance, 'suffix') and instance.suffix:
+                    surname = f"{surname} {instance.suffix.strip()}".strip()
+                    
                 if user.last_name != surname:
                     user.last_name = surname
                     user_updated = True
@@ -600,6 +605,13 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             elif hasattr(instance, 'department') and instance.department:
                 if user.grade_level != instance.department:
                     user.grade_level = instance.department
+                    user_updated = True
+            
+            # Sync Photo
+            if hasattr(instance, 'photo') and instance.photo:
+                # Only sync if the photo is different
+                if user.profile_picture != instance.photo:
+                    user.profile_picture = instance.photo
                     user_updated = True
                 
             if user_updated:
