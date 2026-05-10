@@ -119,6 +119,7 @@ export const generateSingleFormPDF = async (
 ): Promise<void> => {
   try {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
 
     const [wmsuLogo, healthLogo] = await Promise.all([
       loadLogo('/WMSU-Logo.jpg'),
@@ -128,30 +129,35 @@ export const generateSingleFormPDF = async (
     if (wmsuLogo) doc.addImage(wmsuLogo, 'PNG', 15, 12, 22, 22);
     if (healthLogo) doc.addImage(healthLogo, 'PNG', 173, 12, 22, 22);
 
-    // Minimalist University Header
+    // University Header
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
     doc.setTextColor(0, 0, 0);
-    doc.text('WESTERN MINDANAO STATE UNIVERSITY', 105, 20, { align: 'center' });
+    doc.text('WESTERN MINDANAO STATE UNIVERSITY', pageWidth / 2, 20, { align: 'center' });
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
-    doc.text('UNIVERSITY HEALTH SERVICES CENTER', 105, 26, { align: 'center' });
-    doc.text('Zamboanga City, Philippines', 105, 31, { align: 'center' });
+    doc.text('UNIVERSITY HEALTH SERVICES CENTER', pageWidth / 2, 26, { align: 'center' });
+    doc.text('Zamboanga City, Philippines', pageWidth / 2, 31, { align: 'center' });
 
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.2);
+    doc.setDrawColor(139, 0, 0);
+    doc.setLineWidth(1);
     doc.line(20, 36, 190, 36);
 
     // Report Title
-    doc.setFontSize(12);
+    doc.setFillColor(139, 0, 0);
+    doc.rect(20, 40, 170, 10, 'F');
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.text(`${appointmentType.toUpperCase()} EXAMINATION RECORD`, 105, 45, { align: 'center' });
+    doc.setFontSize(11);
+    doc.text(`${appointmentType.toUpperCase()} EXAMINATION RECORD`, pageWidth / 2, 46.5, { align: 'center' });
+    doc.setTextColor(0, 0, 0);
 
     // Patient Info
     autoTable(doc, {
-      startY: 50,
-      head: [['Patient Field', 'Information']],
+      startY: 58,
+      margin: { left: 20, right: 20 },
+      head: [['PATIENT INFORMATION', '']],
       body: [
         ['Full Name', `${formData.first_name || ''} ${formData.middle_name || ''} ${formData.surname || ''}`.trim() || patientName],
         ['File Number', formData.file_no || 'N/A'],
@@ -159,12 +165,13 @@ export const generateSingleFormPDF = async (
         ['Examination Date', formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'],
       ],
       theme: 'grid',
-      styles: { fontSize: 9, cellPadding: 2, lineColor: [200, 200, 200], lineWidth: 0.1 },
-      headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
+      styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } }
     });
 
     let currentY = (doc as any).lastAutoTable?.finalY || 100;
+    currentY += 6;
 
     // Clinical Details - SHOW ALL FIELDS
     const detailsBody: any[] = [];
@@ -302,39 +309,58 @@ export const generateSingleFormPDF = async (
 
     autoTable(doc, {
       startY: currentY,
-      head: [['Clinical Findings / Details', 'Observations']],
+      margin: { left: 20, right: 20 },
+      head: [['CLINICAL FINDINGS / DETAILS', '']],
       body: detailsBody,
-      theme: 'striped',
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' },
-      columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+      headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 55, fontStyle: 'bold' } }
     });
 
     currentY = (doc as any).lastAutoTable?.finalY || (currentY + 20);
+    currentY += 6;
 
     // Signature
-    if (currentY > doc.internal.pageSize.getHeight() - 50) {
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const clinicianName = formData.examined_by || formData.dentist_name || 'Attending Clinician';
+    const signatureMeta: string[] = [];
+    if (formData.examiner_position) signatureMeta.push(formData.examiner_position);
+    const licenseValue = formData.examiner_license || formData.dentist_license;
+    if (licenseValue) signatureMeta.push(`License: ${licenseValue}`);
+    if (formData.examiner_ptr) signatureMeta.push(`PTR: ${formData.examiner_ptr}`);
+    if (formData.examiner_phone) signatureMeta.push(`Contact: ${formData.examiner_phone}`);
+
+    const signatureBlockHeight = 18 + signatureMeta.length * 4;
+    if (currentY + signatureBlockHeight > pageHeight - 15) {
       doc.addPage();
       currentY = 40;
     }
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(formData.examined_by || formData.dentist_name || 'Attending Clinician', 130, currentY);
-    doc.line(125, currentY + 1, 185, currentY + 1);
+
+    const sigX = 125;
+    const sigWidth = 60;
+    const sigLineY = currentY + 10;
+
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    if (formData.examiner_position) {
-      doc.text(formData.examiner_position, 130, currentY + 5);
-      doc.text(`License: ${formData.examiner_license || formData.dentist_license || 'N/A'}`, 130, currentY + 9);
-      if (formData.examiner_ptr) doc.text(`PTR: ${formData.examiner_ptr}`, 130, currentY + 13);
-      if (formData.examiner_phone) doc.text(`Contact: ${formData.examiner_phone}`, 130, currentY + 17);
-    } else {
-      doc.text('Authorized Signature / Date', 130, currentY + 5);
-      doc.text(`License/PTR: ${formData.examiner_license || formData.dentist_license || 'N/A'}`, 130, currentY + 9);
-    }
-    // Date of examination on the left side
+    doc.text(
+      `Date of Examination: ${formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'}`,
+      20,
+      sigLineY - 2
+    );
+
+    doc.setDrawColor(0, 0, 0);
+    doc.line(sigX, sigLineY, sigX + sigWidth, sigLineY);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(clinicianName, sigX + sigWidth / 2, sigLineY + 5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.text(`Date of Examination: ${formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'}`, 20, currentY + 5);
+    doc.text('Signature over Printed Name', sigX + sigWidth / 2, sigLineY + 9, { align: 'center' });
+
+    signatureMeta.forEach((line, index) => {
+      doc.text(line, sigX + sigWidth / 2, sigLineY + 13 + index * 4, { align: 'center' });
+    });
 
     // Dental Chart Image Page
     if (appointmentType === 'dental' && teethChartImage) {
@@ -2704,6 +2730,23 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
       return `${schoolYear.academic_year || 'N/A'}${sem ? ` - ${sem}` : ''}${currentLabel}`;
     };
 
+    const normalizePhotoSrc = (src: string) => {
+      if (!src) return '';
+      if (src.startsWith('data:')) return src;
+
+      let url = src;
+      if (!url.startsWith('http') && !url.startsWith('blob:')) {
+        const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+        url = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+      }
+
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+        url = url.replace('http://', 'https://');
+      }
+
+      return url;
+    };
+
     // Header
     if (wmsuLogo) doc.addImage(wmsuLogo, 'PNG', 20, 15, 20, 20);
     if (healthLogo) doc.addImage(healthLogo, 'PNG', 170, 15, 20, 20);
@@ -2733,13 +2776,9 @@ export const exportPatientProfilePDF = async (patient: any): Promise<void> => {
     doc.text('(Electronic/Paper-based Input)', pageWidth / 2, 57, { align: 'center' });
 
     // Patient Photo if available
-    if (patient.photo) {
-      const backendUrl = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
-      const photoSrc = patient.photo.startsWith('http')
-        ? patient.photo
-        : `${backendUrl}${patient.photo.startsWith('/') ? '' : '/'}${patient.photo}`;
-
-      const photo = await loadLogo(photoSrc);
+    if (typeof patient.photo === 'string' && patient.photo) {
+      const photoSrc = normalizePhotoSrc(patient.photo);
+      const photo = photoSrc ? await loadLogo(photoSrc) : null;
       if (photo) {
         doc.setDrawColor(200, 200, 200);
         doc.rect(20, 65, 30, 40);
