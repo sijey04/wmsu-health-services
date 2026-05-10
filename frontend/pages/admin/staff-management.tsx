@@ -148,16 +148,16 @@ function AdminStaffManagement() {
       }
       
       console.warn('Staff roles endpoint returned no usable roles, using defaults.');
-      useDefaultRoles();
+      applyDefaultRoles();
     } catch (error: any) {
       console.warn('Failed to fetch staff roles from backend, using defaults:', error);
-      useDefaultRoles();
+      applyDefaultRoles();
     } finally {
       setLoadingRoles(false);
     }
   };
 
-  function useDefaultRoles() {
+  function applyDefaultRoles() {
     setRoleOptions([
       { value: 'admin', label: 'Administrator' },
       { value: 'medical_staff', label: 'Medical Staff' },
