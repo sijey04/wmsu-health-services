@@ -228,10 +228,41 @@ export default function AdminPatientProfile() {
         });
       }
 
-      setPatients(patientsData);
+      const resolvePatientKey = (patient: any) => {
+        if (patient?.user) return `user:${patient.user}`;
+        if (patient?.user_id) return `user:${patient.user_id}`;
+        if (patient?.student_id) return `student:${patient.student_id}`;
+        if (patient?.email || patient?.user_email) return `email:${patient.email || patient.user_email}`;
+        return `id:${patient?.id}`;
+      };
+
+      const resolvePatientTimestamp = (patient: any) => {
+        const time = new Date(patient.updated_at || patient.created_at || 0).getTime();
+        return Number.isNaN(time) ? 0 : time;
+      };
+
+      const latestByUser = new Map<string, any>();
+      patientsData.forEach((patient: any) => {
+        const key = resolvePatientKey(patient);
+        const existing = latestByUser.get(key);
+        if (!existing) {
+          latestByUser.set(key, patient);
+          return;
+        }
+
+        const currentTime = resolvePatientTimestamp(patient);
+        const existingTime = resolvePatientTimestamp(existing);
+        if (currentTime > existingTime || (currentTime === existingTime && (patient.id || 0) > (existing.id || 0))) {
+          latestByUser.set(key, patient);
+        }
+      });
+
+      const dedupedPatients = Array.from(latestByUser.values());
+
+      setPatients(dedupedPatients);
 
       // Calculate semester statistics
-      calculateSemesterStats(patientsData);
+      calculateSemesterStats(dedupedPatients);
 
     } catch (err: any) {
       setError('Failed to fetch patients.');

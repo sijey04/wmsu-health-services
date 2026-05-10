@@ -523,6 +523,22 @@ function AdminDentalConsultations() {
     fetchSemesters();
   }, []);
 
+  const formatShortDate = (value: string) => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleDateString();
+  };
+
+  const formatShortTime = (value: string) => {
+    if (!value) return 'N/A';
+    const parts = value.split(':');
+    if (parts.length < 2) return value;
+    const date = new Date();
+    date.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
   const handleViewDentalHistory = (patientId: number, userId: number, patientName: string) => {
     setDentalHistoryModal({
       open: true,
@@ -555,7 +571,29 @@ function AdminDentalConsultations() {
             <tr key={record.id} className="hover:bg-gray-50 transition-colors duration-200">
               <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm font-medium text-gray-900">{record.patient_name}</td>
               <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{record.purpose}</td>
-              <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{isHistory ? new Date(record.appointment_date).toLocaleString() : record.appointment_time}</td>
+              <td className="px-3 sm:px-6 py-2 sm:py-4 whitespace-nowrap">
+                <div className="text-xs sm:text-sm text-gray-500">
+                  {isHistory ? (
+                    <div>
+                      {formatShortDate(record.appointment_date)}
+                      {record.appointment_time ? ` • ${formatShortTime(record.appointment_time)}` : ''}
+                    </div>
+                  ) : (
+                    <>
+                      <div>{formatShortTime(record.appointment_time)}</div>
+                      {record.appointment_date && (
+                        <div className="text-xs text-gray-400">Date: {formatShortDate(record.appointment_date)}</div>
+                      )}
+                    </>
+                  )}
+                  {(record.original_date || record.original_time) && (
+                    <div className="text-xs text-blue-600">
+                      Original: {record.original_date ? formatShortDate(record.original_date) : 'N/A'}
+                      {record.original_time ? ` • ${formatShortTime(record.original_time)}` : ''}
+                    </div>
+                  )}
+                </div>
+              </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${record.status === 'completed' ? 'bg-green-100 text-green-800' :
                   record.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :

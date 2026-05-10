@@ -68,6 +68,7 @@ export default function UploadDocumentsPage() {
 
   const [documentFields, setDocumentFields] = useState(allDocumentFields);
   const [apiLoaded, setApiLoaded] = useState(false);
+  const [existingDocuments, setExistingDocuments] = useState<any | null>(null);
 
   // Validate navigation token to prevent direct URL access
   useEffect(() => {
@@ -109,6 +110,36 @@ export default function UploadDocumentsPage() {
     loadDocumentRequirements();
     loadCurrentPatientId();
   }, []);
+
+  const resolveFileUrl = (value: string) => {
+    if (!value) return '';
+    if (value.startsWith('http') || value.startsWith('data:')) return value;
+    const baseUrl = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+    return `${baseUrl}${value.startsWith('/') ? '' : '/'}${value}`;
+  };
+
+  const isImageUrl = (value: string) => {
+    if (!value) return false;
+    if (value.startsWith('data:image')) return true;
+    return /\.(jpg|jpeg|png|gif|webp|avif)$/i.test(value);
+  };
+
+  const getFileNameFromUrl = (value: string) => {
+    if (!value) return '';
+    if (value.startsWith('data:')) return 'Uploaded Image';
+    const clean = value.split('?')[0];
+    const parts = clean.split('/');
+    return parts[parts.length - 1] || 'Uploaded File';
+  };
+
+  const getFileTypeLabelFromUrl = (value: string) => {
+    if (!value) return 'Document';
+    if (isImageUrl(value)) return 'Image';
+    if (/\.pdf$/i.test(value)) return 'PDF Document';
+    if (/\.docx$/i.test(value)) return 'DOCX Document';
+    if (/\.doc$/i.test(value)) return 'DOC Document';
+    return 'Document';
+  };
 
   const loadCurrentPatientId = async () => {
     try {
@@ -164,6 +195,19 @@ export default function UploadDocumentsPage() {
         setError('Please create your patient profile first before uploading documents.');
         setFeedbackMessage('Please create your patient profile first before uploading documents.');
         setFeedbackOpen(true);
+      }
+    }
+  };
+
+  const loadExistingDocuments = async () => {
+    try {
+      const response = await medicalDocumentsAPI.getMyDocuments();
+      if (response?.data) {
+        setExistingDocuments(response.data);
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        console.warn('Failed to load existing documents:', error);
       }
     }
   };
@@ -288,6 +332,21 @@ export default function UploadDocumentsPage() {
   const [currentPatientId, setCurrentPatientId] = useState<number | null>(null);
   const [converting, setConverting] = useState<{ [key: string]: boolean }>({});
 
+  useEffect(() => {
+    if (currentPatientId) {
+      loadExistingDocuments();
+    }
+  }, [currentPatientId]);
+
+  const getExistingFileUrl = (field: { backendField: string }) => {
+    const value = existingDocuments?.[field.backendField];
+    return value ? resolveFileUrl(value) : '';
+  };
+
+  const hasUploadedFile = (field: { name: string; backendField: string }) => {
+    return Boolean(files[field.name] || getExistingFileUrl(field));
+  };
+
   // Convert image to WebP format to save storage
   const convertImageToWebP = async (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
@@ -376,6 +435,10 @@ export default function UploadDocumentsPage() {
   };
 
   const requiredDocumentFields = useMemo(() => filteredDocumentFields.filter(f => f.required), [filteredDocumentFields]);
+  const completedRequiredCount = useMemo(
+    () => requiredDocumentFields.filter((field) => hasUploadedFile(field)).length,
+    [requiredDocumentFields, files, existingDocuments]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -395,7 +458,7 @@ export default function UploadDocumentsPage() {
     }
     
     // Check required documents
-    const missing = requiredDocumentFields.filter(f => !files[f.name]).map(f => f.name);
+    const missing = requiredDocumentFields.filter(f => !hasUploadedFile(f)).map(f => f.name);
     setMissingFields(missing);
     if (missing.length > 0) {
       setError('Please upload all required documents.');
@@ -417,12 +480,20 @@ export default function UploadDocumentsPage() {
           formData.append(field.backendField, files[field.name]!);
         }
       });
-      
-      if (currentPatientId) {
-        formData.append('patient', currentPatientId.toString());
+
+      const hasLocalFiles = Object.values(files).some((file) => Boolean(file));
+      if (!hasLocalFiles) {
+        setFeedbackMessage('All required documents are already uploaded.');
+        setFeedbackOpen(true);
+        setSubmitting(false);
+        return;
       }
       
-      await medicalDocumentsAPI.upload(formData);
+      const response = await medicalDocumentsAPI.updateMyDocuments(formData);
+      if (response?.data) {
+        setExistingDocuments(response.data);
+      }
+      setFiles({});
       setSuccess(true);
       setFeedbackMessage('Your medical documents have been uploaded successfully. We will process your request soon. Please check your appointments for updates.');
       setFeedbackOpen(true);
@@ -510,15 +581,37 @@ export default function UploadDocumentsPage() {
                     {(() => {
                       const field = filteredDocumentFields[currentViewIndex];
                       const file = files[field.name];
-                      const isImage = file && file.type.startsWith('image/');
-                      const imageUrl = file && isImage ? URL.createObjectURL(file) : null;
+                      const existingUrl = getExistingFileUrl(field);
+                      const hasFile = Boolean(file || existingUrl);
+                      const isLocalImage = file && file.type.startsWith('image/');
+                      const isExistingImage = !file && existingUrl ? isImageUrl(existingUrl) : false;
+                      const imageUrl = isLocalImage
+                        ? URL.createObjectURL(file as File)
+                        : (existingUrl || null);
+                      const displayName = file
+                        ? file.name
+                        : existingUrl
+                          ? getFileNameFromUrl(existingUrl)
+                          : '';
+                      const displayType = file
+                        ? (file.type.includes('pdf')
+                          ? 'PDF Document'
+                          : file.type.startsWith('image/')
+                            ? 'Image'
+                            : 'Document')
+                        : existingUrl
+                          ? getFileTypeLabelFromUrl(existingUrl)
+                          : '';
+                      const displaySize = file
+                        ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+                        : 'Uploaded';
 
                       return (
                         <div className="text-center">
-                          {file ? (
+                          {hasFile ? (
                             <div className="space-y-6">
                               {/* Image Preview */}
-                              {isImage && imageUrl ? (
+                              {(isLocalImage || isExistingImage) && imageUrl ? (
                                 <div className="relative">
                                   <img 
                                     src={imageUrl} 
@@ -536,9 +629,9 @@ export default function UploadDocumentsPage() {
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                   </svg>
                                   <h3 className="text-xl font-semibold text-gray-900 mb-3">{field.label}</h3>
-                                  <p className="text-sm text-gray-600 mb-4 truncate">{file.name}</p>
+                                  <p className="text-sm text-gray-600 mb-4 truncate">{displayName}</p>
                                   <p className="text-xs text-gray-500">
-                                    {(file.size / (1024 * 1024)).toFixed(2)} MB • {file.type.includes('pdf') ? 'PDF Document' : 'Document'}
+                                    {displaySize} • {displayType}
                                   </p>
                                 </div>
                               )}
@@ -550,7 +643,7 @@ export default function UploadDocumentsPage() {
                                     <h4 className="font-semibold text-base md:text-lg">{field.label}</h4>
                                     <p className="text-xs md:text-sm text-gray-300 mt-1">{field.description}</p>
                                     <p className="text-xs text-green-400 mt-2">
-                                      ✓ Uploaded: {file.name.length > 20 ? `${file.name.substring(0, 20)}...` : file.name}
+                                      ✓ Uploaded: {displayName.length > 20 ? `${displayName.substring(0, 20)}...` : displayName}
                                     </p>
                                   </div>
                                   <div className="ml-4">
@@ -688,89 +781,109 @@ export default function UploadDocumentsPage() {
               {/* Upload Fields */}
               <div className="flex-1 overflow-y-auto p-4 md:p-6">
                 <div className="space-y-3 md:space-y-4">
-                  {filteredDocumentFields.map((field, index) => (
-                    <div 
-                      key={field.name} 
-                      className={`bg-gray-50 rounded-lg p-3 md:p-4 border-2 transition-all duration-200 ${
-                        index === currentViewIndex 
-                          ? 'border-[#800000] bg-[#800000] bg-opacity-5' 
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="mb-2 md:mb-3">
-                        <h3 className="text-xs md:text-sm font-medium text-gray-900 flex items-center">
-                          <span className={`text-xs font-bold rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center mr-2 md:mr-3 ${
-                            index === currentViewIndex 
-                              ? 'bg-[#800000] text-white' 
-                              : files[field.name] 
-                                ? 'bg-green-500 text-white'
-                                : 'bg-gray-400 text-white'
-                          }`}>
-                            {files[field.name] ? '✓' : index + 1}
-                          </span>
-                          <span className="truncate">{field.label}</span>
-                          {field.required && <span className="text-red-500 ml-1">*</span>}
-                        </h3>
-                        <p className="text-xs text-gray-600 ml-7 md:ml-9 line-clamp-2">{field.description}</p>
-                      </div>
+                  {filteredDocumentFields.map((field, index) => {
+                    const existingUrl = getExistingFileUrl(field);
+                    const localFile = files[field.name];
+                    const fieldHasFile = hasUploadedFile(field);
+                    const displayName = localFile
+                      ? localFile.name
+                      : existingUrl
+                        ? getFileNameFromUrl(existingUrl)
+                        : '';
 
-                      {/* Upload Area */}
-                      <div className={`relative border-2 border-dashed rounded-lg transition-all duration-200 ml-7 md:ml-9 ${
-                        missingFields.includes(field.name) 
-                          ? 'border-red-300 bg-red-50' 
-                          : files[field.name]
-                            ? 'border-green-300 bg-green-50'
-                            : 'border-gray-300 bg-white hover:border-[#800000] hover:bg-gray-50'
-                      }`}>
-                        <input
-                          type="file"
-                          accept=".pdf,.docx,.jpg,.jpeg,.png"
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          disabled={converting[field.name]}
-                          onChange={async (e) => {
-                            await handleFileChange(e, field.name);
-                            // Auto-advance to next field after upload
-                            if (e.target.files && e.target.files[0] && currentViewIndex < filteredDocumentFields.length - 1) {
-                              setTimeout(() => setCurrentViewIndex(currentViewIndex + 1), 500);
-                            }
-                          }}
-                        />
-                        <div className="px-3 py-4 md:px-4 md:py-6 text-center">
-                          {converting[field.name] ? (
-                            <div className="space-y-1 md:space-y-2">
-                              <svg className="w-5 h-5 md:w-6 md:h-6 text-[#800000] mx-auto animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              <p className="text-xs font-medium text-[#800000]">Converting to AVIF...</p>
-                              <p className="text-xs text-gray-500">Optimizing for storage</p>
-                            </div>
-                          ) : files[field.name] ? (
-                            <div className="space-y-1 md:space-y-2">
-                              <svg className="w-5 h-5 md:w-6 md:h-6 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              <p className="text-xs font-medium text-gray-900 truncate px-2">{files[field.name].name}</p>
-                              <p className="text-xs text-green-600">
-                                ✓ Ready • {(files[field.name].size / 1024).toFixed(1)}KB
-                                {files[field.name].type === 'image/avif' && ' (Optimized)'}
-                              </p>
-                              <p className="text-xs text-gray-500">Tap to replace</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-1 md:space-y-2">
-                              <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                              </svg>
-                              <p className="text-xs text-gray-600">
-                                <span className="font-medium text-[#800000]">Tap to upload</span>
-                              </p>
-                              <p className="text-xs text-gray-400">PDF, DOCX, JPG, PNG</p>
-                            </div>
-                          )}
+                    return (
+                      <div 
+                        key={field.name} 
+                        className={`bg-gray-50 rounded-lg p-3 md:p-4 border-2 transition-all duration-200 ${
+                          index === currentViewIndex 
+                            ? 'border-[#800000] bg-[#800000] bg-opacity-5' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="mb-2 md:mb-3">
+                          <h3 className="text-xs md:text-sm font-medium text-gray-900 flex items-center">
+                            <span className={`text-xs font-bold rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center mr-2 md:mr-3 ${
+                              index === currentViewIndex 
+                                ? 'bg-[#800000] text-white' 
+                                : fieldHasFile 
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-gray-400 text-white'
+                            }`}>
+                              {fieldHasFile ? '✓' : index + 1}
+                            </span>
+                            <span className="truncate">{field.label}</span>
+                            {field.required && <span className="text-red-500 ml-1">*</span>}
+                          </h3>
+                          <p className="text-xs text-gray-600 ml-7 md:ml-9 line-clamp-2">{field.description}</p>
+                        </div>
+
+                        {/* Upload Area */}
+                        <div className={`relative border-2 border-dashed rounded-lg transition-all duration-200 ml-7 md:ml-9 ${
+                          missingFields.includes(field.name) 
+                            ? 'border-red-300 bg-red-50' 
+                            : fieldHasFile
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-gray-300 bg-white hover:border-[#800000] hover:bg-gray-50'
+                        }`}>
+                          <input
+                            type="file"
+                            accept=".pdf,.docx,.jpg,.jpeg,.png,.webp"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            disabled={converting[field.name]}
+                            onChange={async (e) => {
+                              await handleFileChange(e, field.name);
+                              // Auto-advance to next field after upload
+                              if (e.target.files && e.target.files[0] && currentViewIndex < filteredDocumentFields.length - 1) {
+                                setTimeout(() => setCurrentViewIndex(currentViewIndex + 1), 500);
+                              }
+                            }}
+                          />
+                          <div className="px-3 py-4 md:px-4 md:py-6 text-center">
+                            {converting[field.name] ? (
+                              <div className="space-y-1 md:space-y-2">
+                                <svg className="w-5 h-5 md:w-6 md:h-6 text-[#800000] mx-auto animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <p className="text-xs font-medium text-[#800000]">Converting to WebP...</p>
+                                <p className="text-xs text-gray-500">Optimizing for storage</p>
+                              </div>
+                            ) : localFile ? (
+                              <div className="space-y-1 md:space-y-2">
+                                <svg className="w-5 h-5 md:w-6 md:h-6 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <p className="text-xs font-medium text-gray-900 truncate px-2">{displayName}</p>
+                                <p className="text-xs text-green-600">
+                                  ✓ Ready • {(localFile.size / 1024).toFixed(1)}KB
+                                  {localFile.type === 'image/webp' && ' (Optimized)'}
+                                </p>
+                                <p className="text-xs text-gray-500">Tap to replace</p>
+                              </div>
+                            ) : existingUrl ? (
+                              <div className="space-y-1 md:space-y-2">
+                                <svg className="w-5 h-5 md:w-6 md:h-6 text-green-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <p className="text-xs font-medium text-gray-900 truncate px-2">{displayName}</p>
+                                <p className="text-xs text-green-600">✓ Uploaded</p>
+                                <p className="text-xs text-gray-500">Tap to replace</p>
+                              </div>
+                            ) : (
+                              <div className="space-y-1 md:space-y-2">
+                                <svg className="w-5 h-5 md:w-6 md:h-6 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                <p className="text-xs text-gray-600">
+                                  <span className="font-medium text-[#800000]">Tap to upload</span>
+                                </p>
+                                <p className="text-xs text-gray-400">PDF, DOCX, JPG, PNG</p>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
@@ -779,12 +892,12 @@ export default function UploadDocumentsPage() {
                 <div className="mb-3 md:mb-4">
                   <div className="flex items-center justify-between text-xs md:text-sm text-gray-600 mb-2">
                     <span>Progress</span>
-                    <span>{Object.keys(files).length} of {requiredDocumentFields.length} required</span>
+                    <span>{completedRequiredCount} of {requiredDocumentFields.length} required</span>
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-[#800000] h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(Object.keys(files).length / Math.max(requiredDocumentFields.length, 1)) * 100}%` }}
+                      style={{ width: `${(completedRequiredCount / Math.max(requiredDocumentFields.length, 1)) * 100}%` }}
                     ></div>
                   </div>
                 </div>
@@ -792,9 +905,9 @@ export default function UploadDocumentsPage() {
                 <form onSubmit={handleSubmit}>
                   <button
                     type="submit"
-                    disabled={submitting || Object.keys(files).length < requiredDocumentFields.length}
+                    disabled={submitting || completedRequiredCount < requiredDocumentFields.length}
                     className={`w-full px-4 md:px-6 py-2 md:py-3 bg-[#800000] text-white rounded-lg font-semibold transition-all duration-200 flex items-center justify-center gap-2 text-sm md:text-base ${
-                      submitting || Object.keys(files).length < requiredDocumentFields.length
+                      submitting || completedRequiredCount < requiredDocumentFields.length
                         ? 'opacity-50 cursor-not-allowed' 
                         : 'hover:bg-[#a83232] shadow-lg'
                     }`}

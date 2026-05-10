@@ -107,7 +107,12 @@ const AppointmentsPage = () => {
 
         // Get the most recent medical document for status
         const userDocuments = response.data || [];
-        const latestDocument = userDocuments.length > 0 ? userDocuments[0] : null;
+        const sortedDocuments = [...userDocuments].sort((a: any, b: any) => {
+          const aDate = new Date(a.updated_at || a.uploaded_at || a.created_at || 0).getTime();
+          const bDate = new Date(b.updated_at || b.uploaded_at || b.created_at || 0).getTime();
+          return bDate - aDate;
+        });
+        const latestDocument = sortedDocuments.length > 0 ? sortedDocuments[0] : null;
 
         if (latestDocument) {
           setMedicalDocumentStatus({
@@ -563,10 +568,12 @@ const AppointmentsPage = () => {
                 </div>
 
                 {/* Show rejection reason if applicable */}
-                {medicalDocumentStatus.status === 'rejected' && medicalDocumentStatus.rejection_reason && (
+                {medicalDocumentStatus.status === 'rejected' && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 mb-4">
                     <h4 className="text-sm sm:text-base font-semibold text-red-800 mb-2">Rejection Reason:</h4>
-                    <p className="text-sm text-red-700 mb-4">{medicalDocumentStatus.rejection_reason}</p>
+                    <p className="text-sm text-red-700 mb-4">
+                      {medicalDocumentStatus.rejection_reason || 'No reason provided. Please contact the clinic if you need more details.'}
+                    </p>
                     <button
                       onClick={() => {
                         // Generate navigation token and redirect to document upload
@@ -574,7 +581,7 @@ const AppointmentsPage = () => {
                         sessionStorage.setItem('appointment_navigation_token', navigationToken);
                         sessionStorage.setItem('appointment_option', 'Request Medical Certificate');
                         sessionStorage.setItem('navigation_timestamp', Date.now().toString());
-                        router.push(`/patient/waiver?option=${encodeURIComponent('Request Medical Certificate')}&token=${navigationToken}`);
+                        router.push(`/patient/upload-documents?token=${navigationToken}`);
                       }}
                       className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                     >

@@ -660,37 +660,33 @@ def generate_medical_certificate_pdf(medical_document):
     
     # Build signature section - exactly like the viewer
     signature_data = []
-    
+
     if signature_image:
         # Signature image directly above the line (no spacing)
-        signature_data.extend([
-            ['', signature_image],  # Signature image
-            ['', '_______________________'],  # Line immediately below
-        ])
+        signature_data.append(['', signature_image])
     else:
         # Space for handwritten signature, then line
-        signature_data.extend([
-            ['', ''],  # Space for signature
-            ['', '_______________________'],  # Signature line
-        ])
-    
-    # Add staff details below the line
+        signature_data.append(['', ''])
+
+    # Signature line, label, and staff details
     signature_data.extend([
-        ['', staff_name if staff_name else 'Staff details not available'],  # Staff name below the line
-        ['', ''],  # Small spacing after name
+        ['', '_______________________'],
+        ['', 'Signature over Printed Name'],
+        ['', staff_name if staff_name else 'Staff details not available'],
+        ['', ''],
         ['', staff_position if staff_position else ''],
         ['', f'LICENSE NO. {license_no}' if license_no else ''],
         ['', f'PTR NO. {ptr_no}' if ptr_no else '']
     ])
-    
+
     # Compact row heights to fit on one page with professional spacing
     if signature_image:
-        row_heights = [0.6*inch, 0.1*inch, 0.2*inch, 0.1*inch, 0.16*inch, 0.14*inch, 0.14*inch]
+        row_heights = [0.6*inch, 0.1*inch, 0.14*inch, 0.22*inch, 0.08*inch, 0.14*inch, 0.14*inch, 0.14*inch]
     else:
-        row_heights = [0.3*inch, 0.1*inch, 0.2*inch, 0.1*inch, 0.16*inch, 0.14*inch, 0.14*inch]
-    
+        row_heights = [0.45*inch, 0.1*inch, 0.14*inch, 0.22*inch, 0.08*inch, 0.14*inch, 0.14*inch, 0.14*inch]
+
     signature_table = Table(signature_data, colWidths=[3*inch, 2.5*inch], rowHeights=row_heights)
-    
+
     # Style the table
     table_style = [
         ('ALIGN', (1, 0), (1, -1), 'CENTER'),
@@ -698,14 +694,17 @@ def generate_medical_certificate_pdf(medical_document):
         # Line style
         ('FONTSIZE', (1, 1), (1, 1), 12),
         ('FONTNAME', (1, 1), (1, 1), 'Helvetica'),
+        # Signature label
+        ('FONTSIZE', (1, 2), (1, 2), 8),
+        ('FONTNAME', (1, 2), (1, 2), 'Helvetica'),
+        ('TEXTCOLOR', (1, 2), (1, 2), colors.black),
         # Staff name style (blue and bold, like in viewer)
-        ('FONTSIZE', (1, 2), (1, 2), 10),
-        ('FONTNAME', (1, 2), (1, 2), 'Helvetica-Bold'),
-        ('TEXTCOLOR', (1, 2), (1, 2), colors.blue),
-        # Empty spacing row (row 3)
-        # Position and details style (starting from row 4)
-        ('FONTSIZE', (1, 4), (1, -1), 9),
-        ('FONTNAME', (1, 4), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (1, 3), (1, 3), 10),
+        ('FONTNAME', (1, 3), (1, 3), 'Helvetica-Bold'),
+        ('TEXTCOLOR', (1, 3), (1, 3), colors.blue),
+        # Position and details style (starting from row 5)
+        ('FONTSIZE', (1, 5), (1, -1), 9),
+        ('FONTNAME', (1, 5), (1, -1), 'Helvetica'),
     ]
     
     signature_table.setStyle(TableStyle(table_style))

@@ -134,46 +134,45 @@ export default function AdminAccountSettings() {
     try {
       // Fetch positions from staff roles endpoint
       const response = await djangoApiClient.get('/admin-controls/staff-roles/');
-      if (response.data && Array.isArray(response.data)) {
-        const normalized = response.data
-          .map((role: any) => normalizeRoleLabel(role))
-          .map((role: string) => role.trim())
-          .filter(Boolean);
+      if (response && response.data) {
+        const dataArray = Array.isArray(response.data) ? response.data : 
+                         (Array.isArray(response.data?.results) ? response.data.results : []);
+        
+        if (dataArray.length > 0) {
+          const normalized: string[] = dataArray
+            .map((role: any) => normalizeRoleLabel(role))
+            .map((role: string) => role.trim())
+            .filter((role): role is string => Boolean(role));
 
-        const uniqueRoles = Array.from(new Set(normalized));
-        if (uniqueRoles.length > 0) {
-          setPositionOptions(uniqueRoles);
-          return;
+          const uniqueRoles = Array.from(new Set(normalized));
+          if (uniqueRoles.length > 0) {
+            setPositionOptions(uniqueRoles);
+            return;
+          }
         }
       }
-      console.warn('Staff roles endpoint returned no usable positions.');
-      setPositionOptions([
-        'Administrator',
-        'Medical Staff',
-        'Doctor',
-        'Nurse',
-        'Dentist',
-        'Dental Staff',
-        'General Staff',
-        'Receptionist'
-      ]);
+      console.warn('Staff roles endpoint returned no usable positions, using defaults.');
+      applyDefaultPositions();
     } catch (error) {
-      console.warn('Failed to fetch positions from backend, using defaults');
-      // Fallback to default positions
-      setPositionOptions([
-        'Administrator',
-        'Medical Staff',
-        'Doctor',
-        'Nurse',
-        'Dentist',
-        'Dental Staff',
-        'General Staff',
-        'Receptionist'
-      ]);
+      console.warn('Failed to fetch positions from backend, using defaults:', error);
+      applyDefaultPositions();
     } finally {
       setLoadingPositions(false);
     }
   };
+
+  function applyDefaultPositions() {
+    setPositionOptions([
+      'Administrator',
+      'Medical Staff',
+      'Doctor',
+      'Nurse',
+      'Dentist',
+      'Dental Staff',
+      'General Staff',
+      'Receptionist'
+    ]);
+  }
 
   const getFullImageUrl = (path: string | null) => {
     if (!path) return '';

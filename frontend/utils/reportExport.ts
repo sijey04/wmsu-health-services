@@ -430,15 +430,19 @@ export const generatePDFReport = async (
     const totalCompletionRate = totalServices > 0 ? (totalCompleted / totalServices) * 100 : 0;
     const itemsConsumed = stats.medicine_usage?.reduce((sum, i) => sum + i.quantity, 0) || 0;
 
+    const sectionGap = 8;
+    const tableGap = 6;
+
     // Summary Section (minimalist)
-    pdf.setFontSize(14);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
     pdf.text('EXECUTIVE SUMMARY', leftMargin, currentY);
-    currentY += 8;
+    currentY += sectionGap;
 
     autoTable(pdf, {
       startY: currentY,
+      margin: { left: leftMargin, right: leftMargin },
       head: [['Metric', 'Value', 'Details']],
       body: [
         ['Report Period', reportType.charAt(0).toUpperCase() + reportType.slice(1), `Generated on ${new Date().toLocaleDateString()}`],
@@ -448,17 +452,19 @@ export const generatePDFReport = async (
         ['Items Consumed', itemsConsumed.toString(), 'Medical and dental supplies used']
       ],
       theme: 'grid',
-      styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
+      styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1, overflow: 'linebreak' },
       headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+      columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' } }
     });
 
     currentY = (pdf as any).lastAutoTable?.finalY || (currentY + 12);
+    currentY += tableGap;
 
     // Service Activity (minimalist)
-    pdf.setFontSize(14);
+    pdf.setFontSize(12);
     pdf.setFont('helvetica', 'bold');
     pdf.text('SERVICE ACTIVITY BREAKDOWN', leftMargin, currentY);
-    currentY += 8;
+    currentY += sectionGap;
 
     const medicalRate = stats.medical.total > 0 ? (stats.medical.completed / stats.medical.total) * 100 : 0;
     const dentalRate = stats.dental.total > 0 ? (stats.dental.completed / stats.dental.total) * 100 : 0;
@@ -466,18 +472,20 @@ export const generatePDFReport = async (
 
     autoTable(pdf, {
       startY: currentY,
+      margin: { left: leftMargin, right: leftMargin },
       head: [['Service Category', 'Total Volume', 'Completed', 'Success Rate']],
       body: [
         ['Medical Consultations', stats.medical.total.toString(), stats.medical.completed.toString(), `${medicalRate.toFixed(1)}%`],
         ['Dental Examinations', stats.dental.total.toString(), stats.dental.completed.toString(), `${dentalRate.toFixed(1)}%`],
         ['Document Issuance', stats.documents.total.toString(), stats.documents.issued.toString(), `${documentRate.toFixed(1)}%`]
       ],
-      theme: 'striped',
-      styles: { fontSize: 8, cellPadding: 1.5 },
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: 1.5, lineColor: [200, 200, 200], lineWidth: 0.1 },
       headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
     });
 
     currentY = (pdf as any).lastAutoTable?.finalY || (currentY + 12);
+    currentY += tableGap;
 
     pdf.setFontSize(9);
     pdf.setFont('helvetica', 'italic');
@@ -3051,6 +3059,9 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
     if (!waiver) return;
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const leftMargin = 20;
+    const contentWidth = pageWidth - leftMargin * 2;
 
     const [wmsuLogo, healthLogo] = await Promise.all([
       loadLogo('/WMSU-Logo.jpg'),
@@ -3079,37 +3090,64 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
 
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    const content = `I, ${waiver.full_name || patientName}, of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:\n\nI have given explicit consent to the University Health Services Center (UHSC) to collect, use, store, and process my personal and sensitive health information for the purpose of promoting and maintaining my health and general well-being as part of the school community.\n\nI understand that this information will be used to maintain my medical records, facilitate consultations, and ensure that appropriate medical assistance is provided when necessary. I am aware that my data will be handled with the utmost confidentiality in accordance with the Data Privacy Act of 2012 (Republic Act 10173).\n\nThis consent is given freely and voluntarily, and I understand that I may withdraw this consent at any time by providing a written notice to the University Health Services Center, subject to legal and university requirements.`;
 
-    const splitContent = doc.splitTextToSize(content, 170);
-    doc.text(splitContent, 20, 75, { align: 'justify' });
+    const paragraphs = [
+      `I, ${waiver.full_name || patientName}, of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:`,
+      'I have given explicit consent to the University Health Services Center (UHSC) to collect, use, store, and process my personal and sensitive health information for the purpose of promoting and maintaining my health and general well-being as part of the school community.',
+      'I understand that this information will be used to maintain my medical records, facilitate consultations, and ensure that appropriate medical assistance is provided when necessary. I am aware that my data will be handled with the utmost confidentiality in accordance with the Data Privacy Act of 2012 (Republic Act 10173).',
+      'This consent is given freely and voluntarily, and I understand that I may withdraw this consent at any time by providing a written notice to the University Health Services Center, subject to legal and university requirements.'
+    ];
+
+    const lineHeight = 5.5;
+    const paragraphGap = 3;
+    let currentY = 72;
+
+    const addParagraph = (text: string, y: number) => {
+      const lines = doc.splitTextToSize(text, contentWidth);
+      doc.text(lines, leftMargin, y);
+      return y + (lines.length * lineHeight) + paragraphGap;
+    };
+
+    paragraphs.forEach((paragraph) => {
+      currentY = addParagraph(paragraph, currentY);
+    });
 
     // Signature
-    const signatureY = 180;
-    if (waiver.signature) {
-      const signature = await loadLogo(waiver.signature);
-      if (signature) {
-        doc.addImage(signature, 'PNG', pageWidth - 80, signatureY - 25, 60, 25);
-      }
-    }
-
-    doc.line(pageWidth - 90, signatureY, pageWidth - 20, signatureY);
-    doc.setFont('helvetica', 'bold');
-    doc.text((waiver.full_name || patientName).toUpperCase(), pageWidth - 55, signatureY + 5, { align: 'center' });
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text('Signature over Printed Name', pageWidth - 55, signatureY + 10, { align: 'center' });
-
     const dateSigned = waiver.date_signed
       ? new Date(waiver.date_signed).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
       : new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-    doc.text(`Date Signed: ${dateSigned}`, pageWidth - 55, signatureY + 18, { align: 'center' });
+    const signatureImageHeight = waiver.signature ? 22 : 0;
+    const signatureBlockHeight = (signatureImageHeight || 16) + 24;
+    if (currentY + signatureBlockHeight > pageHeight - 30) {
+      doc.addPage();
+      currentY = 40;
+    }
+
+    const signatureX = pageWidth - 90;
+    const signatureWidth = 70;
+    const signatureImageY = currentY + 2;
+
+    if (waiver.signature) {
+      const signature = await loadLogo(waiver.signature);
+      if (signature) {
+        doc.addImage(signature, 'PNG', signatureX + 5, signatureImageY, signatureWidth - 10, signatureImageHeight);
+      }
+    }
+
+    const signatureLineY = currentY + (waiver.signature ? signatureImageHeight + 6 : 18);
+    doc.line(signatureX, signatureLineY, signatureX + signatureWidth, signatureLineY);
+    doc.setFont('helvetica', 'bold');
+    doc.text((waiver.full_name || patientName).toUpperCase(), signatureX + signatureWidth / 2, signatureLineY + 5, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Signature over Printed Name', signatureX + signatureWidth / 2, signatureLineY + 10, { align: 'center' });
+    doc.text(`Date Signed: ${dateSigned}`, signatureX + signatureWidth / 2, signatureLineY + 18, { align: 'center' });
 
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(`Document ID: WMSU-UHSC-WVR-${(waiver.id || 0).toString().padStart(6, '0')}`, 20, 280);
-    doc.text(`Generated on ${new Date().toLocaleString()}`, 20, 285);
+    doc.text(`Document ID: WMSU-UHSC-WVR-${(waiver.id || 0).toString().padStart(6, '0')}`, leftMargin, pageHeight - 12);
+    doc.text(`Generated on ${new Date().toLocaleString()}`, leftMargin, pageHeight - 7);
 
     doc.save(`Waiver_${patientName.replace(/\s+/g, '_')}.pdf`);
   } catch (error) {

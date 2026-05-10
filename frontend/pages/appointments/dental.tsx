@@ -696,6 +696,8 @@ export default function DentalAppointmentPage() {
                               }
                             }}
                             shouldDisableDate={isDateDisabled}
+                            minDate={dayjs().startOf('year')}
+                            maxDate={dayjs().endOf('year')}
                             slots={{
                               day: (dayProps: any) => {
                                 const dateStr = dayProps.day.format('YYYY-MM-DD');

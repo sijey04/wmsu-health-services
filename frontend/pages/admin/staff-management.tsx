@@ -123,37 +123,52 @@ function AdminStaffManagement() {
     try {
       // Fetch staff roles from medical staff schedules or dedicated endpoint
       const response = await djangoApiClient.get('/admin-controls/staff-roles/');
-      if (response.data && Array.isArray(response.data)) {
-        const normalizedRoles = response.data
-          .map((role: any) => normalizeRoleOption(role))
-          .filter((role: { value: string; label: string } | null): role is { value: string; label: string } => Boolean(role))
-          .filter((role) => !isTeachingRole(role.label));
+        
+      if (response?.data) {
+        const dataArray = Array.isArray(response.data) ? response.data : 
+                         (Array.isArray(response.data?.results) ? response.data.results : []);
+        
+        if (dataArray.length > 0) {
+          const normalizedRoles: Array<{value: string, label: string}> = dataArray
+            .map((role: any) => normalizeRoleOption(role))
+            .filter((role: any): role is { value: string; label: string } => Boolean(role));
 
-        const uniqueRoles = Array.from(
-          new Map(normalizedRoles.map((role) => [role.value, role])).values()
-        );
+          // Filter out teaching roles for staff management
+          const filteredRoles = normalizedRoles.filter((role) => !isTeachingRole(role.label));
 
-        if (uniqueRoles.length > 0) {
-          setRoleOptions(uniqueRoles);
+          const uniqueRoles = Array.from(
+            new Map(filteredRoles.map((role) => [role.value, role])).values()
+          );
+
+          if (uniqueRoles.length > 0) {
+            setRoleOptions(uniqueRoles);
+            return; // Success
+          }
         }
       }
+      
+      console.warn('Staff roles endpoint returned no usable roles, using defaults.');
+      useDefaultRoles();
     } catch (error: any) {
       console.warn('Failed to fetch staff roles from backend, using defaults:', error);
-      // Fallback to default roles if API fails
-      setRoleOptions([
-        { value: 'admin', label: 'Administrator' },
-        { value: 'medical_staff', label: 'Medical Staff' },
-        { value: 'doctor', label: 'Doctor' },
-        { value: 'nurse', label: 'Nurse' },
-        { value: 'dentist', label: 'Dentist' },
-        { value: 'dental_staff', label: 'Dental Staff' },
-        { value: 'staff', label: 'General Staff' },
-        { value: 'receptionist', label: 'Receptionist' }
-      ]);
+      useDefaultRoles();
     } finally {
       setLoadingRoles(false);
     }
   };
+
+  function useDefaultRoles() {
+    setRoleOptions([
+      { value: 'admin', label: 'Administrator' },
+      { value: 'medical_staff', label: 'Medical Staff' },
+      { value: 'doctor', label: 'Doctor' },
+      { value: 'nurse', label: 'Nurse' },
+      { value: 'dentist', label: 'Dentist' },
+      { value: 'dental_staff', label: 'Dental Staff' },
+      { value: 'staff', label: 'General Staff' },
+      { value: 'receptionist', label: 'Receptionist' }
+    ]);
+  }
 
   const fetchStaff = async () => {
     setLoading(true);
@@ -176,7 +191,7 @@ function AdminStaffManagement() {
     if (!formData.first_name.trim()) errors.first_name = 'First name is required';
     if (!formData.last_name.trim()) errors.last_name = 'Last name is required';
     if (!formData.role) errors.role = 'Role is required';
-    if (!formData.campuses || formData.campuses.length === 0) (errors as any).campuses = 'At least one campus is required';
+    if (!formData.campuses || formData.campuses.length === 0) errors.campuses = ['At least one campus is required'];
     
     if (!editingStaff) {
       if (!formData.password) errors.password = 'Password is required';
