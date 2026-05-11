@@ -306,29 +306,10 @@ const AppointmentsPage = () => {
   };
 
   // Handle medical certificate view for standalone certificates
-  const handleViewStandaloneCertificate = async (certificate: any) => {
-    try {
-      setActionLoading(true);
-      const response = await medicalDocumentsAPI.viewCertificate(certificate.id);
-
-      // Create blob from response
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-
-      // Open in new tab
-      window.open(url, '_blank');
-
-      // Cleanup after a delay to allow the PDF to load
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-
-    } catch (err: any) {
-      const errorMessage = await extractErrorMessage(err, 'Failed to view medical certificate.');
-      setError(errorMessage);
-    } finally {
-      setActionLoading(false);
-    }
+  // Uses HTML-based viewer (same approach as admin medical-certificate-viewer)
+  // which renders from database data and doesn't depend on physical PDF files
+  const handleViewStandaloneCertificate = (certificate: any) => {
+    router.push(`/appointments/certificate?id=${certificate.id}`);
   };
 
   // Handle medical certificate download for standalone certificates
@@ -353,36 +334,23 @@ const AppointmentsPage = () => {
       window.URL.revokeObjectURL(url);
 
     } catch (err: any) {
-      const errorMessage = await extractErrorMessage(err, 'Failed to download medical certificate.');
-      setError(errorMessage);
+      // If download fails (e.g., ephemeral storage), fallback to the HTML viewer
+      console.warn('PDF download failed, opening HTML certificate viewer instead.');
+      router.push(`/appointments/certificate?id=${certificate.id}`);
     } finally {
       setActionLoading(false);
     }
   };
 
   // Handle medical certificate view
-  const handleViewMedicalCertificate = async (appointment: Appointment) => {
-    try {
-      setActionLoading(true);
-      const response = await appointmentsAPI.viewMedicalCertificate(appointment.id);
-
-      // Create blob from response
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-
-      // Open in new tab
-      window.open(url, '_blank');
-
-      // Cleanup after a delay to allow the PDF to load
-      setTimeout(() => {
-        window.URL.revokeObjectURL(url);
-      }, 1000);
-
-    } catch (err: any) {
-      const errorMessage = await extractErrorMessage(err, 'Failed to view medical certificate.');
-      setError(errorMessage);
-    } finally {
-      setActionLoading(false);
+  // Navigate to the HTML certificate viewer — works reliably regardless of file storage
+  const handleViewMedicalCertificate = (appointment: Appointment) => {
+    // Use the medicalDocumentStatus ID if available (more reliable), otherwise try standalone approach
+    if (medicalDocumentStatus?.id) {
+      router.push(`/appointments/certificate?id=${medicalDocumentStatus.id}`);
+    } else {
+      // Fallback: try to find the document via the appointment
+      setError('Medical certificate document not found. Please try viewing from the status section above.');
     }
   };
 
@@ -408,8 +376,14 @@ const AppointmentsPage = () => {
       window.URL.revokeObjectURL(url);
 
     } catch (err: any) {
-      const errorMessage = await extractErrorMessage(err, 'Failed to download medical certificate.');
-      setError(errorMessage);
+      // If download fails, fallback to the HTML viewer
+      console.warn('PDF download failed, opening HTML certificate viewer instead.');
+      if (medicalDocumentStatus?.id) {
+        router.push(`/appointments/certificate?id=${medicalDocumentStatus.id}`);
+      } else {
+        const errorMessage = await extractErrorMessage(err, 'Failed to download medical certificate.');
+        setError(errorMessage);
+      }
     } finally {
       setActionLoading(false);
     }
