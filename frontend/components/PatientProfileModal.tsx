@@ -443,6 +443,10 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
   };
 
   const displayedProfile = selectedProfile || patient;
+  const waiverDisplayName = formatPatientName(displayedProfile);
+  const waiverName = waiverDisplayName && waiverDisplayName !== 'N/A'
+    ? waiverDisplayName
+    : (waiver?.full_name || 'N/A');
   const resolvedSexValue = resolveText(dentalRecord?.sex, displayedProfile?.gender);
   const showWomenSection = isTrue(dentalRecord?.is_woman) || resolvedSexValue.toLowerCase() === 'female';
 
@@ -670,7 +674,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
     const showEmployeeId = isEmployeeProfile && shouldShowField('employee_id', profile.employee_id);
     const showDepartment = isEmployeeProfile && shouldShowField('department', profile.department);
     const showPositionType = isEmployeeProfile && shouldShowField('position_type', profile.position_type);
-    const showYearLevel = !isEmployeeProfile && shouldShowField('year_level', profile.year_level);
+    const showYearLevel = !isEmployeeProfile && (shouldShowField('year_level', profile.year_level) || hasFieldValue(profile.grade_level));
     const showCourse = !isEmployeeProfile &&
       (isCollege || hasFieldValue(profile.course) || hasFieldValue(profile.department)) &&
       shouldShowField('course', profile.course || profile.department);
@@ -680,7 +684,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 
     const showPrimaryUserTypeField = isEmployeeProfile ? showEmployeeId : showYearLevel;
     const primaryLabel = isEmployeeProfile ? 'Employee ID:' : yearLevelLabel;
-    const primaryValue = isEmployeeProfile ? resolveText(profile.employee_id) : resolveText(profile.year_level);
+    const primaryValue = isEmployeeProfile ? resolveText(profile.employee_id) : resolveText(profile.year_level, profile.grade_level);
     const showSecondaryField = isEmployeeProfile ? showDepartment : (showStrand || showCourse);
     const secondaryLabel = isEmployeeProfile ? 'Department:' : (showStrand ? 'Strand:' : 'Course:');
     const secondaryValue = isEmployeeProfile
@@ -1447,7 +1451,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
 
                   <div className="space-y-8 text-gray-800 leading-relaxed text-justify">
                     <p className="text-base">
-                      I, <span className="font-bold border-b border-gray-800 px-4 min-w-[200px] inline-block text-center">{waiver.full_name}</span>, 
+                      I, <span className="font-bold border-b border-gray-800 px-4 min-w-[200px] inline-block text-center">{waiverName}</span>, 
                       of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:
                     </p>
 
@@ -1480,7 +1484,7 @@ const PatientProfileModal: React.FC<PatientProfileModalProps> = ({
                           <div className="h-20 flex items-end justify-center italic text-gray-400 text-sm">No signature on file</div>
                         )}
                         <div className="w-full border-t border-gray-900 pt-2 text-center">
-                          <p className="font-bold text-base uppercase">{waiver.full_name}</p>
+                          <p className="font-bold text-base uppercase">{waiverName}</p>
                           <p className="text-xs text-gray-600">Signature over Printed Name</p>
                           <p className="text-sm mt-2 font-medium">Date Signed: {new Date(waiver.date_signed).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                         </div>

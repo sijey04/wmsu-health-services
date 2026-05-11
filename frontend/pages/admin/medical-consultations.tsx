@@ -470,7 +470,9 @@ function AdminMedicalConsultations() {
       const response = await medicalFormAPI.checkFormExists(appointment.id);
       
       if (response.data && response.data.length > 0) {
-        await generateSingleFormPDF(response.data[0], 'medical', appointment.patient_name || 'Patient');
+        const formRecord = response.data[0];
+        const recordName = formRecord?.patient_name || appointment.patient_name || 'Patient';
+        await generateSingleFormPDF(formRecord, 'medical', recordName);
       } else {
         setFeedbackModal({ open: true, message: 'No medical form data found for this appointment.' });
       }

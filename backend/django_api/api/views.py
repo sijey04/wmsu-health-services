@@ -1620,8 +1620,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointment = self.get_object()
         
         # Check permissions - patient can view their own certificates, staff can view all
-        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or 
-                appointment.patient.user == request.user):
+        is_owner = False
+        if appointment.patient:
+            if getattr(appointment.patient, 'user', None) == request.user:
+                is_owner = True
+            else:
+                try:
+                    is_owner = request.user.patient_profiles.filter(id=appointment.patient_id).exists()
+                except Exception:
+                    is_owner = False
+
+        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or is_owner):
             raise PermissionDenied("You don't have permission to view this certificate.")
         
         try:
@@ -1667,8 +1676,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         appointment = self.get_object()
         
         # Check permissions - patient can download their own certificates, staff can download all
-        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or 
-                appointment.patient.user == request.user):
+        is_owner = False
+        if appointment.patient:
+            if getattr(appointment.patient, 'user', None) == request.user:
+                is_owner = True
+            else:
+                try:
+                    is_owner = request.user.patient_profiles.filter(id=appointment.patient_id).exists()
+                except Exception:
+                    is_owner = False
+
+        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or is_owner):
             raise PermissionDenied("You don't have permission to download this certificate.")
         
         try:
@@ -3883,7 +3901,7 @@ WMSU Health Services
                 user=doc.patient.user,
                 message=f"Your medical documents were rejected. Reason: {reason}",
                 type='error',
-                link='/patient/upload-documents'
+                link='/appointments'
             )
         
         serializer = self.get_serializer(doc)
@@ -3971,7 +3989,7 @@ WMSU Health Services
                 user=doc.patient.user,
                 message=f"You have been advised for consultation. Reason: {reason}",
                 type='warning',
-                link='/patient/upload-documents'
+                link='/appointments'
             )
         
         serializer = self.get_serializer(doc)
@@ -3987,8 +4005,17 @@ WMSU Health Services
         doc = self.get_object()
         
         # Check permissions - patient can view their own certificates, staff can view all
-        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or 
-                (hasattr(doc, 'patient') and hasattr(doc.patient, 'user') and doc.patient.user == request.user)):
+        is_owner = False
+        if hasattr(doc, 'patient') and doc.patient:
+            if getattr(doc.patient, 'user', None) == request.user:
+                is_owner = True
+            else:
+                try:
+                    is_owner = request.user.patient_profiles.filter(id=doc.patient_id).exists()
+                except Exception:
+                    is_owner = False
+
+        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or is_owner):
             raise PermissionDenied("You don't have permission to view this certificate.")
         
         # Check if certificate exists and is issued
@@ -4027,8 +4054,17 @@ WMSU Health Services
         doc = self.get_object()
         
         # Check permissions - patient can download their own certificates, staff can download all
-        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or 
-                (hasattr(doc, 'patient') and hasattr(doc.patient, 'user') and doc.patient.user == request.user)):
+        is_owner = False
+        if hasattr(doc, 'patient') and doc.patient:
+            if getattr(doc.patient, 'user', None) == request.user:
+                is_owner = True
+            else:
+                try:
+                    is_owner = request.user.patient_profiles.filter(id=doc.patient_id).exists()
+                except Exception:
+                    is_owner = False
+
+        if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or is_owner):
             raise PermissionDenied("You don't have permission to download this certificate.")
         
         # Check if certificate exists and is issued
@@ -8786,7 +8822,7 @@ WMSU Health Services
                 user=doc.patient.user,
                 message="Your medical documents have been verified.",
                 type='success',
-                link='/patient/upload-documents'
+                link='/appointments'
             )
         
         serializer = self.get_serializer(doc)
@@ -8821,7 +8857,7 @@ WMSU Health Services
                 user=doc.patient.user,
                 message=f"Your medical documents were rejected. Reason: {reason}",
                 type='error',
-                link='/patient/upload-documents'
+                link='/appointments'
             )
         
         serializer = self.get_serializer(doc)

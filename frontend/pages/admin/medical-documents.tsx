@@ -130,7 +130,15 @@ function AdminMedicalDocuments() {
     for (const value of values) {
       if (value === 0 || value === false) return value;
       if (value === undefined || value === null) continue;
-      if (typeof value === 'string' && value.trim() === '') continue;
+      
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed === '') continue;
+        const lowered = trimmed.toLowerCase();
+        if (lowered === 'n/a' || lowered === 'na' || lowered === 'not specified') continue;
+        return trimmed;
+      }
+      
       return value;
     }
     return '';
@@ -892,7 +900,7 @@ function AdminMedicalDocuments() {
   const patientCivilStatus = resolveDisplayValue(patientProfile?.civil_status, selectedDocument?.civil_status);
   const patientUserType = resolveDisplayValue(patientProfile?.user_type, patientProfile?.grade_level, selectedDocument?.user_type, selectedDocument?.grade_level);
   const patientCourse = resolveDisplayValue(patientProfile?.course, patientProfile?.department, selectedDocument?.course, selectedDocument?.department);
-  const patientYearLevel = resolveDisplayValue(patientProfile?.year_level, selectedDocument?.year_level);
+  const patientYearLevel = resolveDisplayValue(patientProfile?.year_level, patientProfile?.grade_level, selectedDocument?.year_level, selectedDocument?.grade_level, selectedDocument?.patient_year_level, selectedDocument?.patient_grade_level);
   const patientStrand = resolveDisplayValue(patientProfile?.strand, selectedDocument?.strand);
   const patientEmployeeId = resolveDisplayValue(patientProfile?.employee_id, selectedDocument?.employee_id);
   const patientPositionType = resolveDisplayValue(patientProfile?.position_type, selectedDocument?.position_type);
@@ -922,12 +930,12 @@ function AdminMedicalDocuments() {
     selectedDocument?.picture
   );
   const patientPhotoUrl = typeof patientPhotoRaw === 'string' ? resolveFileUrl(patientPhotoRaw) : '';
-  const normalizedUserType = typeof patientUserType === 'string' ? patientUserType : '';
-  const isEmployeeUser = isEmployeeType(normalizedUserType);
-  const isCollegeUser = normalizedUserType === 'College' || normalizedUserType === 'Incoming Freshman';
-  const isSeniorHighUser = normalizedUserType === 'Senior High School';
-  const isHighSchoolUser = normalizedUserType === 'High School';
-  const isElementaryUser = normalizedUserType === 'Elementary' || normalizedUserType === 'Kindergarten';
+  const normalizedUserTypeLower = typeof patientUserType === 'string' ? patientUserType.toLowerCase() : '';
+  const isEmployeeUser = isEmployeeType(patientUserType);
+  const isCollegeUser = normalizedUserTypeLower === 'college' || normalizedUserTypeLower === 'incoming freshman' || normalizedUserTypeLower.includes('freshman');
+  const isSeniorHighUser = normalizedUserTypeLower.includes('senior high');
+  const isHighSchoolUser = normalizedUserTypeLower === 'high school';
+  const isElementaryUser = normalizedUserTypeLower === 'elementary' || normalizedUserTypeLower === 'kindergarten';
 
   return (
     <AdminLayout>

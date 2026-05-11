@@ -121,6 +121,14 @@ export const generateSingleFormPDF = async (
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
 
+    const formFullName = `${formData.first_name || ''} ${formData.middle_name || ''} ${formData.surname || ''}`.trim();
+    const resolvedPatientName = [
+      formData.patient_name,
+      formData.patient_display,
+      patientName,
+      formFullName
+    ].find((value) => typeof value === 'string' && value.trim() !== '') || 'Patient';
+
     const [wmsuLogo, healthLogo] = await Promise.all([
       loadLogo('/WMSU-Logo.jpg'),
       loadLogo('/WMSU-HealthLogo.png')
@@ -159,7 +167,7 @@ export const generateSingleFormPDF = async (
       margin: { left: 20, right: 20 },
       head: [['PATIENT INFORMATION', '']],
       body: [
-        ['Full Name', `${formData.first_name || ''} ${formData.middle_name || ''} ${formData.surname || ''}`.trim() || patientName],
+        ['Full Name', resolvedPatientName],
         ['File Number', formData.file_no || 'N/A'],
         ['Age / Sex', `${formData.age || 'N/A'} / ${formData.sex || 'N/A'}`],
         ['Examination Date', formData.date ? new Date(formData.date).toLocaleDateString() : 'N/A'],
@@ -374,7 +382,7 @@ export const generateSingleFormPDF = async (
       doc.text('Visual representation of current dental status.', 105, 220, { align: 'center' });
     }
 
-    doc.save(`${appointmentType}_${patientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    doc.save(`${appointmentType}_${resolvedPatientName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   } catch (error) {
     console.error('Error generating PDF:', error);
     throw error;
@@ -3058,6 +3066,7 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
   try {
     if (!waiver) return;
     const doc = new jsPDF();
+    const resolvedWaiverName = (patientName || '').trim() || waiver.full_name || 'N/A';
     const pageWidth = doc.internal.pageSize.width;
     const pageHeight = doc.internal.pageSize.getHeight();
     const leftMargin = 20;
@@ -3092,7 +3101,7 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
     doc.setFont('helvetica', 'normal');
 
     const paragraphs = [
-      `I, ${waiver.full_name || patientName}, of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:`,
+      `I, ${resolvedWaiverName}, of legal age, currently enrolled/employed at Western Mindanao State University, hereby acknowledge and agree to the following:`,
       'I have given explicit consent to the University Health Services Center (UHSC) to collect, use, store, and process my personal and sensitive health information for the purpose of promoting and maintaining my health and general well-being as part of the school community.',
       'I understand that this information will be used to maintain my medical records, facilitate consultations, and ensure that appropriate medical assistance is provided when necessary. I am aware that my data will be handled with the utmost confidentiality in accordance with the Data Privacy Act of 2012 (Republic Act 10173).',
       'This consent is given freely and voluntarily, and I understand that I may withdraw this consent at any time by providing a written notice to the University Health Services Center, subject to legal and university requirements.'
@@ -3138,7 +3147,7 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
     const signatureLineY = currentY + (waiver.signature ? signatureImageHeight + 6 : 18);
     doc.line(signatureX, signatureLineY, signatureX + signatureWidth, signatureLineY);
     doc.setFont('helvetica', 'bold');
-    doc.text((waiver.full_name || patientName).toUpperCase(), signatureX + signatureWidth / 2, signatureLineY + 5, { align: 'center' });
+    doc.text(resolvedWaiverName.toUpperCase(), signatureX + signatureWidth / 2, signatureLineY + 5, { align: 'center' });
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
     doc.text('Signature over Printed Name', signatureX + signatureWidth / 2, signatureLineY + 10, { align: 'center' });
@@ -3149,7 +3158,7 @@ export const exportWaiverPDF = async (waiver: any, patientName: string): Promise
     doc.text(`Document ID: WMSU-UHSC-WVR-${(waiver.id || 0).toString().padStart(6, '0')}`, leftMargin, pageHeight - 12);
     doc.text(`Generated on ${new Date().toLocaleString()}`, leftMargin, pageHeight - 7);
 
-    doc.save(`Waiver_${patientName.replace(/\s+/g, '_')}.pdf`);
+    doc.save(`Waiver_${resolvedWaiverName.replace(/\s+/g, '_')}.pdf`);
   } catch (error) {
     console.error('Failed to export waiver PDF:', error);
   }

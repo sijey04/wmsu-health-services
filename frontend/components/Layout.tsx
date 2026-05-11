@@ -133,6 +133,20 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
     }
   };
 
+  const getNotificationLink = (notification: any) => {
+    const message = (notification?.message || '').toLowerCase();
+    const routeToAppointments =
+      message.includes('medical certificate') ||
+      message.includes('medical documents') ||
+      message.includes('advised for consultation');
+
+    if (routeToAppointments) {
+      return '/appointments';
+    }
+
+    return notification?.link || '';
+  };
+
   const formatTime = (dateString: string) => {
     try {
       return dayjs(dateString).fromNow();
@@ -270,7 +284,11 @@ export default function Layout({ children, onLoginClick, onSignupClick, isLogged
                         notifications.map((n, index) => (
                           <div
                             key={n.id}
-                            onClick={() => { if (!n.is_read) handleMarkAsRead(n.id); if (n.link) router.push(n.link); }}
+                            onClick={() => {
+                              if (!n.is_read) handleMarkAsRead(n.id);
+                              const targetLink = getNotificationLink(n);
+                              if (targetLink) router.push(targetLink);
+                            }}
                             className={`p-3 sm:p-3 hover:bg-gray-50 transition-all duration-200 cursor-pointer group ${index === notifications.length - 1 ? '' : 'border-b border-gray-100'} ${!n.is_read ? 'bg-blue-50/30' : ''}`}
                           >
                             <div className="flex items-start space-x-3">

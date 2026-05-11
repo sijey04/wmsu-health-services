@@ -560,23 +560,32 @@ def generate_medical_certificate_pdf(medical_document):
     # Certificate content - exactly matching the viewer
     story.append(Paragraph("To Whom It May Concern:", opening_style))
     
-    # Get patient name from User model
+    # Get patient name from the patient profile first
     patient = medical_document.patient
-    patient_name_parts = []
-    if hasattr(patient, 'last_name') and patient.last_name:
-        patient_name_parts.append(patient.last_name.upper())
-    if hasattr(patient, 'first_name') and patient.first_name:
-        patient_name_parts.append(patient.first_name)
-    if hasattr(patient, 'middle_name') and patient.middle_name:
-        patient_name_parts.append(patient.middle_name)
-    
-    # Join name parts with comma after last name
-    if len(patient_name_parts) > 1:
-        patient_name = f"{patient_name_parts[0]}, {' '.join(patient_name_parts[1:])}"
-    elif len(patient_name_parts) == 1:
-        patient_name = patient_name_parts[0]
-    else:
-        patient_name = patient.username  # Fallback
+    patient_name = ''
+    if patient:
+        patient_name = getattr(patient, 'get_full_name', '') or ''
+        if patient_name == 'N/A':
+            patient_name = ''
+
+    if not patient_name and patient:
+        surname = getattr(patient, 'name', '') or ''
+        first_name = getattr(patient, 'first_name', '') or ''
+        middle_name = getattr(patient, 'middle_name', '') or ''
+        suffix = getattr(patient, 'suffix', '') or ''
+        given_parts = [part for part in [first_name, middle_name, suffix] if part]
+        if surname and given_parts:
+            patient_name = f"{surname}, {' '.join(given_parts)}"
+        elif surname:
+            patient_name = surname
+        elif given_parts:
+            patient_name = " ".join(given_parts)
+
+    if not patient_name and patient and getattr(patient, 'user', None):
+        patient_name = patient.user.get_full_name() or patient.user.username
+
+    if not patient_name:
+        patient_name = 'Patient'
     
     department = patient.department if hasattr(patient, 'department') and patient.department else 'student'
     
@@ -650,12 +659,24 @@ def generate_medical_certificate_pdf(medical_document):
             from .models import StaffDetails
             staff_details = StaffDetails.objects.filter(user=staff_user).first()
             if staff_details and staff_details.signature:
-                # Try to create signature image
+                signature_path = staff_details.signature.path
                 try:
-                    signature_image = Image(staff_details.signature.path, width=1.5*inch, height=0.6*inch)
-                except:
+                    if signature_path.lower().endswith('.webp'):
+                        try:
+                            from PIL import Image as PilImage
+                            buffer = io.BytesIO()
+                            with PilImage.open(signature_path) as pil_img:
+                                pil_img = pil_img.convert('RGBA')
+                                pil_img.save(buffer, format='PNG')
+                            buffer.seek(0)
+                            signature_image = Image(buffer, width=1.5*inch, height=0.6*inch)
+                        except Exception:
+                            signature_image = Image(signature_path, width=1.5*inch, height=0.6*inch)
+                    else:
+                        signature_image = Image(signature_path, width=1.5*inch, height=0.6*inch)
+                except Exception:
                     signature_image = None
-        except:
+        except Exception:
             pass
     
     # Build signature section - exactly like the viewer
@@ -726,11 +747,17 @@ def save_medical_certificate_pdf(medical_document, save_to_model=True):
     if save_to_model:
         # Save the PDF to the medical_certificate field
         patient = medical_document.patient
-        patient_identifier = patient.username
-        if hasattr(patient, 'student_id') and patient.student_id:
-            patient_identifier = patient.student_id
-        elif hasattr(patient, 'last_name') and patient.last_name:
-            patient_identifier = patient.last_name
+        patient_identifier = ''
+        if patient:
+            patient_identifier = getattr(patient, 'student_id', '') or ''
+            if not patient_identifier:
+                patient_identifier = getattr(patient, 'name', '') or ''
+            if not patient_identifier:
+                patient_identifier = getattr(patient, 'get_full_name', '') or ''
+            if not patient_identifier and getattr(patient, 'user', None):
+                patient_identifier = patient.user.username or patient.user.get_full_name()
+        if not patient_identifier:
+            patient_identifier = 'patient'
         filename = f"medical_certificate_{patient_identifier.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.pdf"
         medical_document.medical_certificate.save(
             filename,

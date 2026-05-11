@@ -463,7 +463,9 @@ function AdminDentalConsultations() {
       const response = await dentalFormAPI.checkFormExists(appointment.id);
       
       if (response.data && response.data.length > 0) {
-        await generateSingleFormPDF(response.data[0], 'dental', appointment.patient_name || 'Patient');
+        const formRecord = response.data[0];
+        const recordName = formRecord?.patient_name || appointment.patient_name || 'Patient';
+        await generateSingleFormPDF(formRecord, 'dental', recordName);
       } else {
         setFeedbackModal({ open: true, message: 'No dental form data found for this appointment.' });
       }
