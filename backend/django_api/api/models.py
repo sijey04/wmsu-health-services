@@ -407,27 +407,52 @@ class Patient(models.Model):
     def get_full_name(self):
         """
         Returns the patient's full name from profile fields.
-        Format: "Surname, First Name Middle Name Suffix"
         """
-        name_parts = []
         if self.name:
-            name_parts.append(self.name + ",")
-        if self.first_name:
-            name_parts.append(self.first_name)
-        if self.middle_name:
-            name_parts.append(self.middle_name)
-        if self.suffix:
-            name_parts.append(self.suffix)
-        
-        full_name = " ".join(name_parts).strip()
+            # If name is already formatted like "Surname, First Name", use it
+            if ',' in self.name:
+                return self.name
+            
+            # If we have first name, append it
+            if self.first_name:
+                parts = [self.name + ","]
+                given = []
+                given.append(self.first_name)
+                if self.middle_name:
+                    given.append(self.middle_name)
+                parts.append(" ".join(given))
+                if self.suffix:
+                    parts.append(self.suffix)
+                return " ".join(parts).strip()
+            
+            return self.name
+            
+        # Fallback to parts
+        parts = []
+        if getattr(self, 'first_name', '') or getattr(self, 'user', None):
+            last = getattr(self, 'surname', '') or (self.user.last_name if self.user else '')
+            first = getattr(self, 'first_name', '') or (self.user.first_name if self.user else '')
+            middle = getattr(self, 'middle_name', '')
+            
+            if last:
+                parts.append(last + ",")
+            if first:
+                given = [first]
+                if middle:
+                    given.append(middle)
+                parts.append(" ".join(given))
+                
+        full_name = " ".join(parts).strip()
         if full_name.endswith(","):
             full_name = full_name[:-1]
-        
-        # If still empty, fallback to user's full name
-        if not full_name and self.user:
-            return self.user.get_full_name()
             
-        return full_name
+        if full_name:
+            return full_name
+            
+        if self.user:
+            return self.user.get_full_name() or self.user.username
+            
+        return "Unknown Patient"
 
     @property
     def get_emergency_contact_full_name(self):

@@ -1641,27 +1641,35 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 status='issued'
             ).order_by('-certificate_issued_at', '-id').first()
             
-            if not medical_doc or not medical_doc.medical_certificate:
+            if not medical_doc:
                 return Response({
                     'error': 'No medical certificate found for this appointment'
                 }, status=status.HTTP_404_NOT_FOUND)
             
             # Serve the file
             import os
-            from django.http import FileResponse, Http404
+            from django.http import FileResponse, HttpResponse
             
-            file_path = medical_doc.medical_certificate.path
-            if not os.path.exists(file_path):
-                return Response({
-                    'error': 'Medical certificate file not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+            # Try to serve the physical file if it exists
+            if medical_doc.medical_certificate and medical_doc.medical_certificate.name and os.path.exists(medical_doc.medical_certificate.path):
+                response = FileResponse(
+                    open(medical_doc.medical_certificate.path, 'rb'),
+                    content_type='application/pdf',
+                    filename=f"medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"
+                )
+                response['Content-Disposition'] = f'inline; filename="medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"'
+                return response
             
-            # Create response for viewing (inline)
-            response = FileResponse(
-                open(file_path, 'rb'),
-                content_type='application/pdf',
-                filename=f"medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"
-            )
+            # If the file doesn't exist but we have a medical_doc, generate it on the fly
+            from .pdf_utils import generate_medical_certificate_pdf
+            
+            # Use the reviewing user for the signature if available
+            if medical_doc.reviewed_by:
+                medical_doc._issuing_user = medical_doc.reviewed_by
+                
+            pdf_buffer = generate_medical_certificate_pdf(medical_doc)
+            
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
             response['Content-Disposition'] = f'inline; filename="medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"'
             return response
             
@@ -1697,27 +1705,35 @@ class AppointmentViewSet(viewsets.ModelViewSet):
                 status='issued'
             ).order_by('-certificate_issued_at', '-id').first()
             
-            if not medical_doc or not medical_doc.medical_certificate:
+            if not medical_doc:
                 return Response({
                     'error': 'No medical certificate found for this appointment'
                 }, status=status.HTTP_404_NOT_FOUND)
             
             # Serve the file for download
             import os
-            from django.http import FileResponse, Http404
+            from django.http import FileResponse, HttpResponse
             
-            file_path = medical_doc.medical_certificate.path
-            if not os.path.exists(file_path):
-                return Response({
-                    'error': 'Medical certificate file not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+            # Try to serve the physical file if it exists
+            if medical_doc.medical_certificate and medical_doc.medical_certificate.name and os.path.exists(medical_doc.medical_certificate.path):
+                response = FileResponse(
+                    open(medical_doc.medical_certificate.path, 'rb'),
+                    content_type='application/pdf',
+                    filename=f"medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"
+                )
+                response['Content-Disposition'] = f'attachment; filename="medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"'
+                return response
             
-            # Create response for download (attachment)
-            response = FileResponse(
-                open(file_path, 'rb'),
-                content_type='application/pdf',
-                filename=f"medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"
-            )
+            # If the file doesn't exist but we have a medical_doc, generate it on the fly
+            from .pdf_utils import generate_medical_certificate_pdf
+            
+            # Use the reviewing user for the signature if available
+            if medical_doc.reviewed_by:
+                medical_doc._issuing_user = medical_doc.reviewed_by
+                
+            pdf_buffer = generate_medical_certificate_pdf(medical_doc)
+            
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="medical_certificate_{appointment.patient.name}_{appointment.appointment_date}.pdf"'
             return response
             
@@ -4018,28 +4034,36 @@ WMSU Health Services
         if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or is_owner):
             raise PermissionDenied("You don't have permission to view this certificate.")
         
-        # Check if certificate exists and is issued
-        if doc.status != 'issued' or not doc.medical_certificate:
+        # Check if certificate is issued
+        if doc.status != 'issued':
             return Response({
                 'error': 'Medical certificate not available or not issued yet'
             }, status=status.HTTP_404_NOT_FOUND)
         
         try:
             import os
-            from django.http import FileResponse
+            from django.http import FileResponse, HttpResponse
             
-            file_path = doc.medical_certificate.path
-            if not os.path.exists(file_path):
-                return Response({
-                    'error': 'Medical certificate file not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+            # Try to serve the physical file if it exists
+            if doc.medical_certificate and doc.medical_certificate.name and os.path.exists(doc.medical_certificate.path):
+                response = FileResponse(
+                    open(doc.medical_certificate.path, 'rb'),
+                    content_type='application/pdf',
+                    filename=f"medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime('%Y%m%d') if doc.certificate_issued_at else 'issued'}.pdf"
+                )
+                response['Content-Disposition'] = f'inline; filename="medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime("%Y%m%d") if doc.certificate_issued_at else "issued"}.pdf"'
+                return response
             
-            # Create response for viewing (inline)
-            response = FileResponse(
-                open(file_path, 'rb'),
-                content_type='application/pdf',
-                filename=f"medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime('%Y%m%d') if doc.certificate_issued_at else 'issued'}.pdf"
-            )
+            # If the file doesn't exist but status is issued, generate it on the fly
+            from .pdf_utils import generate_medical_certificate_pdf
+            
+            # Use the reviewing user for the signature if available
+            if doc.reviewed_by:
+                doc._issuing_user = doc.reviewed_by
+                
+            pdf_buffer = generate_medical_certificate_pdf(doc)
+            
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
             response['Content-Disposition'] = f'inline; filename="medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime("%Y%m%d") if doc.certificate_issued_at else "issued"}.pdf"'
             return response
             
@@ -4067,28 +4091,36 @@ WMSU Health Services
         if not (request.user.is_staff or request.user.user_type in ['staff', 'admin'] or is_owner):
             raise PermissionDenied("You don't have permission to download this certificate.")
         
-        # Check if certificate exists and is issued
-        if doc.status != 'issued' or not doc.medical_certificate:
+        # Check if certificate is issued
+        if doc.status != 'issued':
             return Response({
                 'error': 'Medical certificate not available or not issued yet'
             }, status=status.HTTP_404_NOT_FOUND)
         
         try:
             import os
-            from django.http import FileResponse
+            from django.http import FileResponse, HttpResponse
             
-            file_path = doc.medical_certificate.path
-            if not os.path.exists(file_path):
-                return Response({
-                    'error': 'Medical certificate file not found'
-                }, status=status.HTTP_404_NOT_FOUND)
+            # Try to serve the physical file if it exists
+            if doc.medical_certificate and doc.medical_certificate.name and os.path.exists(doc.medical_certificate.path):
+                response = FileResponse(
+                    open(doc.medical_certificate.path, 'rb'),
+                    content_type='application/pdf',
+                    filename=f"medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime('%Y%m%d') if doc.certificate_issued_at else 'issued'}.pdf"
+                )
+                response['Content-Disposition'] = f'attachment; filename="medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime("%Y%m%d") if doc.certificate_issued_at else "issued"}.pdf"'
+                return response
+                
+            # If the file doesn't exist but status is issued, generate it on the fly
+            from .pdf_utils import generate_medical_certificate_pdf
             
-            # Create response for download (attachment)
-            response = FileResponse(
-                open(file_path, 'rb'),
-                content_type='application/pdf',
-                filename=f"medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime('%Y%m%d') if doc.certificate_issued_at else 'issued'}.pdf"
-            )
+            # Use the reviewing user for the signature if available
+            if doc.reviewed_by:
+                doc._issuing_user = doc.reviewed_by
+                
+            pdf_buffer = generate_medical_certificate_pdf(doc)
+            
+            response = HttpResponse(pdf_buffer.getvalue(), content_type='application/pdf')
             response['Content-Disposition'] = f'attachment; filename="medical_certificate_{doc.patient.name}_{doc.certificate_issued_at.strftime("%Y%m%d") if doc.certificate_issued_at else "issued"}.pdf"'
             return response
             
