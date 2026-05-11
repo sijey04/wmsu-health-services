@@ -1874,6 +1874,32 @@ export default function PatientProfileSetupPage() {
     });
   };
 
+  const syncUserAccountFromProfile = async (profileData: any) => {
+    if (!profileData) return;
+
+    const userStr = localStorage.getItem('user');
+    const currentUser = userStr ? JSON.parse(userStr) : {};
+
+    const surname = cleanValue(profileData?.surname) || cleanValue(profileData?.name) || cleanValue(currentUser?.last_name);
+    const suffix = cleanValue(profileData?.suffix) || '';
+    const lastName = surname ? (suffix ? `${surname} ${suffix}` : surname) : '';
+    const firstName = cleanValue(profileData?.first_name) || cleanValue(currentUser?.first_name);
+    const middleName = cleanValue(profileData?.middle_name) || cleanValue(currentUser?.middle_name);
+    const email = cleanValue(profileData?.email) || cleanValue(currentUser?.email);
+
+    const formData = new FormData();
+    if (firstName) formData.append('first_name', String(firstName));
+    if (middleName) formData.append('middle_name', String(middleName));
+    if (lastName) formData.append('last_name', String(lastName));
+    if (email) formData.append('email', String(email));
+
+    if (Array.from(formData.keys()).length === 0) return;
+
+    await djangoApiClient.put('/users/me/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  };
+
   const handleProfileSave = async (): Promise<'success' | 'pending' | 'error'> => {
     setLoading(true);
     setError('');
@@ -2262,6 +2288,14 @@ export default function PatientProfileSetupPage() {
         if (userStr) {
           const userData = JSON.parse(userStr);
           const profileForStorage = savedProfile || profile;
+
+          try {
+            await syncUserAccountFromProfile(profileForStorage);
+          } catch (error) {
+            console.error('Error updating CustomUser credentials:', error);
+            setFeedbackMessage('Profile saved, but failed to update login credentials. Please check your name/email in Account Settings.');
+          }
+
           // Update user data with profile information
           // Note: profile.name is the surname/last name in the database
           userData.first_name = profileForStorage.first_name || userData.first_name;
