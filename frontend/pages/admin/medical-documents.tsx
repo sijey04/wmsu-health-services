@@ -138,9 +138,46 @@ function AdminMedicalDocuments() {
 
   const resolvePatientName = (data: any) => {
     if (!data) return 'N/A';
-    const parts = [data.first_name, data.middle_name, data.last_name].filter(Boolean).join(' ').trim();
-    if (parts) return parts;
-    return data.patient_display || data.patient_name || data.name || 'N/A';
+    const surname = data.name || data.surname || data.last_name || '';
+    const given = [data.first_name, data.middle_name].filter(Boolean).join(' ').trim();
+    const suffix = data.suffix ? ` ${data.suffix}` : '';
+    const combined = [surname, given].filter(Boolean).join(', ').trim();
+    if (combined) return `${combined}${suffix}`.trim();
+    return data.patient_display || data.patient_name || data.full_name || 'N/A';
+  };
+
+  const normalizeProfileList = (data: any) => {
+    if (Array.isArray(data)) return data;
+    if (data?.results && Array.isArray(data.results)) return data.results;
+    return [];
+  };
+
+  const getProfileDateValue = (profile: any) => {
+    const dateValue = profile?.updated_at || profile?.created_at || 0;
+    return new Date(dateValue).getTime();
+  };
+
+  const pickLatestProfile = (profiles: any[]) => {
+    if (!Array.isArray(profiles) || profiles.length === 0) return null;
+    const sorted = [...profiles].sort((a, b) => {
+      const dateDiff = getProfileDateValue(b) - getProfileDateValue(a);
+      if (dateDiff !== 0) return dateDiff;
+      return (b?.id || 0) - (a?.id || 0);
+    });
+    return sorted[0] || null;
+  };
+
+  const pickProfileForDocument = (profiles: any[], doc: any) => {
+    if (!Array.isArray(profiles) || profiles.length === 0) return null;
+    const docYearId = doc?.academic_year?.id ?? doc?.academic_year;
+    if (docYearId) {
+      const match = profiles.find(profile => {
+        const profileYearId = profile?.school_year?.id ?? profile?.school_year;
+        return profileYearId && String(profileYearId) === String(docYearId);
+      });
+      if (match) return match;
+    }
+    return pickLatestProfile(profiles);
   };
 
   // Handle academic year change
@@ -224,19 +261,36 @@ function AdminMedicalDocuments() {
       setPatientProfileLoading(true);
       try {
         const patientId = selectedDocument.patient;
+        let baseProfile: any = null;
+
         if (patientId) {
           const response = await patientsAPI.getById(patientId);
-          setPatientProfile(response.data || null);
-          return;
+          baseProfile = response.data || null;
         }
-        const studentId = selectedDocument.student_id || selectedDocument.patient_student_id;
+
+        const userId = baseProfile?.user;
+        if (userId) {
+          const response = await patientsAPI.getByUserId(userId);
+          const profiles = normalizeProfileList(response.data);
+          const matchedProfile = pickProfileForDocument(profiles, selectedDocument);
+          if (matchedProfile) {
+            setPatientProfile(matchedProfile);
+            return;
+          }
+        }
+
+        const studentId = baseProfile?.student_id || selectedDocument.student_id || selectedDocument.patient_student_id;
         if (studentId) {
           const response = await patientsAPI.getByStudentId(studentId);
-          const data = Array.isArray(response.data) ? response.data[0] : response.data;
-          setPatientProfile(data || null);
-          return;
+          const profiles = normalizeProfileList(response.data);
+          const matchedProfile = pickProfileForDocument(profiles, selectedDocument);
+          if (matchedProfile) {
+            setPatientProfile(matchedProfile);
+            return;
+          }
         }
-        setPatientProfile(null);
+
+        setPatientProfile(baseProfile);
       } catch (error) {
         console.warn('Failed to load patient profile:', error);
         setPatientProfile(null);

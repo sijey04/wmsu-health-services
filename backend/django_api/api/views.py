@@ -799,9 +799,23 @@ class PatientViewSet(viewsets.ModelViewSet):
             elif 'last_name' in request.data:
                 user.last_name = request.data.get('last_name')
                 user_updated = True
+            elif 'name' in request.data or 'suffix' in request.data:
+                surname = (patient_profile.name or '').strip()
+                if surname:
+                    if patient_profile.suffix:
+                        surname = f"{surname} {patient_profile.suffix.strip()}".strip()
+                    if user.last_name != surname:
+                        user.last_name = surname
+                        user_updated = True
             if 'middle_name' in request.data:
                 user.middle_name = request.data.get('middle_name')
                 user_updated = True
+            if 'email' in request.data:
+                new_email = request.data.get('email')
+                if new_email and user.email != new_email:
+                    user.email = new_email
+                    user.username = new_email
+                    user_updated = True
             if 'department' in request.data:
                 user.department_college = request.data.get('department')
                 user_updated = True
