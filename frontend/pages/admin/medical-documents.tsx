@@ -146,6 +146,33 @@ function AdminMedicalDocuments() {
     return data.patient_display || data.patient_name || data.full_name || 'N/A';
   };
 
+  const normalizeDisplayText = (value: any) => {
+    if (value === 0 || value === false) return value;
+    if (value === undefined || value === null) return '';
+    if (typeof value !== 'string') return value;
+    const trimmed = value.trim();
+    if (!trimmed) return '';
+    const lowered = trimmed.toLowerCase();
+    if (lowered === 'n/a' || lowered === 'na' || lowered === 'not specified') return '';
+    return trimmed;
+  };
+
+  const buildEmergencyContactName = (data: any) => {
+    if (!data) return '';
+    const parts = [
+      data.emergency_contact_first_name,
+      data.emergency_contact_middle_name,
+      data.emergency_contact_surname
+    ].filter(Boolean);
+    return parts.join(' ').trim();
+  };
+
+  const isEmployeeType = (type: string | undefined | null) => {
+    if (!type) return false;
+    const value = type.toLowerCase();
+    return value.includes('employee') || value.includes('staff') || value.includes('faculty') || value.includes('admin') || value.includes('teacher');
+  };
+
   const normalizeProfileList = (data: any) => {
     if (Array.isArray(data)) return data;
     if (data?.results && Array.isArray(data.results)) return data.results;
@@ -870,9 +897,10 @@ function AdminMedicalDocuments() {
   const patientEmployeeId = resolveDisplayValue(patientProfile?.employee_id, selectedDocument?.employee_id);
   const patientPositionType = resolveDisplayValue(patientProfile?.position_type, selectedDocument?.position_type);
   const emergencyName = resolveDisplayValue(
-    selectedDocument?.emergency_contact_name,
-    `${patientProfile?.emergency_contact_first_name || ''} ${patientProfile?.emergency_contact_middle_name || ''} ${patientProfile?.emergency_contact_surname || ''}`.trim(),
-    patientProfile?.emergency_contact_name
+    normalizeDisplayText(buildEmergencyContactName(patientProfile)),
+    normalizeDisplayText(buildEmergencyContactName(selectedDocument)),
+    normalizeDisplayText(patientProfile?.emergency_contact_name),
+    normalizeDisplayText(selectedDocument?.emergency_contact_name)
   );
   const emergencyNumber = resolveDisplayValue(patientProfile?.emergency_contact_number, selectedDocument?.emergency_contact_number, selectedDocument?.emergency_contact_phone);
   const emergencyRelationship = resolveDisplayValue(patientProfile?.emergency_contact_relationship, selectedDocument?.emergency_contact_relationship);
@@ -894,6 +922,12 @@ function AdminMedicalDocuments() {
     selectedDocument?.picture
   );
   const patientPhotoUrl = typeof patientPhotoRaw === 'string' ? resolveFileUrl(patientPhotoRaw) : '';
+  const normalizedUserType = typeof patientUserType === 'string' ? patientUserType : '';
+  const isEmployeeUser = isEmployeeType(normalizedUserType);
+  const isCollegeUser = normalizedUserType === 'College' || normalizedUserType === 'Incoming Freshman';
+  const isSeniorHighUser = normalizedUserType === 'Senior High School';
+  const isHighSchoolUser = normalizedUserType === 'High School';
+  const isElementaryUser = normalizedUserType === 'Elementary' || normalizedUserType === 'Kindergarten';
 
   return (
     <AdminLayout>
@@ -2503,26 +2537,52 @@ function AdminMedicalDocuments() {
                           <span className="text-base font-medium text-gray-700">User Type:</span>
                           <span className="text-base text-gray-900 font-medium">{patientUserType || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
-                          <span className="text-base font-medium text-gray-700">Course/Department:</span>
-                          <span className="text-base text-gray-900 font-medium">{patientCourse || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
-                          <span className="text-base font-medium text-gray-700">Year Level:</span>
-                          <span className="text-base text-gray-900 font-medium">{patientYearLevel || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
-                          <span className="text-base font-medium text-gray-700">Strand:</span>
-                          <span className="text-base text-gray-900 font-medium">{patientStrand || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
-                          <span className="text-base font-medium text-gray-700">Employee ID:</span>
-                          <span className="text-base text-gray-900 font-medium">{patientEmployeeId || 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
-                          <span className="text-base font-medium text-gray-700">Position Type:</span>
-                          <span className="text-base text-gray-900 font-medium">{patientPositionType || 'N/A'}</span>
-                        </div>
+                        {isEmployeeUser && (
+                          <>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Employee ID:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientEmployeeId || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Position Type:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientPositionType || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Department:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientDepartment || 'N/A'}</span>
+                            </div>
+                          </>
+                        )}
+                        {isCollegeUser && (
+                          <>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Course:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientCourse || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Year Level:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientYearLevel || 'N/A'}</span>
+                            </div>
+                          </>
+                        )}
+                        {isSeniorHighUser && (
+                          <>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Strand:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientStrand || 'N/A'}</span>
+                            </div>
+                            <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                              <span className="text-base font-medium text-gray-700">Year Level:</span>
+                              <span className="text-base text-gray-900 font-medium">{patientYearLevel || 'N/A'}</span>
+                            </div>
+                          </>
+                        )}
+                        {(isHighSchoolUser || isElementaryUser) && (
+                          <div className="flex justify-between py-2 border-b border-gray-200 last:border-b-0">
+                            <span className="text-base font-medium text-gray-700">Year Level:</span>
+                            <span className="text-base text-gray-900 font-medium">{patientYearLevel || 'N/A'}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
