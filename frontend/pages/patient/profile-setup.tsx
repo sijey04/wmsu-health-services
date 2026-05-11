@@ -46,6 +46,17 @@ export default function PatientProfileSetupPage() {
     return val;
   };
 
+  const normalizeSurnameValue = (value: any, fallback?: any) => {
+    const raw = cleanValue(value) || cleanValue(fallback) || '';
+    if (!raw) return '';
+    const text = String(raw).trim();
+    const commaIndex = text.indexOf(',');
+    if (commaIndex !== -1) {
+      return text.slice(0, commaIndex).trim();
+    }
+    return text;
+  };
+
   const normalizeGender = (value: any) => {
     const normalized = String(value || '').trim().toLowerCase();
     if (normalized === 'female' || normalized === 'f') return 'Female';
@@ -489,7 +500,7 @@ export default function PatientProfileSetupPage() {
           profileData.name = user.last_name;
         }
 
-        const normalizedSurname = profileData.surname || profileData.name;
+        const normalizedSurname = normalizeSurnameValue(profileData.surname, profileData.name);
         if (normalizedSurname) {
           profileData.name = normalizedSurname;
           profileData.surname = normalizedSurname;
@@ -1880,9 +1891,9 @@ export default function PatientProfileSetupPage() {
     const userStr = localStorage.getItem('user');
     const currentUser = userStr ? JSON.parse(userStr) : {};
 
-    const surname = cleanValue(profileData?.surname) || cleanValue(profileData?.name) || cleanValue(currentUser?.last_name);
+    const normalizedSurname = normalizeSurnameValue(profileData?.surname, profileData?.name) || normalizeSurnameValue(currentUser?.last_name);
     const suffix = cleanValue(profileData?.suffix) || '';
-    const lastName = surname ? (suffix ? `${surname} ${suffix}` : surname) : '';
+    const lastName = normalizedSurname ? (suffix ? `${normalizedSurname} ${suffix}` : normalizedSurname) : '';
     const firstName = cleanValue(profileData?.first_name) || cleanValue(currentUser?.first_name);
     const middleName = cleanValue(profileData?.middle_name) || cleanValue(currentUser?.middle_name);
     const email = cleanValue(profileData?.email) || cleanValue(currentUser?.email);
@@ -2051,7 +2062,7 @@ export default function PatientProfileSetupPage() {
 
       // Add the enhanced details to the profile
       // Create a merged profile object that includes all fields for saving
-      const normalizedSurname = profile?.surname || profile?.name || '';
+      const normalizedSurname = normalizeSurnameValue(profile?.surname, profile?.name);
       const enhancedProfile = {
         ...profile,
         name: normalizedSurname || profile?.name,
@@ -2302,9 +2313,12 @@ export default function PatientProfileSetupPage() {
           userData.middle_name = profileForStorage.middle_name || userData.middle_name;
           
           // Synchronize last_name with surname and suffix (matching backend pattern)
-          const surname = profileForStorage.name || userData.last_name;
+          const normalizedSurname = normalizeSurnameValue(profileForStorage.surname, profileForStorage.name)
+            || normalizeSurnameValue(userData.last_name);
           const suffix = profileForStorage.suffix || '';
-          userData.last_name = suffix ? `${surname} ${suffix}` : surname;
+          if (normalizedSurname) {
+            userData.last_name = suffix ? `${normalizedSurname} ${suffix}` : normalizedSurname;
+          }
           
           // Sync account details
           if (profileForStorage.email) userData.email = profileForStorage.email;
