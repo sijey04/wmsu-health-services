@@ -261,6 +261,11 @@ const AppointmentsPage = () => {
       return;
     }
 
+    if (isLunchBreakTime(newTime)) {
+      setRescheduleError('12:00 PM - 1:00 PM is reserved for lunch. Please choose another time.');
+      return;
+    }
+
     if (!isRescheduleTimeValid(newTime, newDate)) {
       const openTime = campusSchedule?.open_time || '08:00';
       const closeTime = campusSchedule?.close_time || '17:00';
@@ -553,8 +558,16 @@ const AppointmentsPage = () => {
     return false;
   };
 
+  const isLunchBreakTime = (time: string) => {
+    if (!time) return false;
+    const [h, m] = time.split(':').map(Number);
+    const minutes = h * 60 + m;
+    return minutes >= 12 * 60 && minutes < 13 * 60;
+  };
+
   const isRescheduleTimeValid = (time: string, dateStr: string) => {
     if (!time || !campusSchedule) return false;
+    if (isLunchBreakTime(time)) return false;
     
     const [h, m] = time.split(':').map(Number);
     const [openH, openM] = campusSchedule.open_time.split(':').map(Number);
@@ -1249,6 +1262,7 @@ const AppointmentsPage = () => {
                                   if (newValue) {
                                     setCalendarDate(newValue);
                                     setNewDate(newValue.format('YYYY-MM-DD'));
+                                    setRescheduleError('');
                                   }
                                 }}
                                 shouldDisableDate={isRescheduleDateDisabled}
@@ -1289,7 +1303,12 @@ const AppointmentsPage = () => {
                           <input
                             type="time"
                             value={newTime}
-                            onChange={(e) => setNewTime(e.target.value)}
+                            onChange={(e) => {
+                              setNewTime(e.target.value);
+                              if (rescheduleError) {
+                                setRescheduleError('');
+                              }
+                            }}
                             className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
                             disabled={isRescheduleTimeDisabled() || availableStaff.length === 0}
                             required
@@ -1306,7 +1325,7 @@ const AppointmentsPage = () => {
                           )}
                           {!isRescheduleTimeDisabled() && campusSchedule && (
                             <p className="text-blue-600 text-xs mt-1">
-                              Available hours: {campusSchedule.open_time} - {campusSchedule.close_time}
+                              Available hours: {campusSchedule.open_time} - {campusSchedule.close_time} (lunch break 12:00 - 13:00)
                             </p>
                           )}
                         </div>

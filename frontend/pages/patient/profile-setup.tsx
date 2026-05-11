@@ -484,6 +484,16 @@ export default function PatientProfileSetupPage() {
         
         applyLegacyAddressFallbacks(profileData);
         normalizeCivilStatus(profileData);
+
+        if (profileData.name && profileData.first_name && profileData.name === profileData.first_name && user.last_name) {
+          profileData.name = user.last_name;
+        }
+
+        const normalizedSurname = profileData.surname || profileData.name;
+        if (normalizedSurname) {
+          profileData.name = normalizedSurname;
+          profileData.surname = normalizedSurname;
+        }
       }
       
       // Process enhanced ComorbidIllness details if available
@@ -636,6 +646,7 @@ export default function PatientProfileSetupPage() {
           // Use autofill data as the profile
           let defaultProfile: any = {
             name: autofillData.name || '',
+            surname: autofillData.surname || autofillData.name || autofillData.last_name || '',
             first_name: autofillData.first_name || '',
             middle_name: autofillData.middle_name || '',
             suffix: autofillData.suffix || '',
@@ -665,6 +676,13 @@ export default function PatientProfileSetupPage() {
               defaultProfile[key] = value;
             }
           });
+
+          if (!defaultProfile.surname && defaultProfile.name) {
+            defaultProfile.surname = defaultProfile.name;
+          }
+          if (!defaultProfile.name && defaultProfile.surname) {
+            defaultProfile.name = defaultProfile.surname;
+          }
           
           // Process enhanced ComorbidIllness details if available
           if (autofillData.comorbid_illness_details && typeof autofillData.comorbid_illness_details === 'object') {
@@ -746,6 +764,7 @@ export default function PatientProfileSetupPage() {
           const userStr = localStorage.getItem('user');
           let defaultProfile: any = {
             name: '',
+            surname: '',
             first_name: '',
             middle_name: '',
             suffix: '',
@@ -760,7 +779,10 @@ export default function PatientProfileSetupPage() {
           
           if (userStr) {
             const user = JSON.parse(userStr);
-            if (user.last_name) defaultProfile.name = user.last_name;
+            if (user.last_name) {
+              defaultProfile.name = user.last_name;
+              defaultProfile.surname = user.last_name;
+            }
             if (user.first_name) defaultProfile.first_name = user.first_name;
             if (user.middle_name) defaultProfile.middle_name = user.middle_name;
             if (user.suffix) defaultProfile.suffix = user.suffix;
@@ -1814,7 +1836,9 @@ export default function PatientProfileSetupPage() {
     }
     
     setProfile((prev: any) => {
-      const newProfile = { ...prev, [field]: sanitizedValue };
+      const newProfile = field === 'name'
+        ? { ...prev, name: sanitizedValue, surname: sanitizedValue }
+        : { ...prev, [field]: sanitizedValue };
       
       // Debug logging for nationality_specify and religion_specify
       if (field === 'nationality_specify' || field === 'religion_specify') {
@@ -2001,8 +2025,11 @@ export default function PatientProfileSetupPage() {
 
       // Add the enhanced details to the profile
       // Create a merged profile object that includes all fields for saving
+      const normalizedSurname = profile?.surname || profile?.name || '';
       const enhancedProfile = {
         ...profile,
+        name: normalizedSurname || profile?.name,
+        surname: normalizedSurname || profile?.surname,
         // Sub-fields should already be in profile if they were autofilled correctly in fetchProfile
         maintenance_medications: cleanedMeds,
         vaccination_history: Object.keys(cleanedVaxHistory).length > 0 ? cleanedVaxHistory : null,
@@ -2051,7 +2078,7 @@ export default function PatientProfileSetupPage() {
       
       // Whitelist of fields allowed to be sent to the backend
       const allowedFields = [
-        'name', 'first_name', 'last_name', 'middle_name', 'suffix', 'student_id', 'employee_id', 'user_type',
+        'name', 'surname', 'first_name', 'middle_name', 'suffix', 'student_id', 'employee_id', 'user_type',
         'course', 'year_level', 'strand', 'department', 'position_type',
         'gender', 'date_of_birth', 'age', 'blood_type', 'contact_number', 'email',
         'religion', 'nationality', 'religion_specify', 'nationality_specify', 'civil_status',

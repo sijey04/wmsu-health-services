@@ -293,6 +293,12 @@ export default function DentalAppointmentPage() {
     }
   }, [date, dentistStaff]);
 
+  useEffect(() => {
+    if (availableStaff.length > 0 && error && error.toLowerCase().includes('no dentist')) {
+      setError('');
+    }
+  }, [availableStaff.length, error]);
+
   const checkRequirements = async () => {
     // Removed - this is the final step, no requirements checking needed
   };
@@ -463,10 +469,13 @@ export default function DentalAppointmentPage() {
         setSelectedStaff(available[0]);
       } else if (available.length === 0) {
         setSelectedStaff(null);
-        setError('No dentists available on this date. Please select another date.');
       } else if (selectedStaff && !available.find(s => s.id === selectedStaff.id)) {
         // If previously selected staff is no longer available, select first available
         setSelectedStaff(available[0]);
+      }
+
+      if (available.length > 0 && error && error.toLowerCase().includes('no dentist')) {
+        setError('');
       }
     } catch (error) {
       console.error('Error checking available staff:', error);
@@ -493,6 +502,13 @@ export default function DentalAppointmentPage() {
     return operatingDays.includes(dayName);
   }
 
+  const isLunchBreakTime = (time: string): boolean => {
+    if (!time) return false;
+    const [h, m] = time.split(':').map(Number);
+    const minutes = h * 60 + m;
+    return minutes >= 12 * 60 && minutes < 13 * 60;
+  };
+
   function isTimeValid(time: string, dateStr: string): boolean {
     if (!time || !campusSchedule) return false;
     
@@ -506,6 +522,7 @@ export default function DentalAppointmentPage() {
     const closeMinutes = closeH * 60 + closeM;
     
     if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) return false;
+    if (isLunchBreakTime(time)) return false;
     
     // If today, time must be in the future
     const today = new Date();
@@ -556,6 +573,10 @@ export default function DentalAppointmentPage() {
     
     // Validate appointment data
     if (!isTimeValid(time, date)) {
+      if (isLunchBreakTime(time)) {
+        setError('12:00 PM - 1:00 PM is reserved for lunch. Please choose another time.');
+        return;
+      }
       const openTime = campusSchedule?.open_time || '08:00';
       const closeTime = campusSchedule?.close_time || '17:00';
       setError(`Please select a valid time between ${openTime} and ${closeTime} that is not in the past.`);
@@ -790,7 +811,13 @@ export default function DentalAppointmentPage() {
                       <input
                         type="time"
                         value={time}
-                        onChange={(e) => setTime(e.target.value)}
+                        onChange={(e) => {
+                          const nextTime = e.target.value;
+                          setTime(nextTime);
+                          if (error && (error.toLowerCase().includes('lunch') || error.toLowerCase().includes('valid time'))) {
+                            setError('');
+                          }
+                        }}
                         className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
                         disabled={isTimeInputDisabled()}
                         required
@@ -798,6 +825,11 @@ export default function DentalAppointmentPage() {
                       {isTimeInputDisabled() && (
                         <p className="text-gray-500 text-sm mt-1">
                           Please select a valid date first.
+                        </p>
+                      )}
+                      {time && isLunchBreakTime(time) && !isTimeInputDisabled() && (
+                        <p className="text-red-500 text-sm mt-1 font-medium">
+                          12:00 PM - 1:00 PM is reserved for lunch.
                         </p>
                       )}
                     </div>

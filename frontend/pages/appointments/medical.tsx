@@ -177,6 +177,12 @@ export default function MedicalAppointmentPage() {
     }
   }, [date, medicalStaff]);
 
+  useEffect(() => {
+    if (availableStaff.length > 0 && error && error.toLowerCase().includes('no medical staff')) {
+      setError('');
+    }
+  }, [availableStaff.length, error]);
+
   const loadCampusSchedule = async () => {
     try {
       const response = await djangoApiClient.get('/admin-controls/campus_schedules/');
@@ -510,6 +516,13 @@ export default function MedicalAppointmentPage() {
     return [campusSchedule.open_time, campusSchedule.close_time];
   }
 
+  const isLunchBreakTime = (time: string): boolean => {
+    if (!time) return false;
+    const [h, m] = time.split(':').map(Number);
+    const minutes = h * 60 + m;
+    return minutes >= 12 * 60 && minutes < 13 * 60;
+  };
+
   function isTimeValid(time, dateStr) {
     if (!time || !campusSchedule) return false;
     
@@ -523,6 +536,7 @@ export default function MedicalAppointmentPage() {
     const closeMinutes = closeH * 60 + closeM;
     
     if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) return false;
+    if (isLunchBreakTime(time)) return false;
     
     // If today, time must be in the future
     const today = new Date();
@@ -586,6 +600,10 @@ export default function MedicalAppointmentPage() {
       return;
     }
     if (!isTimeValid(time, date)) {
+      if (isLunchBreakTime(time)) {
+        setError('12:00 PM - 1:00 PM is reserved for lunch. Please choose another time.');
+        return;
+      }
       const openTime = campusSchedule?.open_time || '08:00';
       const closeTime = campusSchedule?.close_time || '17:00';
       setError(`Please select a valid time between ${openTime} and ${closeTime} that is not in the past.`);
@@ -835,10 +853,30 @@ export default function MedicalAppointmentPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Time</label>
-                  <input type="time" value={time} onChange={e => setTime(e.target.value)} required min="08:00" max="17:00" className={`block w-full border-gray-300 rounded-lg py-2 px-3 ${isTimeInputDisabled() ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}`} disabled={isTimeInputDisabled()} />
+                  <input
+                    type="time"
+                    value={time}
+                    onChange={e => {
+                      const nextTime = e.target.value;
+                      setTime(nextTime);
+                      if (error && (error.toLowerCase().includes('lunch') || error.toLowerCase().includes('valid time'))) {
+                        setError('');
+                      }
+                    }}
+                    required
+                    min="08:00"
+                    max="17:00"
+                    className={`block w-full border-gray-300 rounded-lg py-2 px-3 ${isTimeInputDisabled() ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
+                    disabled={isTimeInputDisabled()}
+                  />
                   <div className="mt-1 text-center text-xs text-gray-500">
                     {hours ? formatTimeRange(hours[0], hours[1]) : 'Closed'}
                   </div>
+                  {time && isLunchBreakTime(time) && !isTimeInputDisabled() && (
+                    <div className="text-red-600 text-xs font-semibold mt-1 text-center">
+                      12:00 PM - 1:00 PM is reserved for lunch.
+                    </div>
+                  )}
                   {date && !isCampusOpen(campus, date) && (
                     <div className="text-red-600 text-xs font-semibold mt-1 text-center">
                       Campus is closed on this day. Please select a weekday.

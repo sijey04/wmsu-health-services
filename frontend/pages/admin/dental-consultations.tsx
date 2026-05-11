@@ -13,6 +13,11 @@ import { useRouter } from 'next/router';
 import PatientDentalHistoryModal from '../../components/PatientDentalHistoryModal';
 import FormViewerModal from '../../components/FormViewerModal';
 import { ClockIcon } from '@heroicons/react/24/outline';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import dayjs, { Dayjs } from 'dayjs';
 
 function AdminDentalConsultations() {
   const router = useRouter();
@@ -1438,24 +1443,119 @@ function AdminDentalConsultations() {
 
 // Reschedule Modal Component
 function RescheduleModal({ open, appointment, onClose, onReschedule }) {
-  const { useState, useEffect } = require('react');
   const [newDate, setNewDate] = useState('');
   const [newTime, setNewTime] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
+  const [calendarDate, setCalendarDate] = useState<Dayjs | null>(null);
+  const [campusSchedule, setCampusSchedule] = useState<any>(null);
+  const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
     if (appointment) {
-      setNewDate(appointment.appointment_date);
-      setNewTime(appointment.appointment_time);
+      setNewDate(appointment.appointment_date || '');
+      setNewTime(appointment.appointment_time || '');
       setReason('');
+      setValidationError('');
+      const initialDate = appointment.appointment_date ? dayjs(appointment.appointment_date) : null;
+      setCalendarDate(initialDate && initialDate.isValid() ? initialDate : null);
+      loadCampusSchedule(appointment.campus);
     }
   }, [appointment]);
+
+  const loadCampusSchedule = async (campusValue?: string) => {
+    const selectedCampus = (campusValue || 'A').toString().toUpperCase().trim();
+    try {
+      const scheduleRes = await djangoApiClient.get('/admin-controls/campus_schedules/');
+      const schedules = scheduleRes.data || [];
+      const schedule = schedules.find((s: any) => {
+        const sCampus = s.campus?.toString().toUpperCase().trim();
+        return sCampus === selectedCampus || sCampus === `CAMPUS ${selectedCampus}` || sCampus?.endsWith(selectedCampus);
+      });
+
+      setCampusSchedule(schedule || {
+        campus: selectedCampus,
+        open_time: '08:00',
+        close_time: '17:00',
+        operating_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        is_active: true
+      });
+    } catch (error) {
+      setCampusSchedule({
+        campus: selectedCampus,
+        open_time: '08:00',
+        close_time: '17:00',
+        operating_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        is_active: true
+      });
+    }
+  };
+
+  const isLunchBreakTime = (time: string) => {
+    if (!time) return false;
+    const [h, m] = time.split(':').map(Number);
+    const minutes = h * 60 + m;
+    return minutes >= 12 * 60 && minutes < 13 * 60;
+  };
+
+  const isRescheduleDateDisabled = (dateVal: Dayjs) => {
+    const minDate = dayjs().add(3, 'day');
+    const maxDate = dayjs().add(3, 'month');
+
+    if (dateVal.isBefore(minDate, 'day')) return true;
+    if (dateVal.isAfter(maxDate, 'day')) return true;
+
+    const dayName = dateVal.format('dddd');
+    const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
+    if (operatingDays.length > 0 && !operatingDays.includes(dayName)) return true;
+
+    return false;
+  };
+
+  const isRescheduleTimeDisabled = () => {
+    if (!campusSchedule || !newDate || !calendarDate || isRescheduleDateDisabled(calendarDate)) return true;
+    return false;
+  };
+
+  const isRescheduleTimeValid = (time: string, dateStr: string) => {
+    if (!time || !campusSchedule) return false;
+    if (isLunchBreakTime(time)) return false;
+
+    const [h, m] = time.split(':').map(Number);
+    const [openH, openM] = campusSchedule.open_time.split(':').map(Number);
+    const [closeH, closeM] = campusSchedule.close_time.split(':').map(Number);
+
+    const timeMinutes = h * 60 + m;
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+
+    if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) return false;
+
+    const today = new Date();
+    const selected = new Date(dateStr + 'T' + time);
+    if (dateStr === today.toISOString().slice(0, 10)) {
+      if (selected <= today) return false;
+    }
+
+    return true;
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!newDate || !newTime || !reason) {
-      alert('Please fill in all fields');
+      setValidationError('Please fill in all fields.');
+      return;
+    }
+    if (isLunchBreakTime(newTime)) {
+      setValidationError('12:00 PM - 1:00 PM is reserved for lunch. Please choose another time.');
+      return;
+    }
+    if (!isRescheduleTimeValid(newTime, newDate)) {
+      const openTime = campusSchedule?.open_time || '08:00';
+      const closeTime = campusSchedule?.close_time || '17:00';
+      setValidationError(`Please select a valid time between ${openTime} and ${closeTime} that is not in the past.`);
       return;
     }
     setLoading(true);
@@ -1483,29 +1583,81 @@ function RescheduleModal({ open, appointment, onClose, onReschedule }) {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               New Date *
             </label>
-            <input
-              type="date"
-              value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#800000]"
-              required
-            />
+            <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DateCalendar
+                  value={calendarDate}
+                  onChange={(newValue: Dayjs | null) => {
+                    if (newValue) {
+                      setCalendarDate(newValue);
+                      setNewDate(newValue.format('YYYY-MM-DD'));
+                      setValidationError('');
+                    }
+                  }}
+                  shouldDisableDate={isRescheduleDateDisabled}
+                  minDate={dayjs().startOf('year')}
+                  maxDate={dayjs().endOf('year')}
+                  slots={{
+                    day: (dayProps: any) => {
+                      const dayName = dayProps.day.format('dddd');
+                      const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
+                      const isCampusClosed = operatingDays.length > 0 && !operatingDays.includes(dayName);
+                      return (
+                        <div className="relative">
+                          <PickersDay {...dayProps} />
+                          {isCampusClosed && (
+                            <div className="absolute top-1 right-1 w-1 h-1 bg-gray-400 rounded-full"></div>
+                          )}
+                        </div>
+                      );
+                    }
+                  }}
+                  sx={{
+                    width: '100%',
+                    '& .MuiPickersCalendarHeader-root': { color: '#800000' },
+                    '& .MuiDayCalendar-weekDayLabel': { color: '#800000', fontWeight: 'bold' },
+                    '& .MuiPickersDay-today': { border: '1px solid #800000 !important' },
+                    '& .Mui-selected': { backgroundColor: '#800000 !important', color: 'white !important' },
+                    '& .Mui-selected:hover': { backgroundColor: '#600000 !important' }
+                  }}
+                />
+              </LocalizationProvider>
+            </div>
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               New Time *
             </label>
             <input
               type="time"
               value={newTime}
-              onChange={(e) => setNewTime(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#800000]"
+              onChange={(e) => {
+                setNewTime(e.target.value);
+                setValidationError('');
+              }}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+              disabled={isRescheduleTimeDisabled()}
               required
             />
+            {isRescheduleTimeDisabled() && !newDate && (
+              <p className="text-gray-500 text-xs mt-1">
+                Please select a valid date first.
+              </p>
+            )}
+            {campusSchedule && !isRescheduleTimeDisabled() && (
+              <p className="text-blue-600 text-xs mt-1">
+                Available hours: {campusSchedule.open_time} - {campusSchedule.close_time} (lunch break 12:00 - 13:00)
+              </p>
+            )}
+            {newTime && isLunchBreakTime(newTime) && !isRescheduleTimeDisabled() && (
+              <p className="text-red-500 text-xs mt-1 font-medium">
+                12:00 PM - 1:00 PM is reserved for lunch.
+              </p>
+            )}
           </div>
 
           <div className="mb-4">
@@ -1521,6 +1673,12 @@ function RescheduleModal({ open, appointment, onClose, onReschedule }) {
               required
             />
           </div>
+
+          {validationError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-xs">{validationError}</p>
+            </div>
+          )}
 
           <div className="flex justify-end space-x-2">
             <button
