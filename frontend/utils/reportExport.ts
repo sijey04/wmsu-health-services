@@ -1964,14 +1964,13 @@ function addClinicianPerformancePage(pdf: any, clinicians: any[], pageWidth: num
     headStyles: { fillColor: [139, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
   });
 
-  const finalY = (pdf as any).lastAutoTable?.finalY || (yPos + 12);
-  yPos = finalY + 12; // Added vertical spacing after table
+  yPos = ((pdf as any).lastAutoTable?.finalY || yPos) + 20; // Increased vertical spacing after table to 20
 
   // Summary Insights
   pdf.setFontSize(11);
   pdf.setFont('helvetica', 'bold');
   pdf.text('Performance Insights', leftMargin, yPos);
-  yPos += 8;
+  yPos += 10; // Increased from 8
 
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'normal');
@@ -2633,7 +2632,7 @@ function addMedicineUsagePage(pdf: any, medicineUsage: any[], medicalMedCount: n
     columnStyles: { 0: { cellWidth: 50, fontStyle: 'bold' } }
   });
 
-  yPos = ((pdf as any).lastAutoTable?.finalY || yPos) + 12; // Added vertical spacing after table
+  yPos = ((pdf as any).lastAutoTable?.finalY || yPos) + 18; // Increased vertical spacing after table
 
   // Check if we need a new page for detailed breakdown
   if (yPos > pageHeight - 50) {
@@ -2643,7 +2642,7 @@ function addMedicineUsagePage(pdf: any, medicineUsage: any[], medicalMedCount: n
 
   pdf.setFontSize(11);
   pdf.text('DETAILED ITEM BREAKDOWN', leftMargin, yPos);
-  yPos += 8;
+  yPos += 10; // Increased from 8
 
   const tableBody = Array.isArray(medicineUsage) ? medicineUsage.sort((a, b) => b.quantity - a.quantity).map(item => [
     item.name || 'Unnamed Item',

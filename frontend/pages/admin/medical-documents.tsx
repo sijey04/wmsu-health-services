@@ -934,8 +934,9 @@ function AdminMedicalDocuments() {
   const isEmployeeUser = isEmployeeType(patientUserType);
   const isCollegeUser = normalizedUserTypeLower === 'college' || normalizedUserTypeLower === 'incoming freshman' || normalizedUserTypeLower.includes('freshman');
   const isSeniorHighUser = normalizedUserTypeLower.includes('senior high');
-  const isHighSchoolUser = normalizedUserTypeLower === 'high school';
-  const isElementaryUser = normalizedUserTypeLower === 'elementary' || normalizedUserTypeLower === 'kindergarten';
+  const isHighSchoolUser = normalizedUserTypeLower === 'high school' || normalizedUserTypeLower.includes('junior high');
+  const isElementaryUser = normalizedUserTypeLower === 'elementary' || normalizedUserTypeLower === 'kindergarten' || normalizedUserTypeLower.includes('elementary');
+  const isStudentUser = !isEmployeeUser && normalizedUserTypeLower !== '' && normalizedUserTypeLower !== 'admin' && normalizedUserTypeLower !== 'staff';
 
   return (
     <AdminLayout>

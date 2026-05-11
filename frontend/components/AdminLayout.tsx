@@ -264,27 +264,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     // Group permissions for other staff
     const isMedical = ['doctor', 'nurse', 'medical_staff', 'receptionist'].includes(role);
     const isDental = ['dentist', 'dental_staff', 'receptionist'].includes(role);
-    const isStaff = role === 'staff' || user.is_staff;
 
     switch (link) {
       case 'dashboard':
         return true;
       case 'appointments':
-        return isMedical || isDental || isStaff;
+        return isMedical || isDental;
       case 'content':
         return false; // Only admin (handled above)
       case 'dental':
-        return isDental || isStaff;
+        return isDental;
       case 'medical':
-        return isMedical || isStaff;
+        return isMedical;
       case 'documents':
-        return isMedical || isStaff;
+        return isMedical;
       case 'profiles':
         return true; // All staff can see profiles
       case 'staff':
-        return isStaff;
+        return false; // Only admin (handled above)
       case 'users':
-        return isStaff;
+        return false; // Only admin (handled above)
       case 'controls':
         return false; // Only admin (handled above)
       default:

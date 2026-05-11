@@ -291,6 +291,20 @@ const AppointmentsPage = () => {
     });
   };
 
+  // Helper to extract error message from Blob response
+  const extractErrorMessage = async (err: any, defaultMessage: string) => {
+    if (err.response?.data instanceof Blob) {
+      try {
+        const text = await err.response.data.text();
+        const json = JSON.parse(text);
+        return json.error || defaultMessage;
+      } catch (e) {
+        return defaultMessage;
+      }
+    }
+    return err.response?.data?.error || err.message || defaultMessage;
+  };
+
   // Handle medical certificate view for standalone certificates
   const handleViewStandaloneCertificate = async (certificate: any) => {
     try {
@@ -310,7 +324,8 @@ const AppointmentsPage = () => {
       }, 1000);
 
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to view medical certificate.');
+      const errorMessage = await extractErrorMessage(err, 'Failed to view medical certificate.');
+      setError(errorMessage);
     } finally {
       setActionLoading(false);
     }
@@ -338,7 +353,8 @@ const AppointmentsPage = () => {
       window.URL.revokeObjectURL(url);
 
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to download medical certificate.');
+      const errorMessage = await extractErrorMessage(err, 'Failed to download medical certificate.');
+      setError(errorMessage);
     } finally {
       setActionLoading(false);
     }
@@ -363,7 +379,8 @@ const AppointmentsPage = () => {
       }, 1000);
 
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to view medical certificate.');
+      const errorMessage = await extractErrorMessage(err, 'Failed to view medical certificate.');
+      setError(errorMessage);
     } finally {
       setActionLoading(false);
     }
@@ -391,7 +408,8 @@ const AppointmentsPage = () => {
       window.URL.revokeObjectURL(url);
 
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to download medical certificate.');
+      const errorMessage = await extractErrorMessage(err, 'Failed to download medical certificate.');
+      setError(errorMessage);
     } finally {
       setActionLoading(false);
     }
