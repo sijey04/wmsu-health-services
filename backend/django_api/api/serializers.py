@@ -68,6 +68,52 @@ class Base64ImageField(serializers.ImageField):
             return str(value) if value else None
 
 
+class Base64PreviewFileField(serializers.FileField):
+    """Return base64 data URIs for image files; otherwise return the file URL."""
+
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            try:
+                format, imgstr = data.split(';base64,')
+                ext = format.split('/')[-1]
+                if ';' in ext:
+                    ext = ext.split(';')[0]
+                if ext == 'jpeg':
+                    ext = 'jpg'
+                file_id = uuid.uuid4()
+                data = ContentFile(base64.b64decode(imgstr), name=f"{file_id}.{ext}")
+            except Exception as e:
+                raise serializers.ValidationError(f"Invalid base64 image: {str(e)}")
+        return super().to_internal_value(data)
+
+    def to_representation(self, value):
+        if not value:
+            return None
+
+        try:
+            name = getattr(value, 'name', '') or ''
+            ext = name.split('.')[-1].lower()
+            if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp']:
+                if hasattr(value, 'open'):
+                    with value.open('rb') as f:
+                        file_data = f.read()
+                else:
+                    file_data = value.read()
+
+                if ext == 'jpg':
+                    ext = 'jpeg'
+
+                base64_data = base64.b64encode(file_data).decode('utf-8')
+                return f"data:image/{ext};base64,{base64_data}"
+        except Exception:
+            pass
+
+        try:
+            return super().to_representation(value)
+        except Exception:
+            return str(value) if value else None
+
+
 class UserSerializer(serializers.ModelSerializer):
     patient_profile = serializers.PrimaryKeyRelatedField(read_only=True)
     blocked_by_name = serializers.CharField(source='blocked_by.get_full_name', read_only=True)
@@ -621,12 +667,12 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
 
 
 class MedicalDocumentSerializer(serializers.ModelSerializer):
-    chest_xray = serializers.FileField(use_url=True, required=False, allow_null=True)
-    cbc = serializers.FileField(use_url=True, required=False, allow_null=True)
-    blood_typing = serializers.FileField(use_url=True, required=False, allow_null=True)
-    urinalysis = serializers.FileField(use_url=True, required=False, allow_null=True)
-    drug_test = serializers.FileField(use_url=True, required=False, allow_null=True)
-    hepa_b = serializers.FileField(use_url=True, required=False, allow_null=True)
+    chest_xray = Base64PreviewFileField(use_url=True, required=False, allow_null=True)
+    cbc = Base64PreviewFileField(use_url=True, required=False, allow_null=True)
+    blood_typing = Base64PreviewFileField(use_url=True, required=False, allow_null=True)
+    urinalysis = Base64PreviewFileField(use_url=True, required=False, allow_null=True)
+    drug_test = Base64PreviewFileField(use_url=True, required=False, allow_null=True)
+    hepa_b = Base64PreviewFileField(use_url=True, required=False, allow_null=True)
     medical_certificate = serializers.FileField(use_url=True, required=False, allow_null=True)
     
     # Make patient field not required for creation (it will be set automatically in perform_create)

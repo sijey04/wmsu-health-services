@@ -501,51 +501,70 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           <div className="flex items-center space-x-2 sm:space-x-6">
             {/* Notification Bell */}
-            <div className="relative cursor-pointer group" tabIndex={0} onClick={() => setShowNotifications(v => !v)}>
-              <svg className="w-6 h-6 sm:w-7 sm:h-7 text-[#800000] group-hover:text-[#a83232] transition-colors duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              {/* Red dot for unread notifications */}
-              {unreadCount > 0 && (
-                <span className="absolute top-0 right-0 block h-2 w-2 sm:h-3 sm:w-3 rounded-full ring-2 ring-white bg-red-500 animate-pulse"></span>
-              )}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(v => !v)}
+                className="relative p-1.5 sm:p-2 text-gray-500 hover:text-[#800000] transition-colors duration-200"
+              >
+                <svg className="w-6 h-6 sm:w-7 sm:h-7 text-[#800000]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-4 h-4 sm:w-5 sm:h-5 bg-[#800000] rounded-full text-[10px] text-white flex items-center justify-center font-medium shadow-sm">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
               {/* Notification dropdown */}
               {showNotifications && (
                 <div
                   ref={notificationRef}
                   onClick={(event) => event.stopPropagation()}
-                  className="absolute right-0 mt-2 w-72 sm:w-80 bg-white border border-gray-200 rounded-lg shadow-lg z-50 animate-fade-in-up"
+                  className="fixed sm:absolute inset-x-0 sm:inset-x-auto top-16 sm:top-auto sm:right-0 mt-0 sm:mt-2 mx-3 sm:mx-0 w-auto sm:w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 max-h-[calc(100vh-5rem)] sm:max-h-96 overflow-hidden animate-fade-in-up"
                 >
-                  <div className="p-4 border-b font-semibold text-[#800000] flex justify-between items-center">
-                    <span>Notifications</span>
-                    {unreadCount > 0 && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleMarkAllAsRead(); }}
-                        className="text-[10px] text-[#800000] bg-[#800000]/10 hover:bg-[#800000]/20 px-2 py-0.5 rounded transition-colors"
-                      >
-                        Mark all read
-                      </button>
-                    )}
+                  <div className="p-3 sm:p-3 border-b border-gray-100 bg-gradient-to-r from-[#800000] to-[#a83232]">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-white text-sm sm:text-base">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleMarkAllAsRead(); }}
+                          className="text-[10px] text-white/90 bg-white/20 hover:bg-white/30 px-2 py-0.5 rounded transition-all font-medium border border-white/10"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <ul className="max-h-60 overflow-y-auto">
+                  <ul className="max-h-60 sm:max-h-80 overflow-y-auto divide-y divide-gray-50">
                     {notifications.length === 0 ? (
-                      <li className="px-4 py-8 text-center text-gray-500 text-sm">
+                      <li className="px-4 py-12 text-center text-gray-500 text-sm">
+                        <svg className="w-12 h-12 mx-auto text-gray-200 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
                         No notifications yet
                       </li>
                     ) : (
                       notifications.map(n => (
                         <li 
                           key={n.id} 
-                          onClick={() => { if (!n.is_read) handleMarkAsRead(n.id); if (n.link) router.push(n.link); }}
-                          className={`px-4 py-3 hover:bg-[#fbeaec] transition-all border-b last:border-b-0 cursor-pointer ${!n.is_read ? 'bg-blue-50/30' : ''}`}
+                          onClick={() => { if (!n.is_read) handleMarkAsRead(n.id); if (n.link) router.push(n.link); setShowNotifications(false); }}
+                          className={`group px-4 py-3 hover:bg-[#fbeaec] transition-all cursor-pointer ${!n.is_read ? 'bg-blue-50/40 relative overflow-hidden' : ''}`}
                         >
-                          <div className={`text-sm ${!n.is_read ? 'text-gray-900 font-bold' : 'text-gray-800'}`}>{n.message}</div>
-                          <div className="text-xs text-gray-500 mt-1">{formatTime(n.created_at)}</div>
+                          {!n.is_read && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#800000]"></div>}
+                          <div className={`text-sm ${!n.is_read ? 'text-[#800000] font-bold' : 'text-gray-700'}`}>{n.message}</div>
+                          <div className="flex items-center mt-1 space-x-2">
+                            <span className="text-[10px] text-gray-400">{formatTime(n.created_at)}</span>
+                            {!n.is_read && <span className="w-1.5 h-1.5 rounded-full bg-[#800000]"></span>}
+                          </div>
                         </li>
                       ))
                     )}
                   </ul>
-                  <div className="p-2 text-center text-xs text-gray-500 cursor-pointer hover:text-[#800000]">View all notifications</div>
+                  <div className="p-2.5 text-center border-t border-gray-50 bg-gray-50/50">
+                    <button className="text-xs font-semibold text-[#800000] hover:text-[#a83232] transition-colors">
+                      View all notifications
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

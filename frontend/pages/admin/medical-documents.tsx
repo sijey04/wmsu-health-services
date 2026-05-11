@@ -2809,7 +2809,7 @@ function AdminMedicalDocuments() {
             {/* Image Info */}
             <div className="absolute top-4 left-4 text-white bg-black bg-opacity-50 px-4 py-2 rounded-lg z-10">
               <p className="text-lg font-semibold">{fullscreenImage.label}</p>
-              <p className="text-sm text-gray-300">{selectedDocument.patient_display || selectedDocument.patient_name || 'N/A'}</p>
+              <p className="text-sm text-gray-300">{patientName || 'N/A'}</p>
               <div className="flex items-center justify-between mt-1">
                 <p className="text-xs text-gray-400">
                   {selectedImageIndex + 1} of {availableImages.length}
@@ -2922,7 +2922,7 @@ function AdminMedicalDocuments() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg max-w-md w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Reject Document - {selectedDocument.patient_display || selectedDocument.patient_name || 'N/A'}
+              Reject Document - {patientName || 'N/A'}
             </h3>
             <textarea
               placeholder="Enter rejection reason..."
