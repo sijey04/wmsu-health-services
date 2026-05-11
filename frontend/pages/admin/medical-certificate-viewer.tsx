@@ -68,13 +68,28 @@ function MedicalCertificateViewer() {
 
   const handlePrint = () => {
     window.print();
-  };  const handleDownload = () => {
+  };
+
+  const resolveMediaUrl = (value: string) => {
+    if (!value) return '';
+    let url = value;
+
+    if (!url.startsWith('http') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      const base = (process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '');
+      url = `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+    }
+
+    if (typeof window !== 'undefined' && window.location.protocol === 'https:' && url.startsWith('http://')) {
+      url = url.replace('http://', 'https://');
+    }
+
+    return url;
+  };
+
+  const handleDownload = () => {
     if (medicalDoc?.medical_certificate) {
       const linkElement = window.document.createElement('a');
-      // Handle both relative and absolute URLs
-      const fileUrl = medicalDoc.medical_certificate.startsWith('http') 
-        ? medicalDoc.medical_certificate 
-        : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${medicalDoc.medical_certificate}`;
+      const fileUrl = resolveMediaUrl(medicalDoc.medical_certificate);
       
       linkElement.href = fileUrl;
       linkElement.download = `medical_certificate_${medicalDoc.patient_student_id}.pdf`;
@@ -236,7 +251,7 @@ function MedicalCertificateViewer() {
                     {staffDetails.signature && (
                       <div className="mb-4">
                         <img 
-                          src={staffDetails.signature.startsWith('http') ? staffDetails.signature : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${staffDetails.signature}`} 
+                          src={resolveMediaUrl(staffDetails.signature)}
                           alt="Signature" 
                           className="h-16 mx-auto"
                         />
@@ -276,9 +291,7 @@ function MedicalCertificateViewer() {
             <h3 className="text-lg font-semibold mb-4">Original Certificate (PDF)</h3>
             <div className="border rounded-lg overflow-hidden">
               <iframe
-                src={medicalDoc.medical_certificate.startsWith('http') 
-                  ? medicalDoc.medical_certificate 
-                  : `${(process.env.NEXT_PUBLIC_DJANGO_API_URL || 'http://localhost:8000/api').replace('/api', '')}${medicalDoc.medical_certificate}`}
+                src={resolveMediaUrl(medicalDoc.medical_certificate)}
                 className="w-full h-96"
                 title="Medical Certificate PDF"
               />

@@ -116,12 +116,14 @@ const AppointmentsPage = () => {
 
         if (latestDocument) {
           setMedicalDocumentStatus({
+            id: latestDocument.id,
             status: latestDocument.status,
             consultation_reason: latestDocument.consultation_reason,
             certificate_issued_at: latestDocument.certificate_issued_at,
             reviewed_at: latestDocument.reviewed_at,
             advised_for_consultation_at: latestDocument.advised_for_consultation_at,
-            rejection_reason: latestDocument.rejection_reason
+            rejection_reason: latestDocument.rejection_reason,
+            medical_certificate: latestDocument.medical_certificate
           });
         }
 
@@ -548,7 +550,36 @@ const AppointmentsPage = () => {
                                 medicalDocumentStatus.status === 'rejected' ? 'text-red-700' :
                                   'text-gray-700'
                         }`}>
-                        {medicalDocumentStatus.status === 'issued' && 'Your medical certificate has been issued'}
+                        {medicalDocumentStatus.status === 'issued' && (
+                          <div className="space-y-4">
+                            <p className="text-sm sm:text-base font-medium text-green-700">
+                              Your medical certificate has been issued and is ready for viewing.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <button
+                                onClick={() => handleViewStandaloneCertificate(medicalDocumentStatus)}
+                                disabled={actionLoading}
+                                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-200"
+                              >
+                                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                {actionLoading ? 'Loading...' : 'View Certificate'}
+                              </button>
+                              <button
+                                onClick={() => handleDownloadStandaloneCertificate(medicalDocumentStatus)}
+                                disabled={actionLoading}
+                                className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                              >
+                                <svg className="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                                </svg>
+                                {actionLoading ? 'Downloading...' : 'Download PDF'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                         {medicalDocumentStatus.status === 'for_consultation' && 'You need to schedule a consultation'}
                         {medicalDocumentStatus.status === 'verified' && 'Your documents are verified and ready for certificate issuance'}
                         {medicalDocumentStatus.status === 'pending' && 'Your medical documents are being reviewed'}
@@ -853,7 +884,7 @@ const AppointmentsPage = () => {
                       )}
 
                       {/* Medical certificate section for medical appointments with issued certificates */}
-                      {appt.type === 'medical' && appt.status === 'completed' && (
+                      {appt.type === 'medical' && appt.status === 'completed' && appt.has_medical_certificate && (
                         <div className="mt-4 pt-4 border-t border-gray-100">
                           <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center">
