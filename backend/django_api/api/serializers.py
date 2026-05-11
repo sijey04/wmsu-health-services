@@ -236,7 +236,6 @@ class PatientSerializer(serializers.ModelSerializer):
     user_middle_name = serializers.CharField(source='user.middle_name', read_only=True)
     user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     grade_level = serializers.CharField(source='user.grade_level', read_only=True)
-    surname = serializers.CharField(source='name', read_only=True)
     full_name = serializers.CharField(source='get_full_name', read_only=True)
     age = serializers.SerializerMethodField()
     photo = Base64ImageField(required=False, allow_null=True)
@@ -313,6 +312,8 @@ class MedicalRecordSerializer(serializers.ModelSerializer):
 
 class AppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.get_full_name', read_only=True)
+    patient_email = serializers.SerializerMethodField()
+    patient_student_id = serializers.CharField(source='patient.student_id', read_only=True)
     doctor_name = serializers.CharField(source='doctor.get_full_name', read_only=True)
     rescheduled_by_name = serializers.CharField(source='rescheduled_by.get_full_name', read_only=True)
     was_rescheduled_by_admin = serializers.ReadOnlyField()
@@ -329,6 +330,11 @@ class AppointmentSerializer(serializers.ModelSerializer):
         model = Appointment
         fields = '__all__'
     
+    def get_patient_email(self, obj):
+        if obj.patient and obj.patient.user:
+            return obj.patient.user.email
+        return obj.patient.email if obj.patient else ''
+
     def get_has_form_data(self, obj):
         """Check if appointment has associated form data"""
         if obj.type == 'dental':
@@ -446,7 +452,7 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Patient
         fields = [
-            'id', 'student_id', 'name', 'first_name', 'middle_name', 'suffix', 'photo',
+            'id', 'student_id', 'name', 'surname', 'first_name', 'middle_name', 'suffix', 'photo',
             'gender', 'date_of_birth', 'age', 'department', 'contact_number', 'email',
             'address', 'city_municipality', 'barangay', 'street', 'blood_type', 'religion', 'nationality', 'nationality_specify', 'civil_status',
             # Emergency contact
@@ -609,6 +615,18 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
             if combined_emergency_address and combined_emergency_address != instance.emergency_contact_address:
                 instance.emergency_contact_address = combined_emergency_address
                 instance.save(update_fields=['emergency_contact_address'])
+                
+        # Sync the 'name' field of the Patient model with first_name/surname
+        if instance.first_name or instance.surname:
+            parts = []
+            if instance.surname:
+                parts.append(instance.surname + ",")
+            if instance.first_name:
+                parts.append(instance.first_name)
+            new_name = " ".join(parts).strip().rstrip(",")
+            if new_name and instance.name != new_name:
+                instance.name = new_name
+                instance.save(update_fields=['name'])
 
         # Sync with CustomUser (Account Details)
         if instance.user:
@@ -624,16 +642,18 @@ class PatientProfileUpdateSerializer(serializers.ModelSerializer):
                 user.middle_name = instance.middle_name
                 user_updated = True
                 
-            # Surname logic - extract surname from 'name' field if possible
-            if instance.name:
-                surname = instance.name.split(',')[0].strip() if ',' in instance.name else instance.name.strip()
+            # Surname logic - prioritize explicit surname field, fall back to parsing 'name'
+            target_surname = instance.surname
+            if not target_surname and instance.name:
+                target_surname = instance.name.split(',')[0].strip() if ',' in instance.name else instance.name.strip()
                 
+            if target_surname:
                 # Append suffix to last name if it exists
                 if hasattr(instance, 'suffix') and instance.suffix:
-                    surname = f"{surname} {instance.suffix.strip()}".strip()
+                    target_surname = f"{target_surname} {instance.suffix.strip()}".strip()
                     
-                if user.last_name != surname:
-                    user.last_name = surname
+                if user.last_name != target_surname:
+                    user.last_name = target_surname
                     user_updated = True
             
             # Sync Email (and username since email is username field)
@@ -694,13 +714,13 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
     advised_for_consultation_by_name = serializers.CharField(source='advised_for_consultation_by.get_full_name', read_only=True)
     advised_for_consultation_at = serializers.DateTimeField(read_only=True)
     
-    # Add comprehensive patient information from Patient table
-    first_name = serializers.CharField(source='patient.first_name', read_only=True)
-    middle_name = serializers.CharField(source='patient.middle_name', read_only=True)
+    # Add comprehensive patient information from Patient table (Source from User account for dynamic updates)
+    first_name = serializers.SerializerMethodField()
+    middle_name = serializers.SerializerMethodField()
     last_name = serializers.SerializerMethodField()
-    name = serializers.CharField(source='patient.name', read_only=True)
+    name = serializers.CharField(source='patient.get_full_name', read_only=True)
     student_id = serializers.CharField(source='patient.student_id', read_only=True)
-    email = serializers.CharField(source='patient.email', read_only=True)
+    email = serializers.SerializerMethodField()
     contact_number = serializers.CharField(source='patient.contact_number', read_only=True)
     phone = serializers.CharField(source='patient.contact_number', read_only=True)  # alias
     gender = serializers.CharField(source='patient.gender', read_only=True)
@@ -737,8 +757,22 @@ class MedicalDocumentSerializer(serializers.ModelSerializer):
     def get_last_name(self, obj):
         if obj.patient and obj.patient.user:
             return obj.patient.user.last_name
-        return obj.patient.name.split()[-1] if obj.patient and obj.patient.name else None
-    
+        return obj.patient.surname if obj.patient else ''
+        
+    def get_first_name(self, obj):
+        if obj.patient and obj.patient.user:
+            return obj.patient.user.first_name
+        return obj.patient.first_name if obj.patient else ''
+        
+    def get_middle_name(self, obj):
+        if obj.patient and obj.patient.user:
+            return obj.patient.user.middle_name
+        return obj.patient.middle_name if obj.patient else ''
+        
+    def get_email(self, obj):
+        if obj.patient and obj.patient.user:
+            return obj.patient.user.email
+        return obj.patient.email if obj.patient else ''
     
     def get_address(self, obj):
         """Concatenate patient address fields"""

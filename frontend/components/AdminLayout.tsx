@@ -32,21 +32,24 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           
-          // Check if user is superuser - only superusers can access full admin
-          if (!parsedUser.is_superuser) {
-            // Redirect non-superuser staff to their specific dashboards
-            const staffRole = parsedUser.staff_role || parsedUser.user_type;
-            
-            if (staffRole === 'medical_staff' || staffRole === 'doctor' || staffRole === 'nurse') {
-              router.push('/staff/medical');
-            } else if (staffRole === 'dental_staff' || staffRole === 'dentist') {
-              router.push('/staff/dental');
-            } else if (!parsedUser.is_staff) {
-              // Regular users shouldn't be here
-              router.push('/');
+            // Check if user is superuser - only superusers can access full admin
+            if (!parsedUser.is_superuser) {
+              const staffRole = (parsedUser.staff_role || parsedUser.user_type || '').toLowerCase();
+              
+              if (['medical_staff', 'doctor', 'nurse', 'receptionist'].includes(staffRole)) {
+                // If on an admin page they shouldn't see, redirect
+                if (router.pathname === '/admin' || router.pathname === '/admin/dental-consultations') {
+                  router.push('/staff/medical');
+                }
+              } else if (['dental_staff', 'dentist'].includes(staffRole)) {
+                // Dentists can see dental consultations and profiles
+                if (router.pathname === '/admin' || router.pathname === '/admin/medical-consultations') {
+                  router.push('/staff/dental');
+                }
+              } else if (!parsedUser.is_staff) {
+                router.push('/');
+              }
             }
-            // If staff but no specific role, show warning but allow access
-          }
         } catch (e) {
           console.error('Error parsing user data:', e);
           setUser(null);
@@ -254,8 +257,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const canSee = (link: string) => {
     if (!user) return false;
     
-    const role = user.staff_role || user.user_type;
-    const isSuperuser = user.is_superuser;
+    // Normalize role to lowercase for case-insensitive comparison
+    const role = (user.staff_role || user.user_type || '').toLowerCase();
+    const isSuperuser = !!user.is_superuser;
     const isAdmin = role === 'admin' || isSuperuser; // Admin role or superuser has full access
     
     // Admins and superusers see everything
@@ -277,7 +281,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       case 'medical':
         return isMedical;
       case 'documents':
-        return isMedical;
+        return isMedical || isDental; // Both medical and dental staff should see documents
       case 'profiles':
         return true; // All staff can see profiles
       case 'staff':

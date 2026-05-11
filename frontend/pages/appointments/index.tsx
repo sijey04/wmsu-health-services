@@ -5,6 +5,17 @@ import Link from 'next/link';
 import PostLoginOptionsModal from '../../components/PostLoginOptionsModal';
 import FormViewerModal from '../../components/FormViewerModal';
 import { useRouter } from 'next/router';
+import { djangoApiClient } from '../../utils/api';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import dayjs, { Dayjs } from 'dayjs';
+import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(isSameOrBefore);
+dayjs.extend(isSameOrAfter);
 
 // Define the Appointment type based on your backend model
 interface Appointment {
@@ -62,6 +73,14 @@ const AppointmentsPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [medicalDocumentStatus, setMedicalDocumentStatus] = useState<any>(null);
   const [formViewerModal, setFormViewerModal] = useState({ open: false, appointmentId: null as number | null, patientName: '', appointmentType: 'medical' as 'medical' | 'dental' });
+  
+  // New reschedule states
+  const [calendarDate, setCalendarDate] = useState<Dayjs | null>(null);
+  const [availableStaff, setAvailableStaff] = useState<any[]>([]);
+  const [allStaff, setAllStaff] = useState<any[]>([]);
+  const [campusSchedule, setCampusSchedule] = useState<any>(null);
+  const [rescheduleError, setRescheduleError] = useState<string>('');
+  
   const router = useRouter();
 
   useEffect(() => {
@@ -238,13 +257,25 @@ const AppointmentsPage = () => {
   // Handle rescheduling
   const handleRescheduleAppointment = async () => {
     if (!selectedAppointment || !newDate || !newTime) {
-      setError('Please select both date and time for rescheduling.');
+      setRescheduleError('Please select both date and time for rescheduling.');
+      return;
+    }
+
+    if (!isRescheduleTimeValid(newTime, newDate)) {
+      const openTime = campusSchedule?.open_time || '08:00';
+      const closeTime = campusSchedule?.close_time || '17:00';
+      setRescheduleError(`Please select a valid time between ${openTime} and ${closeTime} that is not in the past.`);
+      return;
+    }
+
+    if (availableStaff.length === 0) {
+      setRescheduleError('No staff available for the selected date.');
       return;
     }
 
     // Check if new date is at least 3 days away
     if (!canModifyAppointment(newDate)) {
-      setError('New appointment date must be at least 3 days from today.');
+      setRescheduleError('New appointment date must be at least 3 days from today.');
       return;
     }
 
@@ -272,9 +303,10 @@ const AppointmentsPage = () => {
       setSelectedAppointment(null);
       setNewDate('');
       setNewTime('');
+      setRescheduleError('');
       setError(null);
     } catch (err: any) {
-      setError(err.response?.data?.error || err.message || 'Failed to reschedule appointment.');
+      setRescheduleError(err.response?.data?.error || err.message || 'Failed to reschedule appointment.');
     } finally {
       setActionLoading(false);
     }
@@ -402,6 +434,146 @@ const AppointmentsPage = () => {
     setShowRescheduleModal(true);
     setNewDate('');
     setNewTime('');
+    setCalendarDate(null);
+    setAvailableStaff([]);
+    setRescheduleError('');
+    
+    // Pre-load staff and schedule for this appointment
+    if (appointment.campus) {
+      loadRescheduleStaffAndSchedule(appointment);
+    }
+  };
+
+  const loadRescheduleStaffAndSchedule = async (appointment: Appointment) => {
+    try {
+      // 1. Load Campus Schedule
+      const scheduleRes = await djangoApiClient.get('/admin-controls/campus_schedules/');
+      const schedules = scheduleRes.data || [];
+      const selectedCampus = (appointment.campus || 'A').toUpperCase().trim();
+      
+      const schedule = schedules.find((s: any) => {
+        const sCampus = s.campus?.toString().toUpperCase().trim();
+        return sCampus === selectedCampus || sCampus === `CAMPUS ${selectedCampus}` || sCampus?.endsWith(selectedCampus);
+      });
+      
+      setCampusSchedule(schedule || {
+        campus: selectedCampus,
+        open_time: '08:00',
+        close_time: '17:00',
+        days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
+        is_active: true
+      });
+
+      // 2. Load All Staff to filter later
+      const staffRes = await djangoApiClient.get('/staff-details/');
+      setAllStaff(staffRes.data || []);
+      
+    } catch (err) {
+      console.error("Error loading reschedule data:", err);
+    }
+  };
+
+  // Check available staff when date changes in reschedule modal
+  useEffect(() => {
+    const checkRescheduleStaff = async () => {
+      if (!newDate || !selectedAppointment || allStaff.length === 0) return;
+
+      try {
+        const type = selectedAppointment.type;
+        const campusLetter = (selectedAppointment.campus || 'A').toLowerCase().trim();
+
+        // Filter staff by position and campus
+        const relevantStaff = allStaff.filter(staff => {
+          const positions = type === 'dental' ? ['Dentist'] : ['Doctor', 'Nurse', 'Medical Staff', 'Administrator'];
+          if (!positions.includes(staff.position)) return false;
+
+          // Campus check
+          let staffCampuses: string[] = [];
+          const extractLetter = (v: string) => (v?.toString().toLowerCase().match(/[abc]/) || [])[0] || '';
+          
+          if (staff.assigned_campuses) {
+            staffCampuses = (Array.isArray(staff.assigned_campuses) ? staff.assigned_campuses : staff.assigned_campuses.split(',')).map(extractLetter);
+          }
+          if (staff.campus) staffCampuses.push(extractLetter(staff.campus));
+          if (staff.campus_assigned) staffCampuses.push(extractLetter(staff.campus_assigned));
+
+          return staffCampuses.includes(campusLetter);
+        });
+
+        // Check availability for selected date
+        const apptsRes = await djangoApiClient.get('/appointments/', {
+          params: { appointment_date: newDate, type: type }
+        });
+        const dayAppts = apptsRes.data || [];
+
+        const available = relevantStaff.filter(staff => {
+          if ((staff.blocked_dates || []).includes(newDate)) return false;
+          
+          const dayName = dayjs(newDate).format('dddd');
+          if (staff.available_days?.length > 0 && !staff.available_days.includes(dayName)) return false;
+
+          const staffCount = dayAppts.filter((a: any) => a.assigned_staff === staff.id && ['pending', 'confirmed'].includes(a.status)).length;
+          return staffCount < (staff.daily_appointment_limit || 10);
+        });
+
+        setAvailableStaff(available);
+        
+        // Clear error if staff found
+        if (available.length > 0) {
+          setRescheduleError('');
+        } else {
+          setRescheduleError(`No ${type === 'dental' ? 'dentists' : 'medical staff'} available on this date.`);
+        }
+      } catch (err) {
+        console.error("Error checking staff:", err);
+      }
+    };
+
+    checkRescheduleStaff();
+  }, [newDate, allStaff, selectedAppointment]);
+
+  const isRescheduleDateDisabled = (dateVal: Dayjs) => {
+    const today = dayjs().startOf('day');
+    // For rescheduling, we usually require 3 days notice as per your note at line 947
+    const minDate = dayjs().add(3, 'day');
+    const maxDate = dayjs().add(3, 'month');
+    
+    if (dateVal.isBefore(minDate)) return true;
+    if (dateVal.isAfter(maxDate)) return true;
+    
+    const dayName = dateVal.format('dddd');
+    const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
+    if (operatingDays.length > 0 && !operatingDays.includes(dayName)) return true;
+    
+    return false;
+  };
+
+  const isRescheduleTimeDisabled = () => {
+    if (!campusSchedule || !newDate || !calendarDate || isRescheduleDateDisabled(calendarDate)) return true;
+    return false;
+  };
+
+  const isRescheduleTimeValid = (time: string, dateStr: string) => {
+    if (!time || !campusSchedule) return false;
+    
+    const [h, m] = time.split(':').map(Number);
+    const [openH, openM] = campusSchedule.open_time.split(':').map(Number);
+    const [closeH, closeM] = campusSchedule.close_time.split(':').map(Number);
+    
+    // Check if time is within campus operating hours
+    const timeMinutes = h * 60 + m;
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    
+    if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) return false;
+    
+    // If today, time must be in the future
+    const today = new Date();
+    const selected = new Date(dateStr + 'T' + time);
+    if (dateStr === today.toISOString().slice(0, 10)) {
+      if (selected <= today) return false;
+    }
+    return true;
   };
 
   const formatDate = (dateStr: string) => {
@@ -1046,32 +1218,106 @@ const AppointmentsPage = () => {
                         Current appointment: {formatDate(selectedAppointment.appointment_date)} at {formatTime(selectedAppointment.appointment_time)}
                       </p>
                       <div className="space-y-4">
-                        <div>
-                          <label htmlFor="new-date" className="block text-sm font-medium text-gray-700">
-                            New Date *
-                          </label>
-                          <input
-                            type="date"
-                            id="new-date"
-                            value={newDate}
-                            min={new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-                            onChange={(e) => setNewDate(e.target.value)}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000] sm:text-sm"
-                          />
+                        <div className="p-3 bg-blue-50 rounded-lg">
+                          <div className="text-sm text-blue-800">
+                            <strong>Appointment Type:</strong> {selectedAppointment.type.charAt(0).toUpperCase() + selectedAppointment.type.slice(1)}
+                          </div>
+                          {selectedAppointment.campus && (
+                            <div className="text-sm text-blue-800">
+                              <strong>Campus:</strong> {selectedAppointment.campus.toUpperCase()}
+                            </div>
+                          )}
                         </div>
+
+                        {availableStaff.length > 0 && (
+                          <div className="p-3 bg-green-50 rounded-lg">
+                            <div className="text-sm text-green-700">
+                              {availableStaff.length} {selectedAppointment.type === 'dental' ? 'dentist' : 'medical staff'} member{availableStaff.length !== 1 ? 's' : ''} available on selected date
+                            </div>
+                          </div>
+                        )}
+
                         <div>
-                          <label htmlFor="new-time" className="block text-sm font-medium text-gray-700">
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Select New Date *
+                          </label>
+                          <div className="border border-gray-300 rounded-lg overflow-hidden bg-gray-50">
+                            <LocalizationProvider dateAdapter={AdapterDayjs}>
+                              <DateCalendar
+                                value={calendarDate}
+                                onChange={(newValue: Dayjs | null) => {
+                                  if (newValue) {
+                                    setCalendarDate(newValue);
+                                    setNewDate(newValue.format('YYYY-MM-DD'));
+                                  }
+                                }}
+                                shouldDisableDate={isRescheduleDateDisabled}
+                                minDate={dayjs().startOf('year')}
+                                maxDate={dayjs().endOf('year')}
+                                slots={{
+                                  day: (dayProps: any) => {
+                                    const dayName = dayProps.day.format('dddd');
+                                    const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
+                                    const isCampusClosed = operatingDays.length > 0 && !operatingDays.includes(dayName);
+                                    return (
+                                      <div className="relative">
+                                        <PickersDay {...dayProps} />
+                                        {isCampusClosed && (
+                                          <div className="absolute top-1 right-1 w-1 h-1 bg-gray-400 rounded-full"></div>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+                                }}
+                                sx={{
+                                  width: '100%',
+                                  '& .MuiPickersCalendarHeader-root': { color: '#800000' },
+                                  '& .MuiDayCalendar-weekDayLabel': { color: '#800000', fontWeight: 'bold' },
+                                  '& .MuiPickersDay-today': { border: '1px solid #800000 !important' },
+                                  '& .Mui-selected': { backgroundColor: '#800000 !important', color: 'white !important' },
+                                  '& .Mui-selected:hover': { backgroundColor: '#600000 !important' }
+                                }}
+                              />
+                            </LocalizationProvider>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
                             New Time *
                           </label>
                           <input
                             type="time"
-                            id="new-time"
                             value={newTime}
                             onChange={(e) => setNewTime(e.target.value)}
-                            className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-[#800000] focus:border-[#800000] sm:text-sm"
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#800000] focus:border-transparent"
+                            disabled={isRescheduleTimeDisabled() || availableStaff.length === 0}
+                            required
                           />
+                          {availableStaff.length === 0 && newDate && (
+                            <p className="text-red-500 text-xs mt-1 font-medium">
+                              No staff available on this date. Please select another date.
+                            </p>
+                          )}
+                          {isRescheduleTimeDisabled() && !newDate && (
+                            <p className="text-gray-500 text-xs mt-1">
+                              Please select a valid date first.
+                            </p>
+                          )}
+                          {!isRescheduleTimeDisabled() && campusSchedule && (
+                            <p className="text-blue-600 text-xs mt-1">
+                              Available hours: {campusSchedule.open_time} - {campusSchedule.close_time}
+                            </p>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-500">
+
+                        {rescheduleError && (
+                          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                            <p className="text-red-600 text-xs">{rescheduleError}</p>
+                          </div>
+                        )}
+
+                        <p className="text-xs text-gray-500 italic">
                           * Your rescheduled appointment will need to be approved by the medical staff.
                         </p>
                       </div>
@@ -1082,7 +1328,7 @@ const AppointmentsPage = () => {
               <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
                 <button
                   type="button"
-                  disabled={actionLoading || !newDate || !newTime}
+                  disabled={actionLoading || !newDate || !newTime || availableStaff.length === 0}
                   onClick={handleRescheduleAppointment}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#800000] text-base font-medium text-white hover:bg-[#a83232] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#800000] sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >

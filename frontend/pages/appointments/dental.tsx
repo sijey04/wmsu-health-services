@@ -494,7 +494,18 @@ export default function DentalAppointmentPage() {
   }
 
   function isTimeValid(time: string, dateStr: string): boolean {
-    if (!time) return false;
+    if (!time || !campusSchedule) return false;
+    
+    const [h, m] = time.split(':').map(Number);
+    const [openH, openM] = campusSchedule.open_time.split(':').map(Number);
+    const [closeH, closeM] = campusSchedule.close_time.split(':').map(Number);
+    
+    // Check if time is within campus operating hours
+    const timeMinutes = h * 60 + m;
+    const openMinutes = openH * 60 + openM;
+    const closeMinutes = closeH * 60 + closeM;
+    
+    if (timeMinutes < openMinutes || timeMinutes >= closeMinutes) return false;
     
     // If today, time must be in the future
     const today = new Date();
@@ -515,7 +526,7 @@ export default function DentalAppointmentPage() {
     
     // Check if campus is open
     const dayName = dateVal.format('dddd');
-    const operatingDays = campusSchedule?.operating_days || [];
+    const operatingDays = campusSchedule?.operating_days || campusSchedule?.days || [];
     if (operatingDays.length > 0 && !operatingDays.includes(dayName)) return true;
     
     return false;
@@ -545,7 +556,9 @@ export default function DentalAppointmentPage() {
     
     // Validate appointment data
     if (!isTimeValid(time, date)) {
-      setError('Please select a valid time.');
+      const openTime = campusSchedule?.open_time || '08:00';
+      const closeTime = campusSchedule?.close_time || '17:00';
+      setError(`Please select a valid time between ${openTime} and ${closeTime} that is not in the past.`);
       return;
     }
 

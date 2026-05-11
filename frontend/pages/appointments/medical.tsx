@@ -586,7 +586,9 @@ export default function MedicalAppointmentPage() {
       return;
     }
     if (!isTimeValid(time, date)) {
-      setError('Please select a valid time between 08:00 and 17:00 that is not in the past.');
+      const openTime = campusSchedule?.open_time || '08:00';
+      const closeTime = campusSchedule?.close_time || '17:00';
+      setError(`Please select a valid time between ${openTime} and ${closeTime} that is not in the past.`);
       return;
     }
     

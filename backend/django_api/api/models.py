@@ -46,6 +46,19 @@ class CustomUser(AbstractUser):
     def __str__(self):
         return self.email
     
+    def get_full_name(self):
+        """Returns the user's full name in 'Last, First Middle' format"""
+        parts = []
+        if self.last_name:
+            parts.append(self.last_name + ",")
+        if self.first_name:
+            parts.append(self.first_name)
+        if self.middle_name:
+            parts.append(self.middle_name)
+        
+        name = " ".join(parts).strip().rstrip(",")
+        return name if name else self.username
+    
     def send_verification_email(self):
         """Send email verification link to user in a background thread"""
         def send_email_thread(user_id, subject, plain_message, html_message, from_email, recipient_list):
@@ -406,49 +419,32 @@ class Patient(models.Model):
     @property
     def get_full_name(self):
         """
-        Returns the patient's full name from profile fields.
-        Priority: explicit profile fields (first_name/surname) > name field > user account name
+        Returns the patient's full name.
+        Priority: user account name (most dynamic/current) > explicit profile fields > name field
         Format: "Surname, First Name Middle Name"
         """
-        # Priority 1: Use explicit profile fields if available (these are updated by patient profile editor)
+        # Priority 1: Fall back to user account name (most reliable as it's synced with latest profile)
+        if self.user:
+            return self.user.get_full_name()
+            
+        # Priority 2: Use explicit profile fields if available
         first = getattr(self, 'first_name', '') or ''
         middle = getattr(self, 'middle_name', '') or ''
         last = getattr(self, 'surname', '') or ''
-        suffix_val = getattr(self, 'suffix', '') or ''
         
         if first or last:
             parts = []
             if last:
                 parts.append(last + ",")
             if first:
-                given = [first]
-                if middle:
-                    given.append(middle)
-                parts.append(" ".join(given))
-            if suffix_val:
-                parts.append(suffix_val)
-            full_name = " ".join(parts).strip()
-            if full_name.endswith(","):
-                full_name = full_name[:-1]
-            if full_name:
-                return full_name
-
-        # Priority 2: Use the name field (may contain formatted "Surname, FirstName")
+                parts.append(first)
+            if middle:
+                parts.append(middle)
+            return " ".join(parts).strip().rstrip(",")
+            
+        # Priority 3: Use the name field as last resort
         if self.name:
             return self.name
-            
-        # Priority 3: Fall back to user account name
-        if self.user:
-            user_last = self.user.last_name or ''
-            user_first = self.user.first_name or ''
-            if user_last or user_first:
-                parts = []
-                if user_last:
-                    parts.append(user_last + ",")
-                if user_first:
-                    parts.append(user_first)
-                return " ".join(parts).strip().rstrip(",")
-            return self.user.username
             
         return "Unknown Patient"
 
