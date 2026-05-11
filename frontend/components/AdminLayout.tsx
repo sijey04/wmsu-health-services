@@ -32,21 +32,43 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           
-            // Check if user is superuser - only superusers can access full admin
+            // RBAC Redirection Logic based on the permissions matrix
             if (!parsedUser.is_superuser) {
-              const staffRole = (parsedUser.staff_role || parsedUser.user_type || '').toLowerCase();
-              
-              if (['medical_staff', 'doctor', 'nurse', 'receptionist'].includes(staffRole)) {
-                // If on an admin page they shouldn't see, redirect
-                if (router.pathname === '/admin' || router.pathname === '/admin/dental-consultations') {
-                  router.push('/staff/medical');
+              const role = (parsedUser.staff_role || parsedUser.user_type || parsedUser.role || '').toLowerCase();
+              const isAdmin = role === 'admin';
+              const isMedical = ['doctor', 'nurse', 'medical_staff', 'receptionist'].includes(role);
+              const isDental = ['dentist', 'dental_staff'].includes(role);
+
+              if (isAdmin) {
+                // Admin has access to everything
+                return;
+              }
+
+              if (isMedical) {
+                // Medical staff cannot see Dental Consultations, Staff Management, or System Settings
+                const forbiddenPaths = [
+                  '/admin/dental-consultations',
+                  '/admin/staff-management',
+                  '/admin/controls',
+                  '/admin/users'
+                ];
+                if (forbiddenPaths.includes(router.pathname)) {
+                  router.push('/admin');
                 }
-              } else if (['dental_staff', 'dentist'].includes(staffRole)) {
-                // Dentists can see dental consultations and profiles
-                if (router.pathname === '/admin' || router.pathname === '/admin/medical-consultations') {
-                  router.push('/staff/dental');
+              } else if (isDental) {
+                // Dental staff cannot see Medical Consultations, Medical Documents, Staff Management, or System Settings
+                const forbiddenPaths = [
+                  '/admin/medical-consultations',
+                  '/admin/medical-documents',
+                  '/admin/staff-management',
+                  '/admin/controls',
+                  '/admin/users'
+                ];
+                if (forbiddenPaths.includes(router.pathname)) {
+                  router.push('/admin');
                 }
               } else if (!parsedUser.is_staff) {
+                // Not staff at all, send to public home
                 router.push('/');
               }
             }
@@ -258,14 +280,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     if (!user) return false;
     
     // Normalize role to lowercase for case-insensitive comparison
-    const role = (user.staff_role || user.user_type || '').toLowerCase();
+    const role = (user.staff_role || user.user_type || user.role || '').toLowerCase();
     const isSuperuser = !!user.is_superuser;
     const isAdmin = role === 'admin' || isSuperuser; // Admin role or superuser has full access
     
     // Admins and superusers see everything
     if (isAdmin) return true;
 
-    // Group permissions for other staff
+    // Group permissions for other staff based on the provided permissions matrix
     const isMedical = ['doctor', 'nurse', 'medical_staff', 'receptionist'].includes(role);
     const isDental = ['dentist', 'dental_staff'].includes(role);
 
@@ -281,9 +303,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       case 'medical':
         return isMedical;
       case 'documents':
-        return isMedical; // Document verification is medical staff only
+        return isMedical; // Document verification is medical staff (doctor/nurse) only according to matrix
       case 'profiles':
-        return true; // All staff can see profiles
+        return true; // All staff (Dentist, Doctor/Nurse, Admin) can see profiles according to matrix
       case 'staff':
         return false; // Only admin (handled above)
       case 'users':
